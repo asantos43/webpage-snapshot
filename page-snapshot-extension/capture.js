@@ -1,6 +1,6 @@
 import { extractPage } from './inpage.js';
 import { buildZip } from './lib/zip.js';
-import { disclosureRuntime } from './lib/disclosure.js';
+import { interactionsRuntime } from './lib/interactions.js';
 import {
   assetFileName, fetchableUrl, parseSrcset, rewriteCss, serializeSrcset, slugify,
 } from './lib/helpers.js';
@@ -372,10 +372,10 @@ async function processDocument(data, page, depth = 0) {
   const elements = [...allElements(doc)];
   await Promise.all(elements.map((el) => processElement(el, data.base, page, depth)));
 
-  // Page scripts are gone, so give expandable sections their click behaviour back.
-  if (data.html.includes('aria-expanded')) {
+  // Page scripts are gone, so give collapsible sections and tabs their click behaviour back.
+  if (data.html.includes('aria-expanded') || data.html.includes('role="tab"')) {
     const script = doc.createElement('script');
-    script.textContent = `(${disclosureRuntime.toString()})();`;
+    script.textContent = `(${interactionsRuntime.toString()})();`;
     doc.body.append(script);
   }
 
