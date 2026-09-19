@@ -105,7 +105,9 @@ async function replaceAsync(str, re, fn) {
 }
 
 const IMPORT_RE = /@import\s+(?:url\(\s*)?(?:"([^"]+)"|'([^']+)'|([^)\s;"']+))\s*\)?/gi;
-const URL_RE = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)"'\s][^)]*?))\s*\)/gi;
+// Unquoted url() cannot contain quotes, whitespace or backslashes (CSS Syntax spec). Being strict
+// also avoids false matches inside attribute selectors such as [style*="url(\"data:..."].
+const URL_RE = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)"'\s\\][^)"'\s\\]*))\s*\)/gi;
 
 /**
  * Rewrites @import and url() references in CSS text.

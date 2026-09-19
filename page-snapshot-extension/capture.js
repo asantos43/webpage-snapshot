@@ -6,8 +6,11 @@ import {
 
 const MAX_RESOURCE_BYTES = 30 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 800 * 1024 * 1024;
-const FETCH_TIMEOUT_MS = 30_000;
+const FETCH_TIMEOUT_MS = 20_000;
 const CONCURRENCY = 8;
+const HOST_CONCURRENCY = 4; // be polite to any single site; big sites rate-limit bursts (HTTP 429)
+const MAX_RETRIES = 3;
+const RETRY_BASE_MS = 1000;
 
 const REMOVE_TAGS = new Set(['script', 'noscript', 'base']);
 const DROP_LINK_RELS = new Set(['preload', 'prefetch', 'modulepreload', 'preconnect', 'dns-prefetch', 'prerender', 'manifest']);
@@ -34,6 +37,7 @@ let totalBytes = 0;
 let queued = 0;
 let finished = 0;
 let fromBrowser = 0; // resources read from what the tab had already loaded
+let tabOrigin = ''; // origin of the captured tab, for fetching from inside it
 let pageResources = null; // remote URL -> { frameId, mimeType }, via the debugger API
 
 function createLimiter(max) {
@@ -48,6 +52,13 @@ function createLimiter(max) {
   return (fn) => new Promise((resolve, reject) => { queue.push({ fn, resolve, reject }); pump(); });
 }
 const limited = createLimiter(CONCURRENCY);
+const hostLimiters = new Map();
+const limitedByHost = (url, fn) => {
+  const host = new URL(url).host;
+  if (!hostLimiters.has(host)) hostLimiters.set(host, createLimiter(HOST_CONCURRENCY));
+  return hostLimiters.get(host)(fn);
+};
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function progress() {
   $('bar').max = queued;
@@ -71,15 +82,19 @@ function base64ToBytes(b64) {
 }
 
 // Attach Chrome's debugger to the tab just long enough to list the resources it
-// already loaded. Returns false (and capture carries on with plain downloads) if
-// attaching is refused, e.g. because another debugger client holds the tab.
+// already loaded. Never throws: on failure capture carries on with plain downloads
+// and the reason is reported to the user.
 async function attachDebugger() {
-  try {
-    await chrome.debugger.attach({ tabId }, '1.3');
-  } catch {
-    return false;
+  if (!chrome.debugger) {
+    return { ok: false, error: "the 'debugger' permission is missing; reload the extension at chrome://extensions" };
   }
   try {
+    await chrome.debugger.attach({ tabId }, '1.3');
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
+  try {
+    await chrome.debugger.sendCommand({ tabId }, 'Page.enable').catch(() => {});
     const { frameTree } = await chrome.debugger.sendCommand({ tabId }, 'Page.getResourceTree');
     pageResources = new Map();
     const visit = (node) => {
@@ -90,10 +105,10 @@ async function attachDebugger() {
       (node.childFrames || []).forEach(visit);
     };
     visit(frameTree);
-    return true;
-  } catch {
+    return { ok: true };
+  } catch (err) {
     await detachDebugger();
-    return false;
+    return { ok: false, error: `Page.getResourceTree failed: ${err.message || err}` };
   }
 }
 
@@ -118,15 +133,18 @@ async function readFromPage(url) {
   }
 }
 
-async function fetchBytes(url) {
-  const cached = await readFromPage(url);
-  if (cached) return cached;
+function httpError(status, retryAfter) {
+  const seconds = Number(retryAfter);
+  return Object.assign(new Error(`HTTP ${status}`), { status, retryAfterMs: seconds > 0 ? seconds * 1000 : 0 });
+}
 
+// Download from the extension itself (cookies included, CORS-exempt via host permissions).
+async function viaExtension(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
     const res = await fetch(url, { credentials: 'include', cache: 'force-cache', signal: controller.signal });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw httpError(res.status, res.headers.get('retry-after'));
     const declared = Number(res.headers.get('content-length'));
     if (declared > MAX_RESOURCE_BYTES) throw new Error(`larger than ${MAX_RESOURCE_BYTES >> 20} MB`);
     const bytes = new Uint8Array(await res.arrayBuffer());
@@ -137,6 +155,59 @@ async function fetchBytes(url) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+// Same-origin files can be requested from inside the tab: that uses the page's own
+// cookies and HTTP cache, so files it already loaded are served without a network hit.
+// Returns null when the tab cannot do it (caller falls back to viaExtension).
+async function viaTab(url) {
+  let result;
+  try {
+    [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId },
+      args: [url],
+      func: async (u) => {
+        try {
+          const res = await fetch(u, { credentials: 'include', cache: 'force-cache' });
+          if (!res.ok) return { status: res.status, retryAfter: res.headers.get('retry-after') };
+          const bytes = new Uint8Array(await res.arrayBuffer());
+          let bin = '';
+          for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+          return { b64: btoa(bin), type: res.headers.get('content-type') || '' };
+        } catch (e) {
+          return { error: String(e) };
+        }
+      },
+    });
+  } catch {
+    return null;
+  }
+  if (!result || result.error) return null;
+  if (result.status) throw httpError(result.status, result.retryAfter);
+  const bytes = base64ToBytes(result.b64);
+  admit(bytes.length);
+  return { bytes, type: result.type, source: 'tab' };
+}
+
+async function fetchBytes(url) {
+  const loaded = await readFromPage(url);
+  if (loaded) return loaded;
+
+  return limitedByHost(url, async () => {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        if (tabOrigin && new URL(url).origin === tabOrigin) {
+          const viaPage = await viaTab(url);
+          if (viaPage) return viaPage;
+        }
+        return await viaExtension(url);
+      } catch (err) {
+        const retryable = err.status === 429 || err.status === 503;
+        if (!retryable || attempt >= MAX_RETRIES) throw err;
+        await sleep(Math.min(err.retryAfterMs || RETRY_BASE_MS * 2 ** attempt, 10_000));
+      }
+    }
+  });
 }
 
 function getAsset(url, kind, chain = []) {
@@ -329,6 +400,7 @@ async function main() {
     return showError('The tab to capture no longer exists.');
   }
   $('source').textContent = tab.url || '';
+  try { tabOrigin = new URL(tab.url).origin; } catch { /* not a URL */ }
 
   let page;
   try {
@@ -338,7 +410,7 @@ async function main() {
   }
 
   const capturedAt = new Date();
-  const usedDebugger = await attachDebugger();
+  const attached = await attachDebugger();
   let html;
   try {
     html = await processDocument(page.main, page);
@@ -357,6 +429,7 @@ async function main() {
     title: page.title,
     captured_at: capturedAt.toISOString(),
     tool: 'Page Snapshot 1.0.0',
+    debugger: attached.ok ? 'used' : `unavailable: ${attached.error}`,
     resources,
     failed: failures,
   };
@@ -379,7 +452,9 @@ async function main() {
   $('bar').max = 1;
   $('bar').value = 1;
   const mb = (zip.size / (1024 * 1024)).toFixed(1);
-  const origin = usedDebugger ? `${fromBrowser} taken from the page's loaded resources, ${resources.length - fromBrowser} downloaded` : 'all downloaded (debugger unavailable)';
+  const origin = attached.ok
+    ? `${fromBrowser} taken from the page's loaded resources, ${resources.length - fromBrowser} downloaded`
+    : `all downloaded; debugger unavailable: ${attached.error}`;
   $('status').textContent = `Saved ${name} (${mb} MB, ${resources.length} resources: ${origin}).`;
   $('actions').hidden = false;
   $('download').onclick = () => triggerDownload(blobUrl, name);

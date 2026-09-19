@@ -46,7 +46,14 @@ Links (`<a href>`) are made absolute, so clicking one opens the real site when y
 
 ## Where the files come from
 
-Chrome gives extensions no direct access to its disk cache. Instead, during a capture the extension briefly attaches Chrome's debugger to the tab and asks for the resources the page **already loaded** (`Page.getResourceTree` / `Page.getResourceContent`). Those are the exact bytes you saw, including login-only images and cross-origin files, with no new request. Anything the tab does not have is downloaded normally. `snapshot.json` records `"source": "page"` or `"network"` for every resource.
+Chrome gives extensions no direct access to its disk cache. Instead, during a capture the extension briefly attaches Chrome's debugger to the tab and asks for the resources the page **already loaded** (`Page.getResourceTree` / `Page.getResourceContent`). Those are the exact bytes you saw, including login-only images and cross-origin files, with no new request. Anything the tab does not have is fetched next, in this order:
+
+1. **From inside the tab** (same-origin files only), so the page's own cookies and HTTP cache are used.
+2. **From the extension**, with cookies.
+
+Downloads are throttled to 4 at a time per site, and a rate-limited response (HTTP 429/503) is retried up to 3 times with back-off, honouring `Retry-After`. Big sites such as LinkedIn rate-limit bursts of requests.
+
+`snapshot.json` records `"source": "page"` (the tab's loaded resources), `"tab"` or `"network"` for every resource. If the debugger could not be attached, the reason is shown on the progress page and stored in `snapshot.json` under `"debugger"`.
 
 While it runs, Chrome shows an "Extension started debugging this browser" bar on the tab. It disappears when the capture finishes.
 
