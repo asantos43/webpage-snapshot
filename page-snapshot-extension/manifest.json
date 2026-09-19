@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Save the page you are looking at as a ZIP with all its CSS, images and fonts, so it opens offline exactly as you saw it.",
   "minimum_chrome_version": "111",
-  "permissions": ["scripting"],
+  "permissions": ["scripting", "debugger"],
   "host_permissions": ["<all_urls>"],
   "background": { "service_worker": "background.js" },
   "action": { "default_title": "Save page snapshot (offline ZIP)" },

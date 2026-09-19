@@ -40,13 +40,23 @@ Links (`<a href>`) are made absolute, so clicking one opens the real site when y
 - **It is a static snapshot.** Scripts are removed on purpose, because re-running them offline would re-render or break the page. Menus, tabs, carousels and anything else that needs JavaScript will not respond.
 - Cross-origin iframes (ads, embeds), `blob:`/streamed video, and closed shadow roots are not captured.
 - Resources over 30 MB, or past 800 MB total, are skipped. A skipped or failed resource keeps its online URL and is listed in `snapshot.json` and on the progress page.
-- Resources that need special headers or cookies the extension cannot send may fail.
+- If Chrome refuses to attach the debugger (for example another debugging tool holds the tab), capture falls back to plain downloads, and login-only files may then fail.
 - Chrome does not let extensions read `chrome://` pages or the Chrome Web Store.
 - To capture `file://` pages, enable **Allow access to file URLs** for the extension on `chrome://extensions`.
 
+## Where the files come from
+
+Chrome gives extensions no direct access to its disk cache. Instead, during a capture the extension briefly attaches Chrome's debugger to the tab and asks for the resources the page **already loaded** (`Page.getResourceTree` / `Page.getResourceContent`). Those are the exact bytes you saw, including login-only images and cross-origin files, with no new request. Anything the tab does not have is downloaded normally. `snapshot.json` records `"source": "page"` or `"network"` for every resource.
+
+While it runs, Chrome shows an "Extension started debugging this browser" bar on the tab. It disappears when the capture finishes.
+
 ## Permissions
 
-The extension asks for access to all sites (`<all_urls>`). This is needed to download a page's assets from other domains (CDNs) without being blocked by CORS. It only reads a tab when you click the button, and nothing is sent anywhere: everything stays in your browser until the ZIP is saved to disk.
+- **All sites (`<all_urls>`)**: needed to download a page's remaining assets from other domains (CDNs) without being blocked by CORS.
+- **`debugger`**: needed to read the resources the tab already loaded, as described above.
+- **`scripting`**: needed to read the DOM of the tab you clicked on.
+
+The extension only touches a tab when you click the button, and nothing is sent anywhere: everything stays in your browser until the ZIP is saved to disk.
 
 ## Files
 

@@ -33,6 +33,8 @@ const usedNames = new Set();
 let totalBytes = 0;
 let queued = 0;
 let finished = 0;
+let fromBrowser = 0; // resources read from what the tab had already loaded
+let pageResources = null; // remote URL -> { frameId, mimeType }, via the debugger API
 
 function createLimiter(max) {
   let active = 0;
@@ -55,7 +57,71 @@ function progress() {
 
 // ---------------------------------------------------------------- downloading
 
+function admit(length) {
+  if (length > MAX_RESOURCE_BYTES) throw new Error(`larger than ${MAX_RESOURCE_BYTES >> 20} MB`);
+  if (totalBytes + length > MAX_TOTAL_BYTES) throw new Error('snapshot size limit reached');
+  totalBytes += length;
+}
+
+function base64ToBytes(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+// Attach Chrome's debugger to the tab just long enough to list the resources it
+// already loaded. Returns false (and capture carries on with plain downloads) if
+// attaching is refused, e.g. because another debugger client holds the tab.
+async function attachDebugger() {
+  try {
+    await chrome.debugger.attach({ tabId }, '1.3');
+  } catch {
+    return false;
+  }
+  try {
+    const { frameTree } = await chrome.debugger.sendCommand({ tabId }, 'Page.getResourceTree');
+    pageResources = new Map();
+    const visit = (node) => {
+      for (const r of node.resources || []) {
+        if (r.failed || r.canceled) continue;
+        try { pageResources.set(new URL(r.url).href, { frameId: node.frame.id, mimeType: r.mimeType || '' }); } catch { /* not a URL */ }
+      }
+      (node.childFrames || []).forEach(visit);
+    };
+    visit(frameTree);
+    return true;
+  } catch {
+    await detachDebugger();
+    return false;
+  }
+}
+
+async function detachDebugger() {
+  pageResources = null;
+  try { await chrome.debugger.detach({ tabId }); } catch { /* already detached */ }
+}
+
+// Same bytes the tab received, including login-only files, without a new request.
+async function readFromPage(url) {
+  const hit = pageResources?.get(url);
+  if (!hit) return null;
+  try {
+    const { content, base64Encoded } = await chrome.debugger.sendCommand({ tabId }, 'Page.getResourceContent', { frameId: hit.frameId, url });
+    const bytes = base64Encoded ? base64ToBytes(content) : new TextEncoder().encode(content);
+    admit(bytes.length);
+    fromBrowser++;
+    return { bytes, type: hit.mimeType, source: 'page' };
+  } catch (err) {
+    if (/larger than|size limit/.test(err.message)) throw err;
+    return null; // evicted or unavailable: fall back to downloading
+  }
+}
+
 async function fetchBytes(url) {
+  const cached = await readFromPage(url);
+  if (cached) return cached;
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -64,10 +130,8 @@ async function fetchBytes(url) {
     const declared = Number(res.headers.get('content-length'));
     if (declared > MAX_RESOURCE_BYTES) throw new Error(`larger than ${MAX_RESOURCE_BYTES >> 20} MB`);
     const bytes = new Uint8Array(await res.arrayBuffer());
-    if (bytes.length > MAX_RESOURCE_BYTES) throw new Error(`larger than ${MAX_RESOURCE_BYTES >> 20} MB`);
-    if (totalBytes + bytes.length > MAX_TOTAL_BYTES) throw new Error('snapshot size limit reached');
-    totalBytes += bytes.length;
-    return { bytes, type: res.headers.get('content-type') || '' };
+    admit(bytes.length);
+    return { bytes, type: res.headers.get('content-type') || '', source: 'network' };
   } catch (err) {
     throw err.name === 'AbortError' ? new Error('timed out') : err;
   } finally {
@@ -88,8 +152,9 @@ function getAsset(url, kind, chain = []) {
 async function downloadAsset(url, kind, chain) {
   let bytes;
   let type;
+  let source;
   try {
-    ({ bytes, type } = await limited(() => fetchBytes(url)));
+    ({ bytes, type, source } = await limited(() => fetchBytes(url)));
   } catch (err) {
     failures.push({ url, reason: err.message || String(err) });
     return null;
@@ -109,7 +174,7 @@ async function downloadAsset(url, kind, chain) {
   for (let n = 2; usedNames.has(file); n++) file = assetFileName(url, type, isCss).replace(/(\.[^.]+)$/, `-${n}$1`);
   usedNames.add(file);
   entries.push({ name: `assets/${file}`, data: bytes, compress: COMPRESSIBLE.test(file) });
-  resources.push({ url, file: `assets/${file}`, bytes: bytes.length });
+  resources.push({ url, file: `assets/${file}`, bytes: bytes.length, source });
   return file;
 }
 
@@ -273,7 +338,13 @@ async function main() {
   }
 
   const capturedAt = new Date();
-  let html = await processDocument(page.main, page);
+  const usedDebugger = await attachDebugger();
+  let html;
+  try {
+    html = await processDocument(page.main, page);
+  } finally {
+    await detachDebugger();
+  }
   const sourceNote = page.url.replace(/--/g, '%2D%2D').replace(/>/g, '%3E');
   html = html.replace(
     /^(<!doctype[^>]*>\s*)?/i,
@@ -308,7 +379,8 @@ async function main() {
   $('bar').max = 1;
   $('bar').value = 1;
   const mb = (zip.size / (1024 * 1024)).toFixed(1);
-  $('status').textContent = `Saved ${name} (${mb} MB, ${resources.length} resources).`;
+  const origin = usedDebugger ? `${fromBrowser} taken from the page's loaded resources, ${resources.length - fromBrowser} downloaded` : 'all downloaded (debugger unavailable)';
+  $('status').textContent = `Saved ${name} (${mb} MB, ${resources.length} resources: ${origin}).`;
   $('actions').hidden = false;
   $('download').onclick = () => triggerDownload(blobUrl, name);
   $('close').onclick = async () => {
