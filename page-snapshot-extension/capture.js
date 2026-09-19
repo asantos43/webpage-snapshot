@@ -1,5 +1,6 @@
 import { extractPage } from './inpage.js';
 import { buildZip } from './lib/zip.js';
+import { disclosureRuntime } from './lib/disclosure.js';
 import {
   assetFileName, fetchableUrl, parseSrcset, rewriteCss, serializeSrcset, slugify,
 } from './lib/helpers.js';
@@ -370,6 +371,13 @@ async function processDocument(data, page, depth = 0) {
   const doc = new DOMParser().parseFromString(data.html, 'text/html');
   const elements = [...allElements(doc)];
   await Promise.all(elements.map((el) => processElement(el, data.base, page, depth)));
+
+  // Page scripts are gone, so give expandable sections their click behaviour back.
+  if (data.html.includes('aria-expanded')) {
+    const script = doc.createElement('script');
+    script.textContent = `(${disclosureRuntime.toString()})();`;
+    doc.body.append(script);
+  }
 
   const charset = doc.createElement('meta');
   charset.setAttribute('charset', 'utf-8');
