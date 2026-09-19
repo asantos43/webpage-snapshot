@@ -31,6 +31,42 @@ export function extractPage() {
     }
   };
 
+  // "Show more" / "Ver mais" style toggles. They are dead controls in a static snapshot.
+  const TOGGLE_RE = /^[\s.\u2026\u00b7]*(see more|show more|read more|more|see less|show less|less|ver mais|mostrar mais|ler mais|mais|ver menos|mostrar menos|menos|voir plus|afficher plus|plus|voir moins|moins|ver m\u00e1s|mostrar m\u00e1s|m\u00e1s|mehr|mehr anzeigen|weniger)[\s.\u2026]*$/i;
+
+  // Text cut off by a multi-line CSS clamp ("...more" posts) is still fully in the DOM;
+  // the site's script just toggles the clamp. Lift it in the snapshot so the whole text
+  // shows. Only elements that are really truncated right now are touched.
+  function expandIfClamped(live, clone) {
+    if (!(live.clientHeight > 0 && live.scrollHeight > live.clientHeight + 1)) return;
+    const cs = live.ownerDocument.defaultView.getComputedStyle(live);
+    const clamp = parseInt(cs.webkitLineClamp || cs.getPropertyValue('-webkit-line-clamp') || cs.getPropertyValue('line-clamp'), 10);
+    if (!(clamp >= 2)) return; // single-line ellipsis (titles, names) stays as seen
+    for (const prop of ['-webkit-line-clamp', 'line-clamp']) clone.style.setProperty(prop, 'unset', 'important');
+    clone.style.setProperty('max-height', 'none', 'important');
+    clone.style.setProperty('height', 'auto', 'important');
+    clone.style.setProperty('overflow', 'visible', 'important');
+    clone.setAttribute('data-snap-expanded', '');
+  }
+
+  // Only look where such a toggle lives: inside the expanded text, or as a small
+  // element right before/after it. Unrelated "More" buttons elsewhere stay.
+  function removeToggles(root) {
+    const CONTROL = 'button, [role="button"]';
+    for (const el of root.querySelectorAll('[data-snap-expanded]')) {
+      el.removeAttribute('data-snap-expanded');
+      for (const scope of [el, el.previousElementSibling, el.nextElementSibling]) {
+        if (!scope) continue;
+        const isControl = scope.matches(CONTROL);
+        if (scope !== el && !isControl && scope.textContent.trim().length > 20) continue; // real content
+        for (const control of isControl ? [scope] : scope.querySelectorAll(CONTROL)) {
+          if (TOGGLE_RE.test(control.textContent.trim())) control.remove();
+        }
+      }
+    }
+    for (const template of root.querySelectorAll('template')) removeToggles(template.content); // shadow DOM
+  }
+
   function walk(live, clone, ctx) {
     const tag = live.localName;
 
@@ -86,6 +122,8 @@ export function extractPage() {
       return;
     }
 
+    expandIfClamped(live, clone);
+
     const liveKids = Array.from(live.children);
     const cloneKids = Array.from(clone.children);
 
@@ -119,6 +157,7 @@ export function extractPage() {
     const inert = doc.implementation.createHTMLDocument('');
     const root = inert.importNode(doc.documentElement, true);
     walk(doc.documentElement, root, { inert, depth });
+    removeToggles(root);
     appendAdopted(root.querySelector('head') || root, doc.adoptedStyleSheets, inert);
     return {
       html: root.outerHTML,

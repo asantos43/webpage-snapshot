@@ -32,12 +32,14 @@ snapshot.json     source URL, title, capture time, every resource saved, and eve
 - Stylesheets, including `@import` chains, `url()` references (fonts, backgrounds), inline `<style>` and `style=""` attributes, and styles created from JavaScript (`insertRule`, adopted stylesheets).
 - Images, including `srcset` and `<picture>` (the image the browser actually picked is kept), video posters, and small audio/video files.
 - Open shadow DOM (web components) and same-origin iframes.
+- Text that was cut off with "…more" by a multi-line CSS clamp (feed posts, descriptions) is shown in full, and the dead "more" button is removed. Single-line ellipsis (titles, names) is left as you saw it.
 
 Links (`<a href>`) are made absolute, so clicking one opens the real site when you are online.
 
 ## Limitations
 
 - **It is a static snapshot.** Scripts are removed on purpose, because re-running them offline would re-render or break the page. Menus, tabs, carousels and anything else that needs JavaScript will not respond.
+- "…more" only works when the full text is already in the page and merely clipped. If a site cuts the text in JavaScript and downloads the rest when you click, the rest was never in the page and cannot be saved.
 - Cross-origin iframes (ads, embeds), `blob:`/streamed video, and closed shadow roots are not captured.
 - Resources over 30 MB, or past 800 MB total, are skipped. A skipped or failed resource keeps its online URL and is listed in `snapshot.json` and on the progress page.
 - If Chrome refuses to attach the debugger (for example another debugging tool holds the tab), capture falls back to plain downloads, and login-only files may then fail.
