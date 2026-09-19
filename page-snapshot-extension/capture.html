@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Page Snapshot</title>
+  <link rel="stylesheet" href="capture.css">
+</head>
+<body>
+  <main>
+    <h1>Page Snapshot</h1>
+    <p id="source" class="muted"></p>
+    <progress id="bar"></progress>
+    <p id="status" role="status">Starting…</p>
+    <p id="error" class="error" role="alert" hidden></p>
+    <div id="actions" hidden>
+      <button id="download" type="button">Download again</button>
+      <button id="close" type="button">Back to page &amp; close</button>
+    </div>
+    <details id="failed-box" hidden>
+      <summary id="failed-summary"></summary>
+      <ul id="failed"></ul>
+    </details>
+  </main>
+  <script type="module" src="capture.js"></script>
+</body>
+</html>
