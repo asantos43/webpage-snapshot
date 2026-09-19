@@ -539,7 +539,7 @@ async function main() {
     tool: 'Page Snapshot 1.0.0',
     debugger: attached.ok ? 'used' : `unavailable: ${attached.error}`,
     editors: Object.fromEntries(editorReport),
-    carousels: Object.fromEntries(Object.entries(page.pagers || {}).map(([id, pages]) => [id, { items: pages.length }])),
+    carousels: Object.fromEntries(Object.entries(page.pagers || {}).map(([id, pages]) => [id, { items: pages.length, avg_item_chars: Math.round(pages.reduce((n, h) => n + h.length, 0) / pages.length) }])),
     resources,
     failed: failures,
   };

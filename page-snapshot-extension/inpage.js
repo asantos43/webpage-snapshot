@@ -170,15 +170,16 @@ export async function extractPage(editorTexts = {}) {
       for (let up = 0; nav && !findPrev(nav) && up < 5; up++) nav = nav.parentElement;
       if (!nav || !findPrev(nav) || nav === document.body || isDisabled(next)) continue;
 
-      // Remember what sits beside the nav on each level so we can see where the item area is.
+      // Remember what sits beside the nav on each level so we can find the item area. Compare
+      // text and element count, not raw HTML: sibling controls (move up/down, counters) flip
+      // attributes like `disabled` on every step and must not be mistaken for the item.
+      const formState = (el) => Array.from(el.querySelectorAll('input, textarea, select'), (i) => (i.type === 'checkbox' || i.type === 'radio' ? i.checked : i.value)).join('|');
+      const digest = (el) => ({ text: el.textContent, count: el.getElementsByTagName('*').length, form: formState(el) });
       const levels = [];
       let path = nav;
-      for (let k = 0; k < 4 && path.parentElement && path.parentElement !== document.body; k++) {
+      for (let k = 0; k < 6 && path.parentElement && path.parentElement !== document.body; k++) {
         const holder = path.parentElement;
-        levels.push({
-          holder,
-          before: Array.from(holder.children).map((c) => (c === path || c.outerHTML.length > 300000 ? null : c.outerHTML)),
-        });
+        levels.push({ holder, before: Array.from(holder.children).map((c) => (c === path ? null : digest(c))) });
         path = holder;
       }
 
@@ -189,11 +190,11 @@ export async function extractPage(editorTexts = {}) {
       currentNext().click();
       await sleep(250);
 
-      // The item area is the lowest level where a sibling of the nav changed.
+      // The item area is the lowest level where a sibling of the nav changed in content.
       const changed = levels.find(({ holder, before }) => {
         const now = Array.from(holder.children);
         if (now.length !== before.length) return true;
-        return before.some((html, i) => html !== null && now[i].outerHTML !== html);
+        return before.some((was, i) => was !== null && (now[i].textContent !== was.text || now[i].getElementsByTagName('*').length !== was.count || formState(now[i]) !== was.form));
       });
       if (!changed) { // nothing was swapped in: either all items already exist, or the click did nothing
         if (!isDisabled(currentPrev())) currentPrev().click();
