@@ -6,7 +6,11 @@
 //   - disclosures / accordions: a button with aria-expanded and its panel, either named
 //     by aria-controls or the hidden element right after the button; plus "Expand all" /
 //     "Collapse all" buttons;
-//   - tabs: role="tab" elements with aria-controls pointing at role="tabpanel" elements.
+//   - tabs: role="tab" elements with aria-controls pointing at role="tabpanel" elements;
+//   - carousels: capture.js recorded every item of a "Next item" / "Previous item" carousel
+//     (the page itself only keeps the current one in the DOM); Next/Previous swap them in;
+//   - code/text editors that were replaced by a plain <pre data-snap-editor>: "Copy file"
+//     buttons copy its text and "word wrap" buttons toggle wrapping.
 //
 // It never touches the network. It is serialised with Function.prototype.toString(),
 // so it must stay self-contained.
@@ -84,11 +88,81 @@ export function interactionsRuntime() {
     }
   };
 
+  // ---- carousels
+
+  const NEXT_RE = /^next\s+(item|slide|image|photo|picture|card)$/i;
+  const PREV_RE = /^(previous|prev)\s+(item|slide|image|photo|picture|card)$/i;
+  let recorded = null;
+  const pagesFor = (region) => {
+    if (recorded === null) {
+      try { recorded = JSON.parse(document.getElementById('snap-pagers').textContent); } catch { recorded = {}; }
+    }
+    return recorded[region.getAttribute('data-snap-pager')] || [];
+  };
+
+  // ---- editors
+
+  const editorNear = (control) => {
+    for (let el = control.parentElement; el; el = el.parentElement) {
+      const editor = el.querySelector('pre[data-snap-editor]');
+      if (editor) return editor;
+    }
+    return null;
+  };
+
+  const copyText = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const box = document.createElement('textarea');
+      box.value = text;
+      box.style.position = 'fixed';
+      box.style.opacity = '0';
+      document.body.append(box);
+      box.select();
+      document.execCommand('copy');
+      box.remove();
+    }
+  };
+
   // ---- events
 
   document.addEventListener('click', (event) => {
+    // Carousel: show the recorded item instead of the one currently in the DOM.
+    const region = event.target.closest('[data-snap-pager]');
+    if (region) {
+      const arrow = event.target.closest('[aria-label]');
+      const label = arrow ? arrow.getAttribute('aria-label') || '' : '';
+      const step = NEXT_RE.test(label) ? 1 : PREV_RE.test(label) ? -1 : 0;
+      const pages = pagesFor(region);
+      if (step && pages.length) {
+        event.preventDefault();
+        const index = Math.max(0, Math.min(pages.length - 1, (region.__snapshotPage || 0) + step));
+        region.__snapshotPage = index;
+        region.innerHTML = pages[index];
+        return;
+      }
+    }
+
     const control = event.target.closest('[role="tab"], button, [role="button"], [aria-expanded]');
     if (!control) return;
+
+    const name = ((control.getAttribute('aria-label') || '') + ' ' + (control.textContent || '')).trim();
+    const editor = /^copy( file| code| text| all)?$/i.test(control.textContent.trim()) || /word wrap/i.test(name) ? editorNear(control) : null;
+    if (editor) {
+      event.preventDefault();
+      if (/word wrap/i.test(name)) {
+        const wrapped = editor.style.whiteSpace !== 'pre';
+        editor.style.whiteSpace = wrapped ? 'pre' : 'pre-wrap';
+        editor.style.overflowWrap = wrapped ? 'normal' : 'anywhere';
+        [control, ...control.querySelectorAll('*')].forEach((el) => {
+          if (el.children.length === 0) el.textContent = el.textContent.replace(/^(Disable|Enable)/, wrapped ? 'Enable' : 'Disable');
+        });
+      } else {
+        copyText(editor.textContent);
+      }
+      return;
+    }
 
     if (control.getAttribute('role') === 'tab') {
       if (tabPanel(control)) { // tabs whose panel was never in the page cannot be shown

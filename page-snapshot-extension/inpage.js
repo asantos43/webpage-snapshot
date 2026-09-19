@@ -6,8 +6,10 @@
 // and returns plain JSON. Downloading assets and rewriting URLs happens later in
 // capture.js, which has DOM APIs and cross-origin fetch.
 
-export function extractPage() {
+// `editorTexts` comes from inpage-main.js: the full text of Monaco editors, keyed by data-uri.
+export async function extractPage(editorTexts = {}) {
   const MAX_FRAME_DEPTH = 4;
+  const MAX_PAGER_ITEMS = 60;
   const frames = {};
   let frameCounter = 0;
 
@@ -65,6 +67,165 @@ export function extractPage() {
       }
     }
     for (const template of root.querySelectorAll('template')) removeToggles(template.content); // shadow DOM
+  }
+
+  // ---- Monaco editors -> plain scrollable, selectable text -------------------------------
+  //
+  // Monaco renders only the visible lines and scrolls them with JavaScript, so a saved copy
+  // could neither scroll nor select. Replace it with a <pre> holding the full text: taken from
+  // the editor itself when it could be read (see inpage-main.js), otherwise from the rows that
+  // happen to be drawn. capture.js later swaps in the complete file when the editor sits next
+  // to a download link for it.
+  function replaceMonaco(live, clone, ctx) {
+    const win = live.ownerDocument.defaultView;
+    const uri = live.getAttribute('data-uri');
+    const known = editorTexts && editorTexts[uri];
+    let text;
+    let source;
+    if (known && typeof known.text === 'string') {
+      text = known.text;
+      source = known.source;
+    } else {
+      text = Array.from(live.querySelectorAll('.view-line'))
+        .map((row) => ({ top: parseFloat(row.style.top) || 0, line: row.textContent.replace(/ /g, ' ') }))
+        .sort((a, b) => a.top - b.top)
+        .map((row) => row.line)
+        .join('\n');
+      source = 'visible-rows';
+    }
+
+    const pre = ctx.inert.createElement('pre');
+    pre.setAttribute('data-snap-editor', '');
+    pre.setAttribute('data-snap-source', source);
+    pre.setAttribute('data-snap-uri', uri);
+    pre.setAttribute('tabindex', '0');
+
+    // A download link in the same widget means the complete file is available.
+    let scope = live.parentElement;
+    for (let i = 0; scope && i < 8; i++, scope = scope.parentElement) {
+      if (scope.querySelectorAll('.monaco-editor[data-uri]').length > 1) break;
+      const link = scope.querySelector('a[download][href]');
+      if (link) {
+        pre.setAttribute('data-snap-file', link.href);
+        break;
+      }
+    }
+
+    const row = live.querySelector('.view-line');
+    const rowStyle = win.getComputedStyle(row || live);
+    const bg = win.getComputedStyle(live.querySelector('.monaco-editor-background') || live).backgroundColor;
+    const token = live.querySelector('.view-line span');
+    const fg = token ? win.getComputedStyle(token).color : rowStyle.color;
+    const box = live.getBoundingClientRect();
+    pre.setAttribute('style', [
+      'box-sizing:border-box', 'margin:0', 'padding:4px 8px', 'overflow:auto',
+      'white-space:pre-wrap', 'overflow-wrap:anywhere', 'user-select:text', '-webkit-user-select:text',
+      box.width ? `width:${box.width}px` : 'width:100%', 'max-width:100%',
+      box.height ? `max-height:${box.height}px` : '',
+      `font-family:${rowStyle.fontFamily}`, `font-size:${rowStyle.fontSize}`, `line-height:${rowStyle.lineHeight}`,
+      `background-color:${bg}`, `color:${fg}`,
+    ].filter(Boolean).join(';'));
+    pre.textContent = text;
+    clone.replaceWith(pre);
+  }
+
+  // ---- Carousels ("Next item" / "Previous item") -------------------------------------------
+  //
+  // A carousel that renders only its current item leaves the others out of the DOM entirely.
+  // So at capture time we press Next through every item, record what the item area looked like
+  // at each step, then press Previous to put the page back. The snapshot's own script then
+  // swaps those recorded pages in when Next/Previous are clicked.
+  const NEXT_RE = /^next\s+(item|slide|image|photo|picture|card)$/i;
+  const PREV_RE = /^(previous|prev)\s+(item|slide|image|photo|picture|card)$/i;
+  const labelOf = (el) => el.getAttribute('aria-label') || '';
+  const isDisabled = (el) => !el || el.disabled || el.getAttribute('aria-disabled') === 'true';
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  async function settle(region) {
+    await sleep(60);
+    let last = region.innerHTML;
+    for (let waited = 0; waited < 1000; waited += 80) {
+      await sleep(80);
+      const now = region.innerHTML;
+      if (now === last) return;
+      last = now;
+    }
+  }
+
+  function fragmentHtml(region) {
+    const inert = document.implementation.createHTMLDocument('');
+    const copy = inert.importNode(region, true);
+    walk(region, copy, { inert, depth: 1 });
+    removeToggles(copy);
+    return copy.innerHTML;
+  }
+
+  async function explorePagers() {
+    const pagers = {};
+    const buttons = Array.from(document.querySelectorAll('button[aria-label], [role="button"][aria-label]'));
+    for (const next of buttons.filter((b) => NEXT_RE.test(labelOf(b)))) {
+      // The nav is the smallest ancestor holding both Next and Previous.
+      let nav = next.parentElement;
+      const findPrev = (root) => Array.from(root.querySelectorAll('[aria-label]')).find((b) => PREV_RE.test(labelOf(b)));
+      for (let up = 0; nav && !findPrev(nav) && up < 5; up++) nav = nav.parentElement;
+      if (!nav || !findPrev(nav) || nav === document.body || isDisabled(next)) continue;
+
+      // Remember what sits beside the nav on each level so we can see where the item area is.
+      const levels = [];
+      let path = nav;
+      for (let k = 0; k < 4 && path.parentElement && path.parentElement !== document.body; k++) {
+        const holder = path.parentElement;
+        levels.push({
+          holder,
+          before: Array.from(holder.children).map((c) => (c === path || c.outerHTML.length > 300000 ? null : c.outerHTML)),
+        });
+        path = holder;
+      }
+
+      // Re-find the buttons every time: a re-render may replace them with new elements.
+      let scope = nav;
+      const currentNext = () => Array.from(scope.querySelectorAll('[aria-label]')).find((b) => NEXT_RE.test(labelOf(b)));
+      const currentPrev = () => findPrev(scope);
+      currentNext().click();
+      await sleep(250);
+
+      // The item area is the lowest level where a sibling of the nav changed.
+      const changed = levels.find(({ holder, before }) => {
+        const now = Array.from(holder.children);
+        if (now.length !== before.length) return true;
+        return before.some((html, i) => html !== null && now[i].outerHTML !== html);
+      });
+      if (!changed) { // nothing was swapped in: either all items already exist, or the click did nothing
+        if (!isDisabled(currentPrev())) currentPrev().click();
+        await sleep(150);
+        continue;
+      }
+      const region = changed.holder;
+      scope = region;
+
+      if (!isDisabled(currentPrev())) currentPrev().click();
+      await settle(region);
+
+      const pages = [fragmentHtml(region)];
+      while (pages.length < MAX_PAGER_ITEMS && !isDisabled(currentNext())) {
+        currentNext().click();
+        await settle(region);
+        const html = fragmentHtml(region);
+        if (html === pages[pages.length - 1]) break;
+        pages.push(html);
+      }
+      for (let i = 1; i < pages.length && !isDisabled(currentPrev()); i++) {
+        currentPrev().click();
+        await settle(region);
+      }
+
+      if (pages.length > 1) {
+        const id = String(Object.keys(pagers).length + 1);
+        region.setAttribute('data-snap-pager', id);
+        pagers[id] = pages;
+      }
+    }
+    return pagers;
   }
 
   function walk(live, clone, ctx) {
@@ -128,6 +289,9 @@ export function extractPage() {
         }
       }
       return;
+    } else if (tag === 'div' && live.classList.contains('monaco-editor') && live.hasAttribute('data-uri')) {
+      replaceMonaco(live, clone, ctx);
+      return;
     }
 
     expandIfClamped(live, clone);
@@ -174,11 +338,14 @@ export function extractPage() {
     };
   }
 
+  const pagers = await explorePagers();
   const main = snapshot(document, 0);
+  document.querySelectorAll('[data-snap-pager]').forEach((el) => el.removeAttribute('data-snap-pager'));
   return {
     url: location.href,
     title: document.title,
     main,
     frames,
+    pagers,
   };
 }

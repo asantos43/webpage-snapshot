@@ -32,6 +32,9 @@ snapshot.json     source URL, title, capture time, every resource saved, and eve
 - Stylesheets, including `@import` chains, `url()` references (fonts, backgrounds), inline `<style>` and `style=""` attributes, and styles created from JavaScript (`insertRule`, adopted stylesheets).
 - Images, including `srcset` and `<picture>` (the image the browser actually picked is kept), video posters, and small audio/video files.
 - Collapsed sections ("Overview", FAQs, accordions) and tabs with their hidden content. They still open, close and switch when you click them, and "Expand All" / "Collapse All" buttons work.
+- Code and text editors (Monaco, the VS Code editor, used for prompts and patch viewers). Such editors draw only the visible lines and scroll with JavaScript, so they are saved as ordinary scrollable, selectable text instead. The text is taken from the complete linked file when the editor has a download link, otherwise read from the editor itself; if neither works, only the lines that were on screen are saved and the progress page warns you. Their "Copy file" and "word wrap" buttons keep working.
+- Carousels with "Next item" / "Previous item" buttons. Many only keep the current item in the page, so the extension briefly steps through every item of the live page (and returns it to where it was), then embeds all of them. Previous/Next work offline.
+- Downloadable files: `<a download>` links (attachments, patches, whose links are often temporary signed URLs), plus links on the same site to archives and documents (`.zip`, `.pdf`, `.csv`, ...), up to 25 files, are saved into `assets/` and the links point to them.
 - Open shadow DOM (web components) and same-origin iframes.
 - Text that was cut off with "…more" by a multi-line CSS clamp (feed posts, descriptions) is shown in full, and the dead "more" button is removed. Single-line ellipsis (titles, names) is left as you saw it.
 
@@ -39,7 +42,7 @@ Links (`<a href>`) are made absolute, so clicking one opens the real site when y
 
 ## Limitations
 
-- **Only some interactivity survives.** The page's own scripts are removed on purpose, because re-running them offline would re-render or break the page. Instead the extension embeds a small script of its own (`lib/interactions.js`, no network access) that restores behaviour whose content is already in the saved page: collapsible sections / accordions, "Expand all" / "Collapse all" buttons, and tabs. Menus, carousels, search boxes and anything else that needs the site's own code will not respond, and content a page only builds when you click, rather than hiding it, was never in the page and cannot be saved.
+- **Only some interactivity survives.** The page's own scripts are removed on purpose, because re-running them offline would re-render or break the page. Instead the extension embeds a small script of its own (`lib/interactions.js`, no network access) that restores behaviour whose content is already in the saved page: collapsible sections / accordions, "Expand all" / "Collapse all" buttons, tabs, carousels and editor buttons. Menus, search boxes, drop-down pickers (such as a carousel's "jump to item" list) and anything else that needs the site's own code will not respond, and content a page only builds when you click, rather than hiding it, was never in the page and cannot be saved.
 - "…more" only works when the full text is already in the page and merely clipped. If a site cuts the text in JavaScript and downloads the rest when you click, the rest was never in the page and cannot be saved.
 - Cross-origin iframes (ads, embeds, tracking frames), `blob:`/streamed video, and closed shadow roots are not captured.
 - Resources over 30 MB, or past 800 MB total, are skipped. A resource that could not be saved is listed in `snapshot.json` and on the progress page, and its reference is removed from the page (see below).
@@ -88,4 +91,5 @@ The extension only touches a tab when you click the button, and nothing is sent 
 | `capture.html/.css/.js` | Progress page; downloads assets, rewrites URLs, builds the ZIP |
 | `lib/helpers.js` | Pure helpers: CSS/`srcset` rewriting, file naming |
 | `lib/zip.js` | Dependency-free ZIP writer |
+| `inpage-main.js` | Runs in the page's own JavaScript world to read the full text of Monaco editors |
 | `lib/interactions.js` | Small script embedded in snapshots that makes collapsed sections and tabs clickable |

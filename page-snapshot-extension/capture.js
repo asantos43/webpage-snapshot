@@ -1,4 +1,5 @@
 import { extractPage } from './inpage.js';
+import { readEditorsInMainWorld } from './inpage-main.js';
 import { buildZip } from './lib/zip.js';
 import { interactionsRuntime } from './lib/interactions.js';
 import {
@@ -11,6 +12,10 @@ const FETCH_TIMEOUT_MS = 20_000;
 const CONCURRENCY = 8;
 const HOST_CONCURRENCY = 4; // be polite to any single site; big sites rate-limit bursts (HTTP 429)
 const MAX_RETRIES = 3;
+const MAX_LINKED_FILES = 25; // downloadable files (attachments, archives) saved next to the page
+const MAX_EDITOR_TEXT_BYTES = 5 * 1024 * 1024;
+// Links to these are saved when they point at the captured site itself; <a download> links always are.
+const FILE_LINK_RE = /\.(zip|tar|gz|tgz|7z|rar|diff|patch|pdf|csv|tsv|json|ya?ml|txt|md|xlsx?|docx?|pptx?)$/i;
 const RETRY_BASE_MS = 1000;
 
 const REMOVE_TAGS = new Set(['script', 'noscript', 'base']);
@@ -34,6 +39,9 @@ const entries = []; // ZIP entries for downloaded assets
 const resources = []; // snapshot.json listing
 const failures = [];
 const usedNames = new Set();
+const fileBytes = new Map(); // linked file URL -> bytes, so editors can show the complete file
+const editorReport = new Map(); // editor uri -> { source, chars }
+let linkedFiles = 0;
 let totalBytes = 0;
 let queued = 0;
 let finished = 0;
@@ -242,6 +250,8 @@ async function downloadAsset(url, kind, chain) {
     bytes = new TextEncoder().encode(rewritten);
   }
 
+  if (kind === 'file') fileBytes.set(url, bytes);
+
   let file = assetFileName(url, type, isCss);
   for (let n = 2; usedNames.has(file); n++) file = assetFileName(url, type, isCss).replace(/(\.[^.]+)$/, `-${n}$1`);
   usedNames.add(file);
@@ -281,6 +291,23 @@ async function localizeCss(text, base) {
   return rewriteCss(text, base, { prefix: 'assets/', resolve: (u, k) => getAsset(u, k) });
 }
 
+function fileNameFromUrl(url) {
+  let last = new URL(url).pathname.split('/').filter(Boolean).pop() || 'file';
+  try { last = decodeURIComponent(last); } catch { /* keep raw */ }
+  return last;
+}
+
+// The complete text of a linked file, or null if it is missing, huge or not text.
+async function linkedFileText(rawUrl, base) {
+  const url = fetchableUrl(rawUrl, base);
+  if (!url) return null;
+  url.hash = '';
+  if (!(await getAsset(url.href, 'file'))) return null;
+  const bytes = fileBytes.get(url.href);
+  if (!bytes || bytes.length > MAX_EDITOR_TEXT_BYTES) return null;
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch { return null; }
+}
+
 async function processElement(el, base, page, depth) {
   // <noscript> is removed, but its (re-parsed) children are still in the element list.
   if (el.parentElement?.closest('noscript')) return;
@@ -292,6 +319,21 @@ async function processElement(el, base, page, depth) {
   const tag = el.localName;
 
   if (REMOVE_TAGS.has(tag)) return el.remove();
+
+  if (tag === 'pre' && el.hasAttribute('data-snap-editor')) {
+    let source = el.getAttribute('data-snap-source');
+    const fileUrl = el.getAttribute('data-snap-file');
+    if (fileUrl) {
+      const text = await linkedFileText(fileUrl, base);
+      if (text !== null) {
+        el.textContent = text;
+        source = 'file';
+      }
+    }
+    editorReport.set(el.getAttribute('data-snap-uri'), { source, chars: el.textContent.length });
+    for (const attr of ['data-snap-source', 'data-snap-file', 'data-snap-uri']) el.removeAttribute(attr);
+    return;
+  }
 
   if (tag === 'meta') {
     const httpEquiv = (el.getAttribute('http-equiv') || '').toLowerCase();
@@ -341,7 +383,25 @@ async function processElement(el, base, page, depth) {
     );
   }
 
-  if (tag === 'a' || tag === 'area') absolutizeAttr(el, 'href', base);
+  if (tag === 'a' || tag === 'area') {
+    // Files offered for download are saved too, so they still work offline (their links are
+    // often temporary signed URLs that expire).
+    const href = fetchableUrl(el.getAttribute('href'), base);
+    const wanted = href && (el.hasAttribute('download') || (href.origin === tabOrigin && FILE_LINK_RE.test(href.pathname)));
+    let saved = false;
+    if (wanted && linkedFiles < MAX_LINKED_FILES) {
+      linkedFiles++;
+      const name = fileNameFromUrl(href.href);
+      href.hash = '';
+      const file = await getAsset(href.href, 'file');
+      if (file) {
+        el.setAttribute('href', `assets/${file}`);
+        if (!el.hasAttribute('download')) el.setAttribute('download', name);
+        saved = true;
+      }
+    }
+    if (!saved) absolutizeAttr(el, 'href', base);
+  }
   if (tag === 'form') absolutizeAttr(el, 'action', base);
 
   if (tag === 'iframe') {
@@ -367,13 +427,38 @@ async function processElement(el, base, page, depth) {
   await Promise.all(tasks);
 }
 
+async function processDom(doc, base, page, depth) {
+  const elements = [...allElements(doc)];
+  await Promise.all(elements.map((el) => processElement(el, base, page, depth)));
+}
+
+async function processFragment(html, base, page, depth) {
+  const doc = new DOMParser().parseFromString(`<!doctype html><html><body>${html}</body></html>`, 'text/html');
+  await processDom(doc, base, page, depth);
+  return doc.body.innerHTML;
+}
+
 async function processDocument(data, page, depth = 0) {
   const doc = new DOMParser().parseFromString(data.html, 'text/html');
-  const elements = [...allElements(doc)];
-  await Promise.all(elements.map((el) => processElement(el, data.base, page, depth)));
+  await processDom(doc, data.base, page, depth);
 
-  // Page scripts are gone, so give collapsible sections and tabs their click behaviour back.
-  if (data.html.includes('aria-expanded') || data.html.includes('role="tab"')) {
+  // Carousels: every recorded item, processed like the page itself, for the runtime to swap in.
+  if (depth === 0 && data.html.includes('data-snap-pager')) {
+    const recorded = {};
+    for (const region of doc.querySelectorAll('[data-snap-pager]')) {
+      const id = region.getAttribute('data-snap-pager');
+      recorded[id] = await Promise.all((page.pagers?.[id] || []).map((html) => processFragment(html, data.base, page, depth)));
+    }
+    const store = doc.createElement('script');
+    store.setAttribute('type', 'application/json');
+    store.id = 'snap-pagers';
+    store.textContent = JSON.stringify(recorded).replace(/</g, '\\u003c');
+    doc.body.append(store);
+  }
+
+  // Page scripts are gone, so give collapsible sections, tabs, carousels and editors their
+  // click behaviour back.
+  if (/aria-expanded|role="tab"|data-snap-pager|data-snap-editor/.test(data.html)) {
     const script = doc.createElement('script');
     script.textContent = `(${interactionsRuntime.toString()})();`;
     doc.body.append(script);
@@ -423,7 +508,11 @@ async function main() {
 
   let page;
   try {
-    [{ result: page }] = await chrome.scripting.executeScript({ target: { tabId }, func: extractPage });
+    let editorTexts = {};
+    try {
+      [{ result: editorTexts }] = await chrome.scripting.executeScript({ target: { tabId }, world: 'MAIN', func: readEditorsInMainWorld });
+    } catch { /* editors fall back to the rows that are drawn */ }
+    [{ result: page }] = await chrome.scripting.executeScript({ target: { tabId }, func: extractPage, args: [editorTexts || {}] });
   } catch (err) {
     return showError(`Chrome does not allow reading this page (${err.message}). Pages such as chrome:// and the Web Store are off limits.`);
   }
@@ -449,6 +538,8 @@ async function main() {
     captured_at: capturedAt.toISOString(),
     tool: 'Page Snapshot 1.0.0',
     debugger: attached.ok ? 'used' : `unavailable: ${attached.error}`,
+    editors: Object.fromEntries(editorReport),
+    carousels: Object.fromEntries(Object.entries(page.pagers || {}).map(([id, pages]) => [id, { items: pages.length }])),
     resources,
     failed: failures,
   };
@@ -475,6 +566,26 @@ async function main() {
     ? `${fromBrowser} taken from the page's loaded resources, ${resources.length - fromBrowser} downloaded`
     : `all downloaded; debugger unavailable: ${attached.error}`;
   $('status').textContent = `Saved ${name} (${mb} MB, ${resources.length} resources: ${origin}).`;
+  const notes = [];
+  const editors = [...editorReport.values()];
+  const bySource = (name) => editors.filter((e) => e.source === name).length;
+  if (editors.length) {
+    const partial = bySource('visible-rows');
+    notes.push({ text: `${editors.length} code/text editor${editors.length === 1 ? '' : 's'} saved as scrollable, selectable text (${bySource('file')} from the complete linked file, ${bySource('monaco') + bySource('react')} read from the editor).` });
+    if (partial) notes.push({ warn: true, text: `${partial} editor${partial === 1 ? '' : 's'} could only be saved with the lines that were on screen when you captured.` });
+  }
+  const carousels = Object.values(page.pagers || {});
+  if (carousels.length) notes.push({ text: `${carousels.length} carousel${carousels.length === 1 ? '' : 's'} saved with all items (${carousels.map((p) => p.length).join(', ')}).` });
+  if (linkedFiles) notes.push({ text: `${linkedFiles} linked file${linkedFiles === 1 ? '' : 's'} (downloads, attachments) saved next to the page.` });
+  if (notes.length) {
+    $('notes').hidden = false;
+    for (const note of notes) {
+      const li = document.createElement('li');
+      li.textContent = note.text;
+      if (note.warn) li.className = 'warn';
+      $('notes').append(li);
+    }
+  }
   $('actions').hidden = false;
   $('download').onclick = () => triggerDownload(blobUrl, name);
   $('close').onclick = async () => {

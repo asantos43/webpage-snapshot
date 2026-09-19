@@ -16,3 +16,5 @@ button { font: inherit; padding: 6px 14px; border: 1px solid var(--line); border
 button:hover { border-color: var(--accent); }
 details { margin-top: 12px; }
 li { overflow-wrap: anywhere; margin: 4px 0; font-size: 13px; }
+#notes { padding-left: 1.2em; margin: 8px 0; }
+#notes .warn { color: var(--error); }
