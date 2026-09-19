@@ -32,6 +32,56 @@ const COMPRESSIBLE = /\.(css|svg|json|txt|xml|html|bmp|ico)$/i;
 const $ = (id) => document.getElementById(id);
 const tabId = Number(new URLSearchParams(location.search).get('tabId'));
 
+// ---------------------------------------------------------------- live activity list
+// One line per phase: a spinner while it runs, a check mark when done. The running phase is
+// also the headline, so you always see what the extension is doing right now.
+
+const stepEls = new Map();
+
+function step(id, text, state = 'running') {
+  let li = stepEls.get(id);
+  if (!li) {
+    li = document.createElement('li');
+    stepEls.set(id, li);
+    $('steps').append(li);
+  }
+  li.className = state;
+  li.textContent = text;
+  if (state === 'running') $('status').textContent = text;
+}
+
+function dropStep(id) {
+  stepEls.get(id)?.remove();
+  stepEls.delete(id);
+}
+
+function shortUrl(url) {
+  try {
+    const u = new URL(url);
+    const text = u.host + u.pathname;
+    return text.length > 90 ? text.slice(0, 87) + '…' : text;
+  } catch {
+    return url.slice(0, 90);
+  }
+}
+
+// The tab itself reports carousel progress while it is being read (see inpage.js).
+chrome.runtime.onMessage.addListener((msg, sender) => {
+  if (msg?.type !== 'snapshot-progress' || sender?.tab?.id !== tabId) return;
+  const id = `carousel-${msg.pager}`;
+  const label = `Carousel ${msg.pager} of ${msg.pagers}`;
+  dropStep('read'); // the generic "Reading the page…" line gives way to what is actually happening
+  switch (msg.phase) {
+    case 'carousel-probe': step(id, `${label}: checking how it works…`); break;
+    case 'carousel': step(id, `${label}: recording item ${msg.item}…`); break;
+    case 'carousel-restore': step(id, `${label}: putting your page back to item 1…`); break;
+    case 'carousel-done': step(id, `${label}: recorded ${msg.items} items`, 'done'); break;
+    case 'carousel-skip': dropStep(id); break;
+    case 'snapshot': step('dom', 'Copying the page: DOM, styles, form values…'); break;
+    default: break;
+  }
+});
+
 // ---------------------------------------------------------------- state
 
 const assets = new Map(); // remote URL -> Promise<local file name | null>
@@ -72,7 +122,10 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 function progress() {
   $('bar').max = queued;
   $('bar').value = finished;
-  $('status').textContent = `Downloading resources… ${finished} of ${queued}`;
+  const parts = [`${finished} of ${queued}`];
+  if (fromBrowser) parts.push(`${fromBrowser} from the page`);
+  if (failures.length) parts.push(`${failures.length} failed`);
+  step('assets', `Downloading resources… ${parts.join(', ')}`);
 }
 
 // ---------------------------------------------------------------- downloading
@@ -114,7 +167,7 @@ async function attachDebugger() {
       (node.childFrames || []).forEach(visit);
     };
     visit(frameTree);
-    return { ok: true };
+    return { ok: true, count: pageResources.size };
   } catch (err) {
     await detachDebugger();
     return { ok: false, error: `Page.getResourceTree failed: ${err.message || err}` };
@@ -199,6 +252,7 @@ async function viaTab(url) {
 }
 
 async function fetchBytes(url) {
+  $('now').textContent = shortUrl(url);
   const loaded = await readFromPage(url);
   if (loaded) return loaded;
 
@@ -391,6 +445,7 @@ async function processElement(el, base, page, depth) {
     let saved = false;
     if (wanted && linkedFiles < MAX_LINKED_FILES) {
       linkedFiles++;
+      step('files', `Saving downloadable files… ${linkedFiles}`);
       const name = fileNameFromUrl(href.href);
       href.hash = '';
       const file = await getAsset(href.href, 'file');
@@ -479,6 +534,8 @@ function stamp(date) {
 }
 
 function showError(message) {
+  for (const li of stepEls.values()) if (li.className === 'running') li.className = 'fail';
+  $('now').textContent = '';
   $('bar').hidden = true;
   $('status').hidden = true;
   $('error').hidden = false;
@@ -495,7 +552,7 @@ function triggerDownload(url, name) {
 }
 
 async function main() {
-  $('status').textContent = 'Reading the page…';
+  step('tab', 'Finding the tab to capture…');
 
   let tab;
   try {
@@ -504,34 +561,51 @@ async function main() {
     return showError('The tab to capture no longer exists.');
   }
   $('source').textContent = tab.url || '';
+  step('tab', 'Found the tab', 'done');
   try { tabOrigin = new URL(tab.url).origin; } catch { /* not a URL */ }
 
   let page;
   try {
     let editorTexts = {};
+    step('editors', 'Looking for code editors and reading their text…');
     try {
       [{ result: editorTexts }] = await chrome.scripting.executeScript({ target: { tabId }, world: 'MAIN', func: readEditorsInMainWorld });
     } catch { /* editors fall back to the rows that are drawn */ }
+    const editorCount = Object.keys(editorTexts || {}).length;
+    if (editorCount) step('editors', `Read the full text of ${editorCount} code editor${editorCount === 1 ? '' : 's'} from the page`, 'done');
+    else dropStep('editors');
+
+    step('read', 'Reading the page…');
     [{ result: page }] = await chrome.scripting.executeScript({ target: { tabId }, func: extractPage, args: [editorTexts || {}] });
+    dropStep('read');
+    step('dom', 'Copied the page: DOM, styles, form values', 'done');
   } catch (err) {
     return showError(`Chrome does not allow reading this page (${err.message}). Pages such as chrome:// and the Web Store are off limits.`);
   }
 
   const capturedAt = new Date();
+  step('debugger', 'Asking the page which files it has already loaded…');
   const attached = await attachDebugger();
+  if (attached.ok) step('debugger', `The page has ${attached.count} files loaded that can be reused (no re-download)`, 'done');
+  else step('debugger', `Could not read the page's loaded files (${attached.error}); downloading everything instead`, 'warn');
+
+  step('assets', 'Finding and downloading the page\'s resources…');
   let html;
   try {
     html = await processDocument(page.main, page);
   } finally {
     await detachDebugger();
   }
+  $('now').textContent = '';
+  step('assets', `Saved ${resources.length} resources${fromBrowser ? ` (${fromBrowser} reused from the page)` : ''}${failures.length ? `; ${failures.length} could not be saved` : ''}`, failures.length ? 'warn' : 'done');
+  if (linkedFiles) step('files', `Saved ${linkedFiles} downloadable file${linkedFiles === 1 ? '' : 's'} next to the page`, 'done');
   const sourceNote = page.url.replace(/--/g, '%2D%2D').replace(/>/g, '%3E');
   html = html.replace(
     /^(<!doctype[^>]*>\s*)?/i,
     (doctype) => `${doctype}<!-- Saved by Page Snapshot from ${sourceNote} on ${capturedAt.toISOString()} -->\n`,
   );
 
-  $('status').textContent = 'Building ZIP…';
+  step('zip', 'Packing everything into a ZIP…');
   const manifest = {
     source_url: page.url,
     title: page.title,
@@ -556,7 +630,10 @@ async function main() {
   try { host = new URL(page.url).hostname; } catch { /* keep empty */ }
   const name = `${slugify(page.title, 60) || slugify(host) || 'page'}-${stamp(capturedAt)}.zip`;
   const blobUrl = URL.createObjectURL(zip);
+  step('zip', `Packed the ZIP (${resources.length + 2} files, ${(zip.size / (1024 * 1024)).toFixed(1)} MB)`, 'done');
+  step('save', 'Saving it to your Downloads folder…');
   triggerDownload(blobUrl, name);
+  step('save', 'Sent to your Downloads folder', 'done');
 
   document.title = 'Snapshot saved';
   $('bar').max = 1;

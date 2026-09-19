@@ -14,7 +14,7 @@ There is no build step and no dependencies.
 
 ## Use
 
-Click the toolbar button, or press **Alt+Shift+S**. A new tab shows progress, then downloads `<page-title>-<YYYYMMDD-HHmm>.zip`. Use **Back to page & close** to return to the page you captured.
+Click the toolbar button, or press **Alt+Shift+S**. A new tab shows what the extension is doing as it happens: a list with one line per phase (reading editors, stepping through each carousel item by item, copying the page, listing the files the page already loaded, downloading resources with running counts and the file being fetched right now, saving linked files, packing the ZIP), each with a spinner that turns into a check mark when done. It then downloads `<page-title>-<YYYYMMDD-HHmm>.zip`. Use **Back to page & close** to return to the page you captured.
 
 Unzip it and open `index.html`. You can turn off the network to check that it is self-contained.
 

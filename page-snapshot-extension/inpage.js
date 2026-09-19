@@ -140,6 +140,10 @@ export async function extractPage(editorTexts = {}) {
   const labelOf = (el) => el.getAttribute('aria-label') || '';
   const isDisabled = (el) => !el || el.disabled || el.getAttribute('aria-disabled') === 'true';
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  // Tell the capture page what we are doing so it can show it live (no-op outside an extension).
+  const report = (message) => {
+    try { chrome.runtime.sendMessage({ type: 'snapshot-progress', ...message }).catch(() => {}); } catch { /* not in an extension */ }
+  };
 
   async function settle(region) {
     await sleep(60);
@@ -163,12 +167,17 @@ export async function extractPage(editorTexts = {}) {
   async function explorePagers() {
     const pagers = {};
     const buttons = Array.from(document.querySelectorAll('button[aria-label], [role="button"][aria-label]'));
-    for (const next of buttons.filter((b) => NEXT_RE.test(labelOf(b)))) {
+    const candidates = buttons.filter((b) => NEXT_RE.test(labelOf(b)));
+    for (const [n, next] of candidates.entries()) {
+      const pager = n + 1;
+      const base = { pager, pagers: candidates.length };
       // The nav is the smallest ancestor holding both Next and Previous.
       let nav = next.parentElement;
       const findPrev = (root) => Array.from(root.querySelectorAll('[aria-label]')).find((b) => PREV_RE.test(labelOf(b)));
       for (let up = 0; nav && !findPrev(nav) && up < 5; up++) nav = nav.parentElement;
       if (!nav || !findPrev(nav) || nav === document.body || isDisabled(next)) continue;
+
+      report({ ...base, phase: 'carousel-probe' });
 
       // Remember what sits beside the nav on each level so we can find the item area. Compare
       // text and element count, not raw HTML: sibling controls (move up/down, counters) flip
@@ -199,6 +208,7 @@ export async function extractPage(editorTexts = {}) {
       if (!changed) { // nothing was swapped in: either all items already exist, or the click did nothing
         if (!isDisabled(currentPrev())) currentPrev().click();
         await sleep(150);
+        report({ ...base, phase: 'carousel-skip' });
         continue;
       }
       const region = changed.holder;
@@ -208,18 +218,22 @@ export async function extractPage(editorTexts = {}) {
       await settle(region);
 
       const pages = [fragmentHtml(region)];
+      report({ ...base, phase: 'carousel', item: 1 });
       while (pages.length < MAX_PAGER_ITEMS && !isDisabled(currentNext())) {
         currentNext().click();
         await settle(region);
         const html = fragmentHtml(region);
         if (html === pages[pages.length - 1]) break;
         pages.push(html);
+        report({ ...base, phase: 'carousel', item: pages.length });
       }
+      report({ ...base, phase: 'carousel-restore' });
       for (let i = 1; i < pages.length && !isDisabled(currentPrev()); i++) {
         currentPrev().click();
         await settle(region);
       }
 
+      report({ ...base, phase: pages.length > 1 ? 'carousel-done' : 'carousel-skip', items: pages.length });
       if (pages.length > 1) {
         const id = String(Object.keys(pagers).length + 1);
         region.setAttribute('data-snap-pager', id);
@@ -340,6 +354,7 @@ export async function extractPage(editorTexts = {}) {
   }
 
   const pagers = await explorePagers();
+  report({ phase: 'snapshot' });
   const main = snapshot(document, 0);
   document.querySelectorAll('[data-snap-pager]').forEach((el) => el.removeAttribute('data-snap-pager'));
   return {

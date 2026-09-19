@@ -1,9 +1,9 @@
 :root {
   color-scheme: light dark;
-  --bg: #fafafa; --fg: #1d1d1f; --muted: #6b6b70; --accent: #2563eb; --error: #b91c1c; --line: #d8d8dc;
+  --bg: #fafafa; --fg: #1d1d1f; --muted: #6b6b70; --accent: #2563eb; --error: #b91c1c; --line: #d8d8dc; --ok: #15803d; --warn: #b45309;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #17171a; --fg: #ececf0; --muted: #9a9aa2; --accent: #6ea0ff; --error: #ff8080; --line: #34343a; }
+  :root { --bg: #17171a; --fg: #ececf0; --muted: #9a9aa2; --accent: #6ea0ff; --error: #ff8080; --line: #34343a; --ok: #4ade80; --warn: #fbbf24; }
 }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
 main { max-width: 640px; margin: 8vh auto; padding: 0 16px; }
@@ -18,3 +18,16 @@ details { margin-top: 12px; }
 li { overflow-wrap: anywhere; margin: 4px 0; font-size: 13px; }
 #notes { padding-left: 1.2em; margin: 8px 0; }
 #notes .warn { color: var(--error); }
+#status { font-weight: 600; margin-bottom: 2px; }
+#now { font-size: 12px; margin: 0 0 8px; min-height: 1.4em; font-family: ui-monospace, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#steps { list-style: none; padding: 0; margin: 12px 0; }
+#steps li { position: relative; padding-left: 1.7em; margin: 5px 0; font-size: 14px; }
+#steps li::before { position: absolute; left: 0; top: 0; width: 1.2em; text-align: center; }
+#steps li.done { color: var(--muted); }
+#steps li.done::before { content: "\2713"; color: var(--ok); font-weight: 700; }
+#steps li.warn::before { content: "!"; color: var(--warn); font-weight: 700; }
+#steps li.fail { color: var(--error); }
+#steps li.fail::before { content: "\2717"; color: var(--error); font-weight: 700; }
+#steps li.running::before { content: ""; box-sizing: border-box; width: .85em; height: .85em; top: .33em; left: .15em; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { #steps li.running::before { animation: none; border-top-color: var(--line); background: var(--accent); } }
