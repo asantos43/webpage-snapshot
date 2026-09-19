@@ -40,11 +40,21 @@ Links (`<a href>`) are made absolute, so clicking one opens the real site when y
 
 - **It is a static snapshot.** Scripts are removed on purpose, because re-running them offline would re-render or break the page. Menus, tabs, carousels and anything else that needs JavaScript will not respond.
 - "…more" only works when the full text is already in the page and merely clipped. If a site cuts the text in JavaScript and downloads the rest when you click, the rest was never in the page and cannot be saved.
-- Cross-origin iframes (ads, embeds), `blob:`/streamed video, and closed shadow roots are not captured.
-- Resources over 30 MB, or past 800 MB total, are skipped. A skipped or failed resource keeps its online URL and is listed in `snapshot.json` and on the progress page.
+- Cross-origin iframes (ads, embeds, tracking frames), `blob:`/streamed video, and closed shadow roots are not captured.
+- Resources over 30 MB, or past 800 MB total, are skipped. A resource that could not be saved is listed in `snapshot.json` and on the progress page, and its reference is removed from the page (see below).
 - If Chrome refuses to attach the debugger (for example another debugging tool holds the tab), capture falls back to plain downloads, and login-only files may then fail.
 - Chrome does not let extensions read `chrome://` pages or the Chrome Web Store.
 - To capture `file://` pages, enable **Allow access to file URLs** for the extension on `chrome://extensions`.
+
+## The snapshot never goes online
+
+Opening `index.html` makes no network requests, so it is private and does not "phone home" (LinkedIn, for example, embeds hidden ad-verification and telemetry frames):
+
+- Scripts are removed, and so are `ping` attributes.
+- Cross-origin iframes cannot be captured. Invisible ones are removed; visible ones stay as an empty box with their original address kept in a `data-snapshot-src` attribute.
+- Any image, font, stylesheet or other file that could not be saved has its reference removed (or replaced with an empty `data:` URL in CSS) instead of pointing at the live site. Links you click (`<a href>`) still go to the real site.
+
+If a resource failed only because of a temporary problem (a timeout), the progress page lists it, so you can simply capture again.
 
 ## Where the files come from
 

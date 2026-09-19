@@ -118,6 +118,14 @@ export function extractPage() {
         const id = String(++frameCounter);
         clone.setAttribute('data-snap-frame', id);
         frames[id] = snapshot(frameDoc, ctx.depth + 1);
+      } else {
+        // Cross-origin: cannot be captured. Note whether it was visible so that invisible
+        // ones (ad verification, ID syncing) can be dropped instead of left phoning home.
+        const box = live.getBoundingClientRect();
+        const cs = live.ownerDocument.defaultView.getComputedStyle(live);
+        if (box.width < 2 || box.height < 2 || cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') {
+          clone.setAttribute('data-snap-hidden', '');
+        }
       }
       return;
     }

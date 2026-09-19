@@ -117,7 +117,8 @@ const URL_RE = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)"'\s\\][^)"'\s\\]*))\s*\)/gi;
  * @param {object} opts
  * @param {string} opts.prefix   path prepended to local file names ("" inside assets/, "assets/" from HTML)
  * @param {(absUrl: string, kind: 'css'|'bin') => Promise<string|null>} opts.resolve
- *        downloads the resource and returns its local file name, or null to keep the remote URL
+ *        downloads the resource and returns its local file name, or null if it could not be
+ *        saved. The reference is then dropped so the snapshot never goes online.
  */
 export async function rewriteCss(css, baseUrl, { prefix, resolve }) {
   css = css.replace(/^﻿/, '').replace(/^\s*@charset\s+["'][^"']*["']\s*;?/i, '');
@@ -128,7 +129,7 @@ export async function rewriteCss(css, baseUrl, { prefix, resolve }) {
     if (!url) return match;
     url.hash = '';
     const file = await resolve(url.href, 'css');
-    return file ? `@import "${prefix}${file}"` : `@import "${url.href}"`;
+    return file ? `@import "${prefix}${file}"` : '@import "data:text/css,"';
   });
 
   return replaceAsync(css, URL_RE, async (match, q1, q2, bare) => {
@@ -140,6 +141,6 @@ export async function rewriteCss(css, baseUrl, { prefix, resolve }) {
     url.hash = '';
     // Internet Explorer's .eot fonts are unsupported everywhere now; don't waste space on them.
     const file = /\.eot$/i.test(url.pathname) ? null : await resolve(url.href, 'bin');
-    return file ? `url("${prefix}${file}${hash}")` : `url("${url.href}${hash}")`;
+    return file ? `url("${prefix}${file}${hash}")` : 'url("data:,")';
   });
 }

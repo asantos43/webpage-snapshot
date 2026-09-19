@@ -264,7 +264,9 @@ async function localizeAttr(el, name, kind, base) {
   const hash = url.hash;
   url.hash = '';
   const file = await getAsset(url.href, kind);
-  el.setAttribute(name, file ? `assets/${file}${hash}` : url.href + hash);
+  if (file) el.setAttribute(name, `assets/${file}${hash}`);
+  else if (el.localName === 'link') el.remove(); // not saved: never leave a reference that goes online
+  else el.removeAttribute(name);
 }
 
 function absolutizeAttr(el, name, base) {
@@ -282,7 +284,7 @@ async function processElement(el, base, page, depth) {
   // <noscript> is removed, but its (re-parsed) children are still in the element list.
   if (el.parentElement?.closest('noscript')) return;
   for (const attr of Array.from(el.attributes)) {
-    if (/^on[a-z]+$/.test(attr.name) || ['integrity', 'crossorigin', 'nonce'].includes(attr.name)) {
+    if (/^on[a-z]+$/.test(attr.name) || ['integrity', 'crossorigin', 'nonce', 'ping'].includes(attr.name)) {
       el.removeAttribute(attr.name);
     }
   }
@@ -329,8 +331,12 @@ async function processElement(el, base, page, depth) {
         if (!url) return c;
         url.hash = '';
         const file = await getAsset(url.href, 'bin');
-        return { ...c, url: file ? `assets/${file}` : url.href };
-      })).then((done) => el.setAttribute('srcset', serializeSrcset(done))),
+        return file ? { ...c, url: `assets/${file}` } : null;
+      })).then((done) => {
+        const kept = done.filter(Boolean);
+        if (kept.length) el.setAttribute('srcset', serializeSrcset(kept));
+        else el.removeAttribute('srcset');
+      }),
     );
   }
 
@@ -347,8 +353,13 @@ async function processElement(el, base, page, depth) {
           el.removeAttribute('data-snap-frame');
         }),
       );
+    } else if (el.hasAttribute('data-snap-hidden')) {
+      el.remove(); // invisible third-party frame (tracking, ID sync, ad verification)
     } else {
-      absolutizeAttr(el, 'src', base);
+      // Cross-origin frame that could not be captured: keep the box, but do not load it.
+      const src = fetchableUrl(el.getAttribute('src'), base);
+      if (src) el.setAttribute('data-snapshot-src', src.href);
+      el.removeAttribute('src');
     }
   }
 
@@ -466,7 +477,7 @@ async function main() {
 
   if (failures.length) {
     $('failed-box').hidden = false;
-    $('failed-summary').textContent = `${failures.length} resource${failures.length === 1 ? '' : 's'} could not be saved (the page keeps the online link)`;
+    $('failed-summary').textContent = `${failures.length} resource${failures.length === 1 ? '' : 's'} could not be saved (their references were removed so the page never goes online)`;
     for (const f of failures) {
       const li = document.createElement('li');
       li.textContent = `${f.url} — ${f.reason}`;
