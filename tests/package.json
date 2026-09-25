@@ -1,0 +1,12 @@
+{
+  "name": "webpage-snapshot-tests",
+  "private": true,
+  "description": "Tests that load the Page Snapshot extension in a real Chromium (Playwright).",
+  "type": "module",
+  "scripts": {
+    "smoke": "node smoke.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

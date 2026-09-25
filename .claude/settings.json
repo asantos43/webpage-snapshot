@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(npm run smoke*)",
+      "Bash(npm run -s smoke*)",
+      "Bash(node smoke.mjs*)",
+      "Bash(node --check *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)"
+    ]
+  }
+}

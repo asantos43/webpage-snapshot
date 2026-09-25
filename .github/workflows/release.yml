@@ -1,0 +1,180 @@
+# Publishes a release of the extension every time a pull request is merged into main, and on
+# demand (Actions → Release → Run workflow).
+# Version: the one in page-snapshot-extension/manifest.json if it has no release yet (so a
+# pull request that raises it to e.g. 1.1.0 or 2.0.0 is released as that); otherwise its last number
+# goes up by one (1.0.0 → 1.0.1). On demand, a version typed in "version" wins. A new version is
+# written to the manifest and committed to main as "Version x.y.z", together with CHANGELOG.md,
+# whose "Unreleased" section becomes the version's section. The smoke test must pass, then the
+# extension folder (plus CHANGELOG.md) is zipped and published as the GitHub release v<version>,
+# whose notes are that changelog section.
+name: Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 1.1.0). Empty = the manifest version if unreleased, else the next one (1.0.0 → 1.0.1)'
+        required: false
+        default: ''
+      prerelease:
+        description: 'Mark as pre-release'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  EXT_DIR: page-snapshot-extension
+
+jobs:
+  release:
+    # A pull request closed without merging releases nothing.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Only from main
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Run the release from main (was ${GITHUB_REF})."
+          exit 1
+
+      # The current tip of main, not the merge commit: when two merges queue up, the second run
+      # then sees the first one's "Version" commit and releases the next number.
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+
+      - name: Work out the version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          current=$(jq -r .version "$EXT_DIR/manifest.json")
+          released() { git ls-remote --exit-code --tags origin "refs/tags/v$1" >/dev/null; }
+          if [ -n "$INPUT_VERSION" ]; then
+            version=$INPUT_VERSION
+          elif ! released "$current"; then
+            version=$current
+          else
+            # Raise the last number: 1.0.0 → 1.0.1, 1.2 → 1.3.
+            version=$(echo "$current" | awk -F. -v OFS=. '{ $NF = $NF + 1; print }')
+          fi
+          # Chrome accepts one to four dot-separated integers.
+          if ! [[ $version =~ ^[0-9]+(\.[0-9]+){0,3}$ ]]; then
+            echo "::error::Invalid version '$version' (expected e.g. 1.1.0)."
+            exit 1
+          fi
+          if released "$version"; then
+            echo "::error::Tag v$version already exists. Type a new version."
+            exit 1
+          fi
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Raise the version in manifest.json
+        if: steps.version.outputs.version != steps.version.outputs.current
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # Replace only the "version" line so the file keeps its formatting.
+          sed -i -E "0,/\"version\": \"[^\"]*\"/s//\"version\": \"$VERSION\"/" "$EXT_DIR/manifest.json"
+          test "$(jq -r .version "$EXT_DIR/manifest.json")" = "$VERSION"
+
+      - name: Turn the changelog's Unreleased section into this version's
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          python3 - <<'EOF'
+          import datetime, os, re
+          version = os.environ['VERSION']
+          text = open('CHANGELOG.md', encoding='utf-8').read()
+          # Each section runs from its "## [name]" heading to the next one.
+          heads = list(re.finditer(r'^## \[([^\]]+)\].*$', text, re.M))
+          def body(name):
+              for i, m in enumerate(heads):
+                  if m.group(1) == name:
+                      end = heads[i + 1].start() if i + 1 < len(heads) else len(text)
+                      return m, text[m.end():end].strip()
+              return None, None
+          head, notes = body(version)
+          if head is None:  # the usual case: move Unreleased under a new heading for this version
+              head, notes = body('Unreleased')
+              date = datetime.date.today().isoformat()
+              section = f'## [{version}] - {date}\n\n' + (notes + '\n\n' if notes else '')
+              rest = text[head.end():].lstrip('\n')
+              if notes:
+                  rest = rest[len(notes):].lstrip('\n')
+              text = text[:head.end()] + '\n\n' + section + rest
+              open('CHANGELOG.md', 'w', encoding='utf-8').write(text)
+          open('changelog-notes.md', 'w', encoding='utf-8').write((notes or 'No changes were listed in CHANGELOG.md.') + '\n')
+          EOF
+          cat changelog-notes.md
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/package-lock.json
+
+      - name: Install Playwright and its Chromium
+        working-directory: tests
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Smoke test
+        working-directory: tests
+        run: npm run smoke
+
+      - name: Commit the new version and changelog
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -am "Version $VERSION"
+          git push origin HEAD:main
+
+      - name: Build the zip
+        id: zip
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          name="page-snapshot-$VERSION.zip"
+          # Only the files git tracks, plus the changelog.
+          git ls-files "$EXT_DIR" > files.txt
+          (cd "$EXT_DIR" && sed "s|^$EXT_DIR/||" ../files.txt | zip -X -q "../$name" -@)
+          zip -X -q -j "$name" CHANGELOG.md
+          unzip -l "$name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          ZIP: ${{ steps.zip.outputs.name }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          cp changelog-notes.md notes.md
+          cat >> notes.md <<EOF
+
+          ---
+
+          Works in Chromium browsers such as Chrome, Opera and Edge. Unpack the zip into a fixed folder and load it in \`chrome://extensions\`, \`opera://extensions\` or \`edge://extensions\` (Developer mode → Load unpacked).
+          EOF
+          flags=()
+          [ "$PRERELEASE" = true ] && flags+=(--prerelease)
+          gh release create "v$VERSION" "$ZIP" \
+            --target "$(git rev-parse HEAD)" \
+            --title "Page Snapshot $VERSION" \
+            --notes-file notes.md \
+            "${flags[@]}"
