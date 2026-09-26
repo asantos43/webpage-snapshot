@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-26
+
 - Progress now opens in a small window beside the page instead of a new tab, so the page stays
   visible and carousels are recorded at full speed. **OK** closes the window once you have read the
   results; **Cancel** stops a capture in progress, puts carousels back to their first item and saves

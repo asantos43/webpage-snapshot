@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Page Snapshot",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Save the page you are looking at as a ZIP with all its CSS, images and fonts, so it opens offline exactly as you saw it.",
   "minimum_chrome_version": "111",
   "permissions": ["scripting", "debugger"],
