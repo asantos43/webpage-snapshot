@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Page Snapshot</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <h1>Page Snapshot</h1>
+    <p id="source" class="muted"></p>
+    <p id="other" class="note" hidden>This is the capture of another tab. It must finish, or be cancelled, before this tab can be captured.</p>
+    <details id="help">
+      <summary>Help</summary>
+      <p>This popup saves the page you are looking at as a ZIP that opens offline. It reads the page, steps through each carousel, reuses the files the page already loaded and downloads the rest; then the ZIP goes to your Downloads folder.</p>
+      <ul>
+        <li><strong>You can close this popup</strong> (or click on the page): the capture carries on. Click the extension's icon again to see how it is going. The icon's badge shows <strong>…</strong> while it runs, <strong>✓</strong> when it is done and <strong>!</strong> if it failed.</li>
+        <li><strong>Cancel</strong> stops the capture: carousels go back to their first item and nothing is saved.</li>
+        <li><strong>OK</strong> becomes available when the capture ends; it clears the result, so the next click on the icon captures the page again.</li>
+        <li><strong>Download again</strong> saves the same ZIP once more.</li>
+        <li>One capture runs at a time. While the capture runs, the browser shows an "Extension started debugging this browser" bar on the page; it is used to read the files the page already loaded and goes away at the end.</li>
+        <li>Unzip the file and open <code>index.html</code>. Anything that could not be saved is listed below the results and is left out of the snapshot, which never goes online.</li>
+      </ul>
+    </details>
+    <progress id="bar"></progress>
+    <p id="status" role="status">Starting…</p>
+    <p id="now" class="muted"></p>
+    <ol id="steps" aria-label="What the extension is doing"></ol>
+    <p id="error" class="error" role="alert" hidden></p>
+    <ul id="notes" class="muted" hidden></ul>
+    <details id="failed-box" hidden>
+      <summary id="failed-summary"></summary>
+      <ul id="failed"></ul>
+    </details>
+  </main>
+  <footer id="buttons">
+    <button id="download" type="button" hidden>Download again</button>
+    <button id="cancel" type="button">Cancel</button>
+    <button id="ok" type="button" class="primary" disabled>OK</button>
+  </footer>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

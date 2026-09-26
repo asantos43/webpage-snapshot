@@ -4,7 +4,8 @@
   "description": "Tests that load the Page Snapshot extension in a real Chromium (Playwright).",
   "type": "module",
   "scripts": {
-    "smoke": "node smoke.mjs"
+    "smoke": "node smoke.mjs",
+    "carousel": "node carousel.mjs"
   },
   "devDependencies": {
     "playwright": "^1.63.0"

@@ -16,7 +16,7 @@ Os detalhes técnicos (o que é capturado, de onde vêm os arquivos, limitaçõe
 - **Carrosséis:** a extensão percorre cada item na página ao vivo (e a devolve ao estado em que estava) e embute todos no snapshot.
 - **Arquivos para download:** links `<a download>` e documentos do mesmo site (`.zip`, `.pdf`, `.csv`…), até 25 arquivos, vão para `assets/`.
 - **Texto cortado com "…mais"** por clamp de CSS aparece inteiro.
-- **Progresso ao vivo:** uma pequena janela no centro da janela do navegador mostra cada fase com contadores e o arquivo sendo baixado naquele momento, com os botões **OK** e **Cancel** e uma seção **Help**.
+- **Progresso ao vivo:** o popup da extensão, embaixo do ícone, mostra cada fase com contadores e o arquivo sendo baixado naquele momento, com os botões **OK** e **Cancel** e uma seção **Help**. A captura continua mesmo com o popup fechado.
 
 ## Privacidade: o snapshot nunca acessa a rede
 
@@ -48,13 +48,15 @@ Cada versão é publicada em **Releases** no GitHub como `page-snapshot-<versão
 
 ## Usar
 
-Clique no botão da barra de ferramentas ou aperte **Alt+Shift+S**. Uma pequena janela abre no centro da janela do navegador, mostra o progresso e, no fim, baixa `<título-da-página>-<AAAAMMDD-HHmm>.zip`.
+Clique no botão da barra de ferramentas ou aperte **Alt+Shift+S**. O popup da extensão abre embaixo do ícone, mostra o progresso e, no fim, baixa `<título-da-página>-<AAAAMMDD-HHmm>.zip`.
 
-- **OK** fica disponível quando a captura termina: fecha a janela e volta para a página capturada. **Download again** baixa o mesmo ZIP de novo.
-- **Cancel** (ou fechar a janela) interrompe a captura: os carrosséis voltam ao primeiro item e nada é salvo.
-- **Help** resume esses pontos na própria janela.
+- Você pode fechar o popup ou clicar na página: a captura continua em segundo plano. Clique no ícone de novo para ver como está. O selo do ícone mostra **…** enquanto roda, **✓** quando termina e **!** se falhou.
+- **OK** fica disponível quando a captura termina: limpa o resultado, e o próximo clique no ícone captura a página de novo. **Download again** baixa o mesmo ZIP de novo.
+- **Cancel** interrompe a captura: os carrosséis voltam ao primeiro item e nada é salvo.
+- Uma captura por vez. Abrir o popup em outra aba enquanto uma captura roda mostra essa captura.
+- **Help** resume esses pontos no próprio popup.
 
-O progresso fica numa janela separada, e não numa aba, de propósito: a página capturada continua sendo a aba visível atrás dela e o navegador não a deixa lenta enquanto os carrosséis são percorridos. Você pode mover a janela de progresso para onde quiser; só não minimize a janela do navegador até a captura terminar.
+A página capturada continua sendo a aba visível com o popup aberto por cima, então o navegador não a deixa lenta enquanto os carrosséis são percorridos; só não minimize a janela do navegador até a captura terminar.
 
 Descompacte e abra o `index.html`:
 

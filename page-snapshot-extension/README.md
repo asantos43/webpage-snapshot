@@ -14,9 +14,14 @@ There is no build step and no dependencies.
 
 ## Use
 
-Click the toolbar button, or press **Alt+Shift+S**. A small window opens in the middle of the browser window and shows what the extension is doing as it happens: a list with one line per phase (reading editors, stepping through each carousel item by item, copying the page, listing the files the page already loaded, downloading resources with running counts and the file being fetched right now, saving linked files, packing the ZIP), each with a spinner that turns into a check mark when done. It then downloads `<page-title>-<YYYYMMDD-HHmm>.zip`. When it is done, read the results and press **OK** to close the window and return to the page you captured (**Download again** saves the ZIP once more). **Cancel** (or closing the window) stops a capture in progress: carousels are put back to their first item and nothing is saved.
+Click the toolbar button, or press **Alt+Shift+S**. The extension's popup opens under its icon and shows what it is doing as it happens: a list with one line per phase (reading editors, stepping through each carousel item by item, copying the page, listing the files the page already loaded, downloading resources with running counts and the file being fetched right now, saving linked files, packing the ZIP), each with a spinner that turns into a check mark when done. It then downloads `<page-title>-<YYYYMMDD-HHmm>.zip`.
 
-The progress is a separate window rather than a new tab on purpose: the page you capture stays the visible tab behind it, so the browser does not slow it down while carousels are stepped through. You can move the progress window anywhere; just keep the browser window from being minimized until the capture ends. The window's **Help** section explains all this in short.
+- You can close the popup, or click on the page: the capture carries on in the background. Click the icon again to see how it is going. The icon's badge shows **…** while it runs, **✓** when it is done and **!** if it failed.
+- When it is done, read the results and press **OK**, which clears them so the next click captures the page again. **Download again** saves the ZIP once more.
+- **Cancel** stops a capture in progress: carousels are put back to their first item and nothing is saved.
+- One capture runs at a time. Opening the popup on another tab while one runs shows that capture.
+
+The page you capture stays the visible tab while the popup is open over it, so the browser does not slow it down while carousels are stepped through; just keep the browser window from being minimized until the capture ends. The popup's **Help** section explains all this in short.
 
 Unzip it and open `index.html`. You can turn off the network to check that it is self-contained.
 
@@ -34,7 +39,7 @@ snapshot.json     source URL, title, capture time, every resource saved, and eve
 - Stylesheets, including `@import` chains, `url()` references (fonts, backgrounds), inline `<style>` and `style=""` attributes, and styles created from JavaScript (`insertRule`, adopted stylesheets).
 - Images, including `srcset` and `<picture>` (the image the browser actually picked is kept), video posters, and small audio/video files.
 - Collapsed sections ("Overview", FAQs, accordions) and tabs with their hidden content. They still open, close and switch when you click them, and "Expand All" / "Collapse All" buttons work.
-- Code and text editors (Monaco, the VS Code editor, used for prompts and patch viewers). Such editors draw only the visible lines and scroll with JavaScript, so they are saved as ordinary scrollable, selectable text instead. The text is taken from the complete linked file when the editor has a download link, otherwise read from the editor itself; if neither works, only the lines that were on screen are saved and the progress page warns you. Their "Copy file" and "word wrap" buttons keep working.
+- Code and text editors (Monaco, the VS Code editor, used for prompts and patch viewers). Such editors draw only the visible lines and scroll with JavaScript, so they are saved as ordinary scrollable, selectable text instead. The text is taken from the complete linked file when the editor has a download link, otherwise read from the editor itself; if neither works, only the lines that were on screen are saved and the popup warns you. Their "Copy file" and "word wrap" buttons keep working.
 - Carousels with "Next item" / "Previous item" buttons. Many only keep the current item in the page, so the extension briefly steps through every item of the live page (and returns it to where it was), then embeds all of them. Previous/Next work offline.
 - Downloadable files: `<a download>` links (attachments, patches, whose links are often temporary signed URLs), plus links on the same site to archives and documents (`.zip`, `.pdf`, `.csv`, ...), up to 25 files, are saved into `assets/` and the links point to them.
 - Open shadow DOM (web components) and same-origin iframes.
@@ -47,7 +52,7 @@ Links (`<a href>`) are made absolute, so clicking one opens the real site when y
 - **Only some interactivity survives.** The page's own scripts are removed on purpose, because re-running them offline would re-render or break the page. Instead the extension embeds a small script of its own (`lib/interactions.js`, no network access) that restores behaviour whose content is already in the saved page: collapsible sections / accordions, "Expand all" / "Collapse all" buttons, tabs, carousels and editor buttons. Menus, search boxes, drop-down pickers (such as a carousel's "jump to item" list) and anything else that needs the site's own code will not respond, and content a page only builds when you click, rather than hiding it, was never in the page and cannot be saved.
 - "…more" only works when the full text is already in the page and merely clipped. If a site cuts the text in JavaScript and downloads the rest when you click, the rest was never in the page and cannot be saved.
 - Cross-origin iframes (ads, embeds, tracking frames), `blob:`/streamed video, and closed shadow roots are not captured.
-- Resources over 30 MB, or past 800 MB total, are skipped. A resource that could not be saved is listed in `snapshot.json` and on the progress page, and its reference is removed from the page (see below).
+- Resources over 30 MB, or past 800 MB total, are skipped. A resource that could not be saved is listed in `snapshot.json` and in the popup, and its reference is removed from the page (see below).
 - If Chrome refuses to attach the debugger (for example another debugging tool holds the tab), capture falls back to plain downloads, and login-only files may then fail.
 - Chrome does not let extensions read `chrome://` pages or the Chrome Web Store.
 - To capture `file://` pages, enable **Allow access to file URLs** for the extension on `chrome://extensions`.
@@ -60,7 +65,7 @@ Opening `index.html` makes no network requests, so it is private and does not "p
 - Cross-origin iframes cannot be captured. Invisible ones are removed; visible ones stay as an empty box with their original address kept in a `data-snapshot-src` attribute.
 - Any image, font, stylesheet or other file that could not be saved has its reference removed (or replaced with an empty `data:` URL in CSS) instead of pointing at the live site. Links you click (`<a href>`) still go to the real site.
 
-If a resource failed only because of a temporary problem (a timeout), the progress page lists it, so you can simply capture again.
+If a resource failed only because of a temporary problem (a timeout), the popup lists it, so you can simply capture again.
 
 ## Where the files come from
 
@@ -71,7 +76,7 @@ Chrome gives extensions no direct access to its disk cache. Instead, during a ca
 
 Downloads are throttled to 4 at a time per site, and a rate-limited response (HTTP 429/503) is retried up to 3 times with back-off, honouring `Retry-After`. Big sites such as LinkedIn rate-limit bursts of requests.
 
-`snapshot.json` records `"source": "page"` (the tab's loaded resources), `"tab"` or `"network"` for every resource. If the debugger could not be attached, the reason is shown on the progress page and stored in `snapshot.json` under `"debugger"`.
+`snapshot.json` records `"source": "page"` (the tab's loaded resources), `"tab"` or `"network"` for every resource. If the debugger could not be attached, the reason is shown in the popup and stored in `snapshot.json` under `"debugger"`.
 
 While it runs, Chrome shows an "Extension started debugging this browser" bar on the tab. It disappears when the capture finishes.
 
@@ -80,6 +85,9 @@ While it runs, Chrome shows an "Extension started debugging this browser" bar on
 - **All sites (`<all_urls>`)**: needed to download a page's remaining assets from other domains (CDNs) without being blocked by CORS.
 - **`debugger`**: needed to read the resources the tab already loaded, as described above.
 - **`scripting`**: needed to read the DOM of the tab you clicked on.
+- **`offscreen`**: the capture runs in a hidden extension page, so it carries on when the popup closes.
+- **`downloads`**: saves the finished ZIP to your Downloads folder (the popup may be closed by then).
+- **`storage`**: keeps the capture's progress for the popup while it runs (session storage, cleared when the browser closes).
 
 The extension only touches a tab when you click the button, and nothing is sent anywhere: everything stays in your browser until the ZIP is saved to disk.
 
@@ -88,9 +96,10 @@ The extension only touches a tab when you click the button, and nothing is sent 
 | File | Role |
 | --- | --- |
 | `manifest.json` | Manifest V3 config |
-| `background.js` | Opens the capture page in a small window when the button is clicked |
+| `background.js` | Service worker: starts a capture when the popup opens, keeps its progress, and makes the tab, debugger and download calls for the offscreen page |
+| `popup.html/.css/.js` | The popup under the icon: progress, OK, Cancel, Download again, Help |
+| `offscreen.html/.js` | Hidden page that does the capture: downloads assets, rewrites URLs, builds the ZIP |
 | `inpage.js` | Runs inside the tab; snapshots the live DOM and its state |
-| `capture.html/.css/.js` | Progress page; downloads assets, rewrites URLs, builds the ZIP |
 | `lib/helpers.js` | Pure helpers: CSS/`srcset` rewriting, file naming |
 | `lib/zip.js` | Dependency-free ZIP writer |
 | `inpage-main.js` | Runs in the page's own JavaScript world to read the full text of Monaco editors |

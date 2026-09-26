@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Page Snapshot",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Save the page you are looking at as a ZIP with all its CSS, images and fonts, so it opens offline exactly as you saw it.",
-  "minimum_chrome_version": "111",
-  "permissions": ["scripting", "debugger"],
+  "minimum_chrome_version": "116",
+  "permissions": ["scripting", "debugger", "offscreen", "downloads", "storage"],
   "host_permissions": ["<all_urls>"],
-  "background": { "service_worker": "background.js" },
-  "action": { "default_title": "Save page snapshot (offline ZIP)" },
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_title": "Save page snapshot (offline ZIP)", "default_popup": "popup.html" },
   "commands": {
     "_execute_action": {
       "suggested_key": { "default": "Alt+Shift+S" },
