@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-26
+
 - Progress now shows in the extension's popup under its icon, like other extensions, instead of a
   separate window (which the desktop placed wherever it wanted on Linux/Wayland). The capture runs in
   the background: you can close the popup or click on the page, and clicking the icon again shows
