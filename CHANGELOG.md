@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- The progress window now opens in the middle of the browser window instead of at its right edge.
+
 ## [1.0.1] - 2026-09-26
 
 - Progress now opens in a small window beside the page instead of a new tab, so the page stays

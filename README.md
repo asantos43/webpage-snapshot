@@ -16,7 +16,7 @@ Os detalhes técnicos (o que é capturado, de onde vêm os arquivos, limitaçõe
 - **Carrosséis:** a extensão percorre cada item na página ao vivo (e a devolve ao estado em que estava) e embute todos no snapshot.
 - **Arquivos para download:** links `<a download>` e documentos do mesmo site (`.zip`, `.pdf`, `.csv`…), até 25 arquivos, vão para `assets/`.
 - **Texto cortado com "…mais"** por clamp de CSS aparece inteiro.
-- **Progresso ao vivo:** uma pequena janela ao lado da página mostra cada fase com contadores e o arquivo sendo baixado naquele momento, com os botões **OK** e **Cancel** e uma seção **Help**.
+- **Progresso ao vivo:** uma pequena janela no centro da janela do navegador mostra cada fase com contadores e o arquivo sendo baixado naquele momento, com os botões **OK** e **Cancel** e uma seção **Help**.
 
 ## Privacidade: o snapshot nunca acessa a rede
 
@@ -48,7 +48,7 @@ Cada versão é publicada em **Releases** no GitHub como `page-snapshot-<versão
 
 ## Usar
 
-Clique no botão da barra de ferramentas ou aperte **Alt+Shift+S**. Uma pequena janela abre ao lado da página, mostra o progresso e, no fim, baixa `<título-da-página>-<AAAAMMDD-HHmm>.zip`.
+Clique no botão da barra de ferramentas ou aperte **Alt+Shift+S**. Uma pequena janela abre no centro da janela do navegador, mostra o progresso e, no fim, baixa `<título-da-página>-<AAAAMMDD-HHmm>.zip`.
 
 - **OK** fica disponível quando a captura termina: fecha a janela e volta para a página capturada. **Download again** baixa o mesmo ZIP de novo.
 - **Cancel** (ou fechar a janela) interrompe a captura: os carrosséis voltam ao primeiro item e nada é salvo.
