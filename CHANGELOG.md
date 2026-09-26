@@ -6,7 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
-- The progress window now opens in the middle of the browser window instead of at its right edge.
+- The progress window now opens in the middle of the browser window instead of at its right edge;
+  its Help and the READMEs say so.
 
 ## [1.0.1] - 2026-09-26
 

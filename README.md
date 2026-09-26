@@ -54,7 +54,7 @@ Clique no botão da barra de ferramentas ou aperte **Alt+Shift+S**. Uma pequena 
 - **Cancel** (ou fechar a janela) interrompe a captura: os carrosséis voltam ao primeiro item e nada é salvo.
 - **Help** resume esses pontos na própria janela.
 
-O progresso fica numa janela separada, e não numa aba, de propósito: a página capturada continua sendo a aba visível e o navegador não a deixa lenta enquanto os carrosséis são percorridos. Não minimize a janela do navegador até a captura terminar.
+O progresso fica numa janela separada, e não numa aba, de propósito: a página capturada continua sendo a aba visível atrás dela e o navegador não a deixa lenta enquanto os carrosséis são percorridos. Você pode mover a janela de progresso para onde quiser; só não minimize a janela do navegador até a captura terminar.
 
 Descompacte e abra o `index.html`:
 
