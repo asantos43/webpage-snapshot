@@ -144,6 +144,10 @@ export async function extractPage(editorTexts = {}) {
   const report = (message) => {
     try { chrome.runtime.sendMessage({ type: 'snapshot-progress', ...message }).catch(() => {}); } catch { /* not in an extension */ }
   };
+  // Cancel on the capture page: stop recording, but still put each carousel back to item 1.
+  let cancelled = false;
+  const onCancel = (msg) => { if (msg?.type === 'snapshot-cancel') cancelled = true; };
+  try { chrome.runtime.onMessage.addListener(onCancel); } catch { /* not in an extension */ }
 
   async function settle(region) {
     await sleep(60);
@@ -169,6 +173,7 @@ export async function extractPage(editorTexts = {}) {
     const buttons = Array.from(document.querySelectorAll('button[aria-label], [role="button"][aria-label]'));
     const candidates = buttons.filter((b) => NEXT_RE.test(labelOf(b)));
     for (const [n, next] of candidates.entries()) {
+      if (cancelled) break;
       const pager = n + 1;
       const base = { pager, pagers: candidates.length };
       // The nav is the smallest ancestor holding both Next and Previous.
@@ -219,7 +224,7 @@ export async function extractPage(editorTexts = {}) {
 
       const pages = [fragmentHtml(region)];
       report({ ...base, phase: 'carousel', item: 1 });
-      while (pages.length < MAX_PAGER_ITEMS && !isDisabled(currentNext())) {
+      while (!cancelled && pages.length < MAX_PAGER_ITEMS && !isDisabled(currentNext())) {
         currentNext().click();
         await settle(region);
         const html = fragmentHtml(region);
@@ -353,7 +358,16 @@ export async function extractPage(editorTexts = {}) {
     };
   }
 
-  const pagers = await explorePagers();
+  let pagers;
+  try {
+    pagers = await explorePagers();
+  } finally {
+    try { chrome.runtime.onMessage.removeListener(onCancel); } catch { /* not in an extension */ }
+  }
+  if (cancelled) {
+    document.querySelectorAll('[data-snap-pager]').forEach((el) => el.removeAttribute('data-snap-pager'));
+    return { cancelled: true };
+  }
   report({ phase: 'snapshot' });
   const main = snapshot(document, 0);
   document.querySelectorAll('[data-snap-pager]').forEach((el) => el.removeAttribute('data-snap-pager'));

@@ -6,6 +6,11 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- Progress now opens in a small window beside the page instead of a new tab, so the page stays
+  visible and carousels are recorded at full speed. **OK** closes the window once you have read the
+  results; **Cancel** stops a capture in progress, puts carousels back to their first item and saves
+  nothing.
+
 ## [1.0.0] - 2026-09-25
 
 First release of Page Snapshot, maintained by Anderson Santos (asantos35@gmail.com). It gathers

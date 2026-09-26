@@ -16,15 +16,16 @@
     <ol id="steps" aria-label="What the extension is doing"></ol>
     <p id="error" class="error" role="alert" hidden></p>
     <ul id="notes" class="muted" hidden></ul>
-    <div id="actions" hidden>
-      <button id="download" type="button">Download again</button>
-      <button id="close" type="button">Back to page &amp; close</button>
-    </div>
     <details id="failed-box" hidden>
       <summary id="failed-summary"></summary>
       <ul id="failed"></ul>
     </details>
   </main>
+  <footer id="buttons">
+    <button id="download" type="button" hidden>Download again</button>
+    <button id="cancel" type="button">Cancel</button>
+    <button id="ok" type="button" class="primary" disabled>OK</button>
+  </footer>
   <script type="module" src="capture.js"></script>
 </body>
 </html>
