@@ -1,5 +1,7 @@
-import { extractPage } from './inpage.js';
-import { readEditorsInMainWorld } from './inpage-main.js';
+// The capture itself, in an offscreen document (see background.js): it keeps running while the
+// popup is closed. Offscreen documents can only use chrome.runtime, so tab, debugger and
+// download calls go through the service worker (`call`), and progress is published as a
+// state object that the popup renders (`publish`).
 import { buildZip } from './lib/zip.js';
 import { interactionsRuntime } from './lib/interactions.js';
 import {
@@ -29,30 +31,46 @@ const SRC_ATTRS = {
 };
 const COMPRESSIBLE = /\.(css|svg|json|txt|xml|html|bmp|ico)$/i;
 
-const $ = (id) => document.getElementById(id);
-const tabId = Number(new URLSearchParams(location.search).get('tabId'));
+const params = new URLSearchParams(location.search);
+const tabId = Number(params.get('tabId'));
+const jobId = params.get('job');
+const version = params.get('version'); // offscreen documents have no chrome.runtime.getManifest
+
+async function call(op, args = {}) {
+  const reply = await chrome.runtime.sendMessage({ type: 'rpc', op, args: { tabId, ...args } });
+  if (!reply || reply.error) throw new Error(reply?.error || 'no answer from the extension');
+  return reply.value;
+}
 
 // ---------------------------------------------------------------- live activity list
 // One line per phase: a spinner while it runs, a check mark when done. The running phase is
 // also the headline, so you always see what the extension is doing right now.
 
-const stepEls = new Map();
+const state = { jobId, phase: 'running', status: 'Starting…', now: '', bar: null, steps: [], notes: [], failures: [], error: '', download: null };
+let publishTimer = null;
 
-function step(id, text, state = 'running') {
-  let li = stepEls.get(id);
-  if (!li) {
-    li = document.createElement('li');
-    stepEls.set(id, li);
-    $('steps').append(li);
-  }
-  li.className = state;
-  li.textContent = text;
-  if (state === 'running') $('status').textContent = text;
+// Send the state to the service worker, at most every 150 ms (`now` = immediately).
+function publish(now = false) {
+  if (publishTimer && !now) return;
+  clearTimeout(publishTimer);
+  publishTimer = setTimeout(() => {
+    publishTimer = null;
+    chrome.runtime.sendMessage({ type: 'job-state', state }).catch(() => {});
+  }, now ? 0 : 150);
+}
+
+function step(id, text, st = 'running') {
+  let s = state.steps.find((x) => x.id === id);
+  if (!s) state.steps.push((s = { id }));
+  s.text = text;
+  s.state = st;
+  if (st === 'running') state.status = text;
+  publish();
 }
 
 function dropStep(id) {
-  stepEls.get(id)?.remove();
-  stepEls.delete(id);
+  state.steps = state.steps.filter((x) => x.id !== id);
+  publish();
 }
 
 function shortUrl(url) {
@@ -98,8 +116,6 @@ let finished = 0;
 let fromBrowser = 0; // resources read from what the tab had already loaded
 let tabOrigin = ''; // origin of the captured tab, for fetching from inside it
 let pageResources = null; // remote URL -> { frameId, mimeType }, via the debugger API
-let captureDone = false; // finished or failed: OK is available, Cancel is not
-let cancelled = false;
 
 function createLimiter(max) {
   let active = 0;
@@ -122,8 +138,7 @@ const limitedByHost = (url, fn) => {
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function progress() {
-  $('bar').max = queued;
-  $('bar').value = finished;
+  state.bar = { max: queued, value: finished };
   const parts = [`${finished} of ${queued}`];
   if (fromBrowser) parts.push(`${fromBrowser} from the page`);
   if (failures.length) parts.push(`${failures.length} failed`);
@@ -149,21 +164,14 @@ function base64ToBytes(b64) {
 // already loaded. Never throws: on failure capture carries on with plain downloads
 // and the reason is reported to the user.
 async function attachDebugger() {
-  if (!chrome.debugger) {
-    return { ok: false, error: "the 'debugger' permission is missing; reload the extension at chrome://extensions" };
-  }
   try {
-    await chrome.debugger.attach({ tabId }, '1.3');
+    await call('attach');
   } catch (err) {
     return { ok: false, error: err.message || String(err) };
   }
-  if (cancelled) { // Cancel was pressed while attaching: don't leave the debugger bar behind
-    await detachDebugger();
-    return { ok: false, error: 'cancelled' };
-  }
   try {
-    await chrome.debugger.sendCommand({ tabId }, 'Page.enable').catch(() => {});
-    const { frameTree } = await chrome.debugger.sendCommand({ tabId }, 'Page.getResourceTree');
+    await call('command', { method: 'Page.enable' }).catch(() => {});
+    const { frameTree } = await call('command', { method: 'Page.getResourceTree' });
     pageResources = new Map();
     const visit = (node) => {
       for (const r of node.resources || []) {
@@ -182,7 +190,7 @@ async function attachDebugger() {
 
 async function detachDebugger() {
   pageResources = null;
-  try { await chrome.debugger.detach({ tabId }); } catch { /* already detached */ }
+  try { await call('detach'); } catch { /* already detached */ }
 }
 
 // Same bytes the tab received, including login-only files, without a new request.
@@ -190,7 +198,7 @@ async function readFromPage(url) {
   const hit = pageResources?.get(url);
   if (!hit) return null;
   try {
-    const { content, base64Encoded } = await chrome.debugger.sendCommand({ tabId }, 'Page.getResourceContent', { frameId: hit.frameId, url });
+    const { content, base64Encoded } = await call('command', { method: 'Page.getResourceContent', params: { frameId: hit.frameId, url } });
     const bytes = base64Encoded ? base64ToBytes(content) : new TextEncoder().encode(content);
     admit(bytes.length);
     fromBrowser++;
@@ -225,28 +233,13 @@ async function viaExtension(url) {
   }
 }
 
-// Same-origin files can be requested from inside the tab: that uses the page's own
-// cookies and HTTP cache, so files it already loaded are served without a network hit.
-// Returns null when the tab cannot do it (caller falls back to viaExtension).
+// Same-origin files can be requested from inside the tab (background.js `fetchInTab`): that
+// uses the page's own cookies and HTTP cache, so files it already loaded are served without a
+// network hit. Returns null when the tab cannot do it (caller falls back to viaExtension).
 async function viaTab(url) {
   let result;
   try {
-    [{ result }] = await chrome.scripting.executeScript({
-      target: { tabId },
-      args: [url],
-      func: async (u) => {
-        try {
-          const res = await fetch(u, { credentials: 'include', cache: 'force-cache' });
-          if (!res.ok) return { status: res.status, retryAfter: res.headers.get('retry-after') };
-          const bytes = new Uint8Array(await res.arrayBuffer());
-          let bin = '';
-          for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-          return { b64: btoa(bin), type: res.headers.get('content-type') || '' };
-        } catch (e) {
-          return { error: String(e) };
-        }
-      },
-    });
+    result = await call('fetchInTab', { url });
   } catch {
     return null;
   }
@@ -258,7 +251,7 @@ async function viaTab(url) {
 }
 
 async function fetchBytes(url) {
-  $('now').textContent = shortUrl(url);
+  state.now = shortUrl(url);
   const loaded = await readFromPage(url);
   if (loaded) return loaded;
 
@@ -539,61 +532,12 @@ function stamp(date) {
   return `${date.getFullYear()}${p(date.getMonth() + 1)}${p(date.getDate())}-${p(date.getHours())}${p(date.getMinutes())}`;
 }
 
-// ---------------------------------------------------------------- OK / Cancel
-
-function finishButtons() {
-  captureDone = true;
-  $('cancel').disabled = true;
-  $('ok').disabled = false;
-  $('ok').focus();
-}
-
-// Close this window and bring the captured tab (and its window) back to the front.
-async function closeAndReturn() {
-  try {
-    const tab = await chrome.tabs.get(tabId);
-    await chrome.windows.update(tab.windowId, { focused: true });
-    await chrome.tabs.update(tabId, { active: true });
-  } catch { /* the tab is gone */ }
-  const me = await chrome.tabs.getCurrent();
-  chrome.tabs.remove(me.id);
-}
-
-// Tell the tab to stop stepping through carousels (it puts them back to item 1) and let go of
-// the debugger. Closing this page then stops every download still in flight; nothing is saved.
-function stopCapture() {
-  cancelled = true;
-  chrome.tabs.sendMessage(tabId, { type: 'snapshot-cancel' }).catch(() => {});
-  return detachDebugger();
-}
-
-$('ok').onclick = closeAndReturn;
-$('cancel').onclick = async () => {
-  $('cancel').disabled = true;
-  $('status').textContent = 'Cancelling…';
-  await stopCapture();
-  closeAndReturn();
-};
-// Closing the window with its × button counts as Cancel.
-addEventListener('pagehide', () => { if (!captureDone && !cancelled) stopCapture(); });
-
 function showError(message) {
-  finishButtons();
-  for (const li of stepEls.values()) if (li.className === 'running') li.className = 'fail';
-  $('now').textContent = '';
-  $('bar').hidden = true;
-  $('status').hidden = true;
-  $('error').hidden = false;
-  $('error').textContent = message;
-}
-
-function triggerDownload(url, name) {
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.append(a);
-  a.click();
-  a.remove();
+  for (const st of state.steps) if (st.state === 'running') st.state = 'fail';
+  state.phase = 'error';
+  state.now = '';
+  state.error = message;
+  publish(true);
 }
 
 async function main() {
@@ -601,11 +545,10 @@ async function main() {
 
   let tab;
   try {
-    tab = await chrome.tabs.get(tabId);
+    tab = await call('tab');
   } catch {
     return showError('The tab to capture no longer exists.');
   }
-  $('source').textContent = tab.url || '';
   step('tab', 'Found the tab', 'done');
   try { tabOrigin = new URL(tab.url).origin; } catch { /* not a URL */ }
 
@@ -614,15 +557,16 @@ async function main() {
     let editorTexts = {};
     step('editors', 'Looking for code editors and reading their text…');
     try {
-      [{ result: editorTexts }] = await chrome.scripting.executeScript({ target: { tabId }, world: 'MAIN', func: readEditorsInMainWorld });
+      editorTexts = await call('readEditors');
     } catch { /* editors fall back to the rows that are drawn */ }
     const editorCount = Object.keys(editorTexts || {}).length;
     if (editorCount) step('editors', `Read the full text of ${editorCount} code editor${editorCount === 1 ? '' : 's'} from the page`, 'done');
     else dropStep('editors');
 
     step('read', 'Reading the page…');
-    [{ result: page }] = await chrome.scripting.executeScript({ target: { tabId }, func: extractPage, args: [editorTexts || {}] });
-    if (cancelled || page?.cancelled) return;
+    page = await call('extractPage', { editorTexts: editorTexts || {} });
+    if (page?.cancelled) return; // background.js is closing this document
+    if (!page) throw new Error('the page returned nothing');
     dropStep('read');
     step('dom', 'Copied the page: DOM, styles, form values', 'done');
   } catch (err) {
@@ -632,7 +576,6 @@ async function main() {
   const capturedAt = new Date();
   step('debugger', 'Asking the page which files it has already loaded…');
   const attached = await attachDebugger();
-  if (cancelled) return;
   if (attached.ok) step('debugger', `The page has ${attached.count} files loaded that can be reused (no re-download)`, 'done');
   else step('debugger', `Could not read the page's loaded files (${attached.error}); downloading everything instead`, 'warn');
 
@@ -643,8 +586,7 @@ async function main() {
   } finally {
     await detachDebugger();
   }
-  if (cancelled) return;
-  $('now').textContent = '';
+  state.now = '';
   step('assets', `Saved ${resources.length} resources${fromBrowser ? ` (${fromBrowser} reused from the page)` : ''}${failures.length ? `; ${failures.length} could not be saved` : ''}`, failures.length ? 'warn' : 'done');
   if (linkedFiles) step('files', `Saved ${linkedFiles} downloadable file${linkedFiles === 1 ? '' : 's'} next to the page`, 'done');
   const sourceNote = page.url.replace(/--/g, '%2D%2D').replace(/>/g, '%3E');
@@ -653,13 +595,12 @@ async function main() {
     (doctype) => `${doctype}<!-- Saved by Page Snapshot from ${sourceNote} on ${capturedAt.toISOString()} -->\n`,
   );
 
-  if (cancelled) return;
   step('zip', 'Packing everything into a ZIP…');
   const manifest = {
     source_url: page.url,
     title: page.title,
     captured_at: capturedAt.toISOString(),
-    tool: `Page Snapshot ${chrome.runtime.getManifest().version}`,
+    tool: `Page Snapshot ${version}`,
     debugger: attached.ok ? 'used' : `unavailable: ${attached.error}`,
     editors: Object.fromEntries(editorReport),
     carousels: Object.fromEntries(Object.entries(page.pagers || {}).map(([id, pages]) => [id, { items: pages.length, avg_item_chars: Math.round(pages.reduce((n, h) => n + h.length, 0) / pages.length) }])),
@@ -680,19 +621,20 @@ async function main() {
   const name = `${slugify(page.title, 60) || slugify(host) || 'page'}-${stamp(capturedAt)}.zip`;
   const blobUrl = URL.createObjectURL(zip);
   step('zip', `Packed the ZIP (${resources.length + 2} files, ${(zip.size / (1024 * 1024)).toFixed(1)} MB)`, 'done');
-  if (cancelled) return;
   step('save', 'Saving it to your Downloads folder…');
-  triggerDownload(blobUrl, name);
-  step('save', 'Sent to your Downloads folder', 'done');
+  try {
+    await call('download', { url: blobUrl, name });
+    step('save', 'Sent to your Downloads folder', 'done');
+  } catch (err) {
+    step('save', `Could not start the download (${err.message}); use Download again`, 'warn');
+  }
 
-  document.title = 'Snapshot saved';
-  $('bar').max = 1;
-  $('bar').value = 1;
+  state.bar = { max: 1, value: 1 };
   const mb = (zip.size / (1024 * 1024)).toFixed(1);
   const origin = attached.ok
     ? `${fromBrowser} taken from the page's loaded resources, ${resources.length - fromBrowser} downloaded`
     : `all downloaded; debugger unavailable: ${attached.error}`;
-  $('status').textContent = `Saved ${name} (${mb} MB, ${resources.length} resources: ${origin}).`;
+  state.status = `Saved ${name} (${mb} MB, ${resources.length} resources: ${origin}).`;
   const notes = [];
   const editors = [...editorReport.values()];
   const bySource = (name) => editors.filter((e) => e.source === name).length;
@@ -704,28 +646,16 @@ async function main() {
   const carousels = Object.values(page.pagers || {});
   if (carousels.length) notes.push({ text: `${carousels.length} carousel${carousels.length === 1 ? '' : 's'} saved with all items (${carousels.map((p) => p.length).join(', ')}).` });
   if (linkedFiles) notes.push({ text: `${linkedFiles} linked file${linkedFiles === 1 ? '' : 's'} (downloads, attachments) saved next to the page.` });
-  if (notes.length) {
-    $('notes').hidden = false;
-    for (const note of notes) {
-      const li = document.createElement('li');
-      li.textContent = note.text;
-      if (note.warn) li.className = 'warn';
-      $('notes').append(li);
-    }
-  }
-  $('download').hidden = false;
-  $('download').onclick = () => triggerDownload(blobUrl, name);
-  finishButtons();
-
-  if (failures.length) {
-    $('failed-box').hidden = false;
-    $('failed-summary').textContent = `${failures.length} resource${failures.length === 1 ? '' : 's'} could not be saved (their references were removed so the page never goes online)`;
-    for (const f of failures) {
-      const li = document.createElement('li');
-      li.textContent = `${f.url} — ${f.reason}`;
-      $('failed').append(li);
-    }
-  }
+  state.notes = notes;
+  state.failures = failures;
+  state.download = { url: blobUrl, name };
+  state.phase = 'done';
+  publish(true);
 }
 
-main().catch((err) => { if (!cancelled) showError(`Snapshot failed: ${err.message || err}`); });
+// Long steps (stepping through carousels) send the service worker no calls, and it could be
+// put to sleep meanwhile: keep it awake until the capture ends.
+const keepAwake = setInterval(() => call('ping').catch(() => {}), 20_000);
+main()
+  .catch((err) => showError(`Snapshot failed: ${err.message || err}`))
+  .finally(() => clearInterval(keepAwake));

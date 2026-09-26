@@ -1,4 +1,4 @@
-// Pure helpers used by capture.js. No DOM or chrome.* access, so they can be
+// Pure helpers used by offscreen.js. No DOM or chrome.* access, so they can be
 // unit-tested in Node.
 
 const TYPE_EXT = {

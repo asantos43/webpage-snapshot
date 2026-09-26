@@ -4,7 +4,7 @@
 //
 // It captures what the user is *seeing* (the live DOM plus form/canvas/CSSOM state)
 // and returns plain JSON. Downloading assets and rewriting URLs happens later in
-// capture.js, which has DOM APIs and cross-origin fetch.
+// offscreen.js, which has DOM APIs and cross-origin fetch.
 
 // `editorTexts` comes from inpage-main.js: the full text of Monaco editors, keyed by data-uri.
 export async function extractPage(editorTexts = {}) {
@@ -17,7 +17,7 @@ export async function extractPage(editorTexts = {}) {
     try {
       return Array.from(sheet.cssRules, (rule) => rule.cssText).join('\n');
     } catch {
-      return ''; // cross-origin sheet: capture.js re-downloads it via its <link>
+      return ''; // cross-origin sheet: offscreen.js re-downloads it via its <link>
     }
   };
 
@@ -74,7 +74,7 @@ export async function extractPage(editorTexts = {}) {
   // Monaco renders only the visible lines and scrolls them with JavaScript, so a saved copy
   // could neither scroll nor select. Replace it with a <pre> holding the full text: taken from
   // the editor itself when it could be read (see inpage-main.js), otherwise from the rows that
-  // happen to be drawn. capture.js later swaps in the complete file when the editor sits next
+  // happen to be drawn. offscreen.js later swaps in the complete file when the editor sits next
   // to a download link for it.
   function replaceMonaco(live, clone, ctx) {
     const win = live.ownerDocument.defaultView;
@@ -140,11 +140,11 @@ export async function extractPage(editorTexts = {}) {
   const labelOf = (el) => el.getAttribute('aria-label') || '';
   const isDisabled = (el) => !el || el.disabled || el.getAttribute('aria-disabled') === 'true';
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  // Tell the capture page what we are doing so it can show it live (no-op outside an extension).
+  // Tell offscreen.js what we are doing so the popup can show it live (no-op outside an extension).
   const report = (message) => {
     try { chrome.runtime.sendMessage({ type: 'snapshot-progress', ...message }).catch(() => {}); } catch { /* not in an extension */ }
   };
-  // Cancel on the capture page: stop recording, but still put each carousel back to item 1.
+  // Cancel in the popup (sent by background.js): stop recording, but still put each carousel back to item 1.
   let cancelled = false;
   const onCancel = (msg) => { if (msg?.type === 'snapshot-cancel') cancelled = true; };
   try { chrome.runtime.onMessage.addListener(onCancel); } catch { /* not in an extension */ }

@@ -1,4 +1,4 @@
-// Runtime that capture.js embeds (as an inline <script>) in snapshots whose page had
+// Runtime that offscreen.js embeds (as an inline <script>) in snapshots whose page had
 // interactive parts. The page's own scripts are removed, so things like collapsed
 // sections or tabs would otherwise be stuck even though their content is already in
 // the saved HTML. This restores the standard ARIA patterns using only the saved DOM:
@@ -7,7 +7,7 @@
 //     by aria-controls or the hidden element right after the button; plus "Expand all" /
 //     "Collapse all" buttons;
 //   - tabs: role="tab" elements with aria-controls pointing at role="tabpanel" elements;
-//   - carousels: capture.js recorded every item of a "Next item" / "Previous item" carousel
+//   - carousels: offscreen.js recorded every item of a "Next item" / "Previous item" carousel
 //     (the page itself only keeps the current one in the DOM); Next/Previous swap them in;
 //   - code/text editors that were replaced by a plain <pre data-snap-editor>: "Copy file"
 //     buttons copy its text and "word wrap" buttons toggle wrapping.

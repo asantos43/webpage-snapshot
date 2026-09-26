@@ -38,7 +38,7 @@ So every merge is a new patch release, and a minor or major one is made by raisi
 The workflow writes a new version to the manifest and commits it to `main` itself ("Version 1.0.1"). These are the only commits that bypass pull requests, so run `git pull` after a merge. Runs go one at a time and GitHub keeps only the newest waiting run, so several merges made while a release is still running may come out together in a single release.
 
 What a run does:
-1. Runs the smoke test on Playwright's Chromium.
+1. Runs the smoke test and the carousel end-to-end test (`tests/carousel.mjs`) on Playwright's Chromium.
 2. Zips the git-tracked files of `page-snapshot-extension/`, plus `CHANGELOG.md`, as `page-snapshot-<version>.zip`.
 3. Publishes it as the GitHub release `v<version>`, titled "Page Snapshot <version>". The notes are that version's section of `CHANGELOG.md`, followed by the install hints.
 

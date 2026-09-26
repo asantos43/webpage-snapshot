@@ -6,6 +6,14 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- Progress now shows in the extension's popup under its icon, like other extensions, instead of a
+  separate window (which the desktop placed wherever it wanted on Linux/Wayland). The capture runs in
+  the background: you can close the popup or click on the page, and clicking the icon again shows
+  how it is going; the icon's badge shows … while it runs, ✓ when done and ! on failure. OK clears
+  the result, Cancel stops the capture and puts carousels back, Download again saves the ZIP again.
+- New permissions: `offscreen` (the capture runs in a hidden page), `downloads` (saves the ZIP with
+  the popup closed) and `storage` (session-only progress for the popup). Needs Chrome 116 or later.
+
 ## [1.0.2] - 2026-09-26
 
 - The progress window now opens in the middle of the browser window instead of at its right edge;

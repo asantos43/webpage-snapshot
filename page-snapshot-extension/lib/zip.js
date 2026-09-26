@@ -1,5 +1,5 @@
 // Minimal ZIP writer: no dependencies, UTF-8 names, deflate for compressible
-// entries. Not ZIP64, so total size must stay below 4 GB (capture.js caps it).
+// entries. Not ZIP64, so total size must stay below 4 GB (offscreen.js caps it).
 
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256);
