@@ -18,6 +18,10 @@ button:disabled { opacity: .5; cursor: default; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
 #download { margin-right: auto; }
 details { margin-top: 12px; }
+#help { margin: 0 0 8px; font-size: 13px; }
+#help summary { cursor: pointer; color: var(--accent); }
+#help p, #help ul { margin: 6px 0; }
+#help ul { padding-left: 1.2em; }
 li { overflow-wrap: anywhere; margin: 4px 0; font-size: 13px; }
 #notes { padding-left: 1.2em; margin: 8px 0; }
 #notes .warn { color: var(--error); }

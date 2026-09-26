@@ -659,7 +659,7 @@ async function main() {
     source_url: page.url,
     title: page.title,
     captured_at: capturedAt.toISOString(),
-    tool: 'Page Snapshot 1.0.0',
+    tool: `Page Snapshot ${chrome.runtime.getManifest().version}`,
     debugger: attached.ok ? 'used' : `unavailable: ${attached.error}`,
     editors: Object.fromEntries(editorReport),
     carousels: Object.fromEntries(Object.entries(page.pagers || {}).map(([id, pages]) => [id, { items: pages.length, avg_item_chars: Math.round(pages.reduce((n, h) => n + h.length, 0) / pages.length) }])),

@@ -12,6 +12,8 @@ publishes it as the release's notes.
   visible and carousels are recorded at full speed. **OK** closes the window once you have read the
   results; **Cancel** stops a capture in progress, puts carousels back to their first item and saves
   nothing.
+- The progress window has a **Help** section explaining the window, OK, Cancel and Download again.
+- `snapshot.json` records the extension's real version instead of always "1.0.0".
 
 ## [1.0.0] - 2026-09-25
 
