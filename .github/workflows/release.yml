@@ -7,6 +7,8 @@
 # whose "Unreleased" section becomes the version's section. The smoke test must pass, then the
 # extension folder (plus CHANGELOG.md) is zipped and published as the GitHub release v<version>,
 # whose notes are that changelog section.
+# A pull request labelled "no-release" (documentation, fixes that belong to the release already
+# out) is merged without a new release.
 name: Release
 
 on:
@@ -36,8 +38,10 @@ env:
 
 jobs:
   release:
-    # A pull request closed without merging releases nothing.
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged
+    # A pull request closed without merging, or labelled "no-release", releases nothing.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged && !contains(github.event.pull_request.labels.*.name, 'no-release'))
     runs-on: ubuntu-24.04
     steps:
       - name: Only from main

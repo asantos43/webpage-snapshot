@@ -25,7 +25,7 @@ Page Snapshot is for Chromium browsers in general, for example **Google Chrome**
 The extension is at **1.0.0**, the version it had when it moved into this repository. Raise `version` in `page-snapshot-extension/manifest.json` inside a pull request when a change deserves a minor or major number.
 
 Releases are made by the GitHub Actions workflow `.github/workflows/release.yml`. It runs:
-- every time a pull request is merged into `main`. A pull request closed without merging releases nothing;
+- every time a pull request is merged into `main`. A pull request closed without merging releases nothing, and neither does one labelled `no-release` (for documentation or a fix that belongs to the release already out; its changelog lines then go into that version's section, and the release's zip can be rebuilt from `main` and re-uploaded with `gh release upload v<version> <zip> --clobber`);
 - by hand, from Actions → Release → Run workflow, on `main`.
 
 It works on the current tip of `main` and picks the version like this:

@@ -10,6 +10,18 @@
   <main>
     <h1>Page Snapshot</h1>
     <p id="source" class="muted"></p>
+    <details id="help">
+      <summary>Help</summary>
+      <p>This window saves the page you were looking at as a ZIP that opens offline. It reads the page, steps through each carousel, reuses the files the page already loaded and downloads the rest; then the ZIP goes to your Downloads folder.</p>
+      <ul>
+        <li><strong>Why a separate window:</strong> the page stays the visible tab of its own window, so the browser does not slow it down while carousels are stepped through. Don't minimize the browser window until the capture ends.</li>
+        <li><strong>Cancel</strong> (or closing this window) stops the capture: carousels go back to their first item and nothing is saved.</li>
+        <li><strong>OK</strong> becomes available when the capture ends; it closes this window and brings the page back.</li>
+        <li><strong>Download again</strong> saves the same ZIP once more.</li>
+        <li>While the capture runs, the browser shows an "Extension started debugging this browser" bar on the page; it is used to read the files the page already loaded and goes away at the end.</li>
+        <li>Unzip the file and open <code>index.html</code>. Anything that could not be saved is listed below the results and is left out of the snapshot, which never goes online.</li>
+      </ul>
+    </details>
     <progress id="bar"></progress>
     <p id="status" role="status">Starting…</p>
     <p id="now" class="muted"></p>
