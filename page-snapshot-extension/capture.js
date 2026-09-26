@@ -98,6 +98,8 @@ let finished = 0;
 let fromBrowser = 0; // resources read from what the tab had already loaded
 let tabOrigin = ''; // origin of the captured tab, for fetching from inside it
 let pageResources = null; // remote URL -> { frameId, mimeType }, via the debugger API
+let captureDone = false; // finished or failed: OK is available, Cancel is not
+let cancelled = false;
 
 function createLimiter(max) {
   let active = 0;
@@ -154,6 +156,10 @@ async function attachDebugger() {
     await chrome.debugger.attach({ tabId }, '1.3');
   } catch (err) {
     return { ok: false, error: err.message || String(err) };
+  }
+  if (cancelled) { // Cancel was pressed while attaching: don't leave the debugger bar behind
+    await detachDebugger();
+    return { ok: false, error: 'cancelled' };
   }
   try {
     await chrome.debugger.sendCommand({ tabId }, 'Page.enable').catch(() => {});
@@ -533,7 +539,46 @@ function stamp(date) {
   return `${date.getFullYear()}${p(date.getMonth() + 1)}${p(date.getDate())}-${p(date.getHours())}${p(date.getMinutes())}`;
 }
 
+// ---------------------------------------------------------------- OK / Cancel
+
+function finishButtons() {
+  captureDone = true;
+  $('cancel').disabled = true;
+  $('ok').disabled = false;
+  $('ok').focus();
+}
+
+// Close this window and bring the captured tab (and its window) back to the front.
+async function closeAndReturn() {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    await chrome.windows.update(tab.windowId, { focused: true });
+    await chrome.tabs.update(tabId, { active: true });
+  } catch { /* the tab is gone */ }
+  const me = await chrome.tabs.getCurrent();
+  chrome.tabs.remove(me.id);
+}
+
+// Tell the tab to stop stepping through carousels (it puts them back to item 1) and let go of
+// the debugger. Closing this page then stops every download still in flight; nothing is saved.
+function stopCapture() {
+  cancelled = true;
+  chrome.tabs.sendMessage(tabId, { type: 'snapshot-cancel' }).catch(() => {});
+  return detachDebugger();
+}
+
+$('ok').onclick = closeAndReturn;
+$('cancel').onclick = async () => {
+  $('cancel').disabled = true;
+  $('status').textContent = 'Cancelling…';
+  await stopCapture();
+  closeAndReturn();
+};
+// Closing the window with its × button counts as Cancel.
+addEventListener('pagehide', () => { if (!captureDone && !cancelled) stopCapture(); });
+
 function showError(message) {
+  finishButtons();
   for (const li of stepEls.values()) if (li.className === 'running') li.className = 'fail';
   $('now').textContent = '';
   $('bar').hidden = true;
@@ -577,6 +622,7 @@ async function main() {
 
     step('read', 'Reading the page…');
     [{ result: page }] = await chrome.scripting.executeScript({ target: { tabId }, func: extractPage, args: [editorTexts || {}] });
+    if (cancelled || page?.cancelled) return;
     dropStep('read');
     step('dom', 'Copied the page: DOM, styles, form values', 'done');
   } catch (err) {
@@ -586,6 +632,7 @@ async function main() {
   const capturedAt = new Date();
   step('debugger', 'Asking the page which files it has already loaded…');
   const attached = await attachDebugger();
+  if (cancelled) return;
   if (attached.ok) step('debugger', `The page has ${attached.count} files loaded that can be reused (no re-download)`, 'done');
   else step('debugger', `Could not read the page's loaded files (${attached.error}); downloading everything instead`, 'warn');
 
@@ -596,6 +643,7 @@ async function main() {
   } finally {
     await detachDebugger();
   }
+  if (cancelled) return;
   $('now').textContent = '';
   step('assets', `Saved ${resources.length} resources${fromBrowser ? ` (${fromBrowser} reused from the page)` : ''}${failures.length ? `; ${failures.length} could not be saved` : ''}`, failures.length ? 'warn' : 'done');
   if (linkedFiles) step('files', `Saved ${linkedFiles} downloadable file${linkedFiles === 1 ? '' : 's'} next to the page`, 'done');
@@ -605,6 +653,7 @@ async function main() {
     (doctype) => `${doctype}<!-- Saved by Page Snapshot from ${sourceNote} on ${capturedAt.toISOString()} -->\n`,
   );
 
+  if (cancelled) return;
   step('zip', 'Packing everything into a ZIP…');
   const manifest = {
     source_url: page.url,
@@ -631,6 +680,7 @@ async function main() {
   const name = `${slugify(page.title, 60) || slugify(host) || 'page'}-${stamp(capturedAt)}.zip`;
   const blobUrl = URL.createObjectURL(zip);
   step('zip', `Packed the ZIP (${resources.length + 2} files, ${(zip.size / (1024 * 1024)).toFixed(1)} MB)`, 'done');
+  if (cancelled) return;
   step('save', 'Saving it to your Downloads folder…');
   triggerDownload(blobUrl, name);
   step('save', 'Sent to your Downloads folder', 'done');
@@ -663,13 +713,9 @@ async function main() {
       $('notes').append(li);
     }
   }
-  $('actions').hidden = false;
+  $('download').hidden = false;
   $('download').onclick = () => triggerDownload(blobUrl, name);
-  $('close').onclick = async () => {
-    await chrome.tabs.update(tabId, { active: true }).catch(() => {});
-    const me = await chrome.tabs.getCurrent();
-    chrome.tabs.remove(me.id);
-  };
+  finishButtons();
 
   if (failures.length) {
     $('failed-box').hidden = false;
@@ -682,4 +728,4 @@ async function main() {
   }
 }
 
-main().catch((err) => showError(`Snapshot failed: ${err.message || err}`));
+main().catch((err) => { if (!cancelled) showError(`Snapshot failed: ${err.message || err}`); });

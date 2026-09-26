@@ -14,7 +14,9 @@ There is no build step and no dependencies.
 
 ## Use
 
-Click the toolbar button, or press **Alt+Shift+S**. A new tab shows what the extension is doing as it happens: a list with one line per phase (reading editors, stepping through each carousel item by item, copying the page, listing the files the page already loaded, downloading resources with running counts and the file being fetched right now, saving linked files, packing the ZIP), each with a spinner that turns into a check mark when done. It then downloads `<page-title>-<YYYYMMDD-HHmm>.zip`. Use **Back to page & close** to return to the page you captured.
+Click the toolbar button, or press **Alt+Shift+S**. A small window opens beside the page and shows what the extension is doing as it happens: a list with one line per phase (reading editors, stepping through each carousel item by item, copying the page, listing the files the page already loaded, downloading resources with running counts and the file being fetched right now, saving linked files, packing the ZIP), each with a spinner that turns into a check mark when done. It then downloads `<page-title>-<YYYYMMDD-HHmm>.zip`. When it is done, read the results and press **OK** to close the window and return to the page you captured (**Download again** saves the ZIP once more). **Cancel** (or closing the window) stops a capture in progress: carousels are put back to their first item and nothing is saved.
+
+The progress is a separate window rather than a new tab on purpose: the page you capture stays the visible tab, so the browser does not slow it down while carousels are stepped through. Keep that window from being minimized until the capture ends.
 
 Unzip it and open `index.html`. You can turn off the network to check that it is self-contained.
 
@@ -86,7 +88,7 @@ The extension only touches a tab when you click the button, and nothing is sent 
 | File | Role |
 | --- | --- |
 | `manifest.json` | Manifest V3 config |
-| `background.js` | Opens the capture page when the button is clicked |
+| `background.js` | Opens the capture page in a small window when the button is clicked |
 | `inpage.js` | Runs inside the tab; snapshots the live DOM and its state |
 | `capture.html/.css/.js` | Progress page; downloads assets, rewrites URLs, builds the ZIP |
 | `lib/helpers.js` | Pure helpers: CSS/`srcset` rewriting, file naming |
