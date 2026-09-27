@@ -2,6 +2,11 @@
 // popup is closed. Offscreen documents can only use chrome.runtime, so tab, debugger and
 // download calls go through the service worker (`call`), and progress is published as a
 // state object that the popup renders (`publish`).
+//
+// Offscreen documents have no chrome.i18n either, so every text in that state is a message of
+// _locales as { key, args } (args may be messages too; an array of texts is joined), and the
+// popup translates it. Why a file failed is an Error whose `text` is such a message; its English
+// `message` goes into snapshot.json.
 import { buildZip } from './lib/zip.js';
 import { interactionsRuntime } from './lib/interactions.js';
 import {
@@ -46,7 +51,14 @@ async function call(op, args = {}) {
 // One line per phase: a spinner while it runs, a check mark when done. The running phase is
 // also the headline, so you always see what the extension is doing right now.
 
-const state = { jobId, phase: 'running', status: 'Starting…', now: '', bar: null, steps: [], notes: [], failures: [], error: '', download: null };
+// A text for the popup to translate: the message `key` of _locales with its $1…$9 values.
+const msg = (key, ...args) => ({ key, args: args.map((a) => (typeof a === 'object' ? a : String(a))) });
+// `one` when n is 1, else `other` (English and Portuguese both use the plural for 0).
+const plural = (n, key, ...args) => msg(`${key}_${n === 1 ? 'one' : 'other'}`, ...(n === 1 ? args : [n, ...args]));
+// An error the popup can translate (`text`), with an English message for snapshot.json.
+const failure = (message, text, extra = {}) => Object.assign(new Error(message), { text }, extra);
+
+const state = { jobId, phase: 'running', status: msg('status_starting'), now: '', bar: null, steps: [], notes: [], failures: [], error: '', download: null };
 let publishTimer = null;
 
 // Send the state to the service worker, at most every 150 ms (`now` = immediately).
@@ -59,7 +71,7 @@ function publish(now = false) {
   }, now ? 0 : 150);
 }
 
-function step(id, text, st = 'running') {
+function step(id, text, st = 'running') { // text: msg(...) or an array of them
   let s = state.steps.find((x) => x.id === id);
   if (!s) state.steps.push((s = { id }));
   s.text = text;
@@ -84,18 +96,18 @@ function shortUrl(url) {
 }
 
 // The tab itself reports carousel progress while it is being read (see inpage.js).
-chrome.runtime.onMessage.addListener((msg, sender) => {
-  if (msg?.type !== 'snapshot-progress' || sender?.tab?.id !== tabId) return;
-  const id = `carousel-${msg.pager}`;
-  const label = `Carousel ${msg.pager} of ${msg.pagers}`;
+chrome.runtime.onMessage.addListener((report, sender) => {
+  if (report?.type !== 'snapshot-progress' || sender?.tab?.id !== tabId) return;
+  const id = `carousel-${report.pager}`;
+  const { pager, pagers } = report;
   dropStep('read'); // the generic "Reading the page…" line gives way to what is actually happening
-  switch (msg.phase) {
-    case 'carousel-probe': step(id, `${label}: checking how it works…`); break;
-    case 'carousel': step(id, `${label}: recording item ${msg.item}…`); break;
-    case 'carousel-restore': step(id, `${label}: putting your page back to item 1…`); break;
-    case 'carousel-done': step(id, `${label}: recorded ${msg.items} items`, 'done'); break;
+  switch (report.phase) {
+    case 'carousel-probe': step(id, msg('carousel_probe', pager, pagers)); break;
+    case 'carousel': step(id, msg('carousel_recording', pager, pagers, report.item)); break;
+    case 'carousel-restore': step(id, msg('carousel_restore', pager, pagers)); break;
+    case 'carousel-done': step(id, msg('carousel_done', pager, pagers, report.items), 'done'); break;
     case 'carousel-skip': dropStep(id); break;
-    case 'snapshot': step('dom', 'Copying the page: DOM, styles, form values…'); break;
+    case 'snapshot': step('dom', msg('step_dom_copying')); break;
     default: break;
   }
 });
@@ -140,17 +152,19 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function progress() {
   state.bar = { max: queued, value: finished };
-  const parts = [`${finished} of ${queued}`];
-  if (fromBrowser) parts.push(`${fromBrowser} from the page`);
-  if (failures.length) parts.push(`${failures.length} failed`);
-  step('assets', `Downloading resources… ${parts.join(', ')}`);
+  const parts = [msg('assets_progress', finished, queued)];
+  if (fromBrowser) parts.push(msg('assets_progress_page', fromBrowser));
+  if (failures.length) parts.push(msg('assets_progress_failed', failures.length));
+  step('assets', parts);
 }
 
 // ---------------------------------------------------------------- downloading
 
+const tooLarge = () => failure(`larger than ${MAX_RESOURCE_BYTES >> 20} MB`, msg('reason_too_large', MAX_RESOURCE_BYTES >> 20), { limit: true });
+
 function admit(length) {
-  if (length > MAX_RESOURCE_BYTES) throw new Error(`larger than ${MAX_RESOURCE_BYTES >> 20} MB`);
-  if (totalBytes + length > MAX_TOTAL_BYTES) throw new Error('snapshot size limit reached');
+  if (length > MAX_RESOURCE_BYTES) throw tooLarge();
+  if (totalBytes + length > MAX_TOTAL_BYTES) throw failure('snapshot size limit reached', msg('reason_total_limit'), { limit: true });
   totalBytes += length;
 }
 
@@ -208,7 +222,7 @@ async function readFromPage(url) {
     fromBrowser++;
     return { bytes, type: hit.mimeType, source: 'page' };
   } catch (err) {
-    if (/larger than|size limit/.test(err.message)) throw err;
+    if (err.limit || /larger than/.test(err.message)) throw err.limit ? err : tooLarge();
     return null; // evicted or unavailable: fall back to downloading
   }
 }
@@ -218,13 +232,21 @@ function httpError(status, retryAfter) {
   return Object.assign(new Error(`HTTP ${status}`), { status, retryAfterMs: seconds > 0 ? seconds * 1000 : 0 });
 }
 
+// Errors from background.js arrive as plain messages; give the known ones a translatable text.
+function fromWorker(err) {
+  if (err.text) return err;
+  if (/^larger than/.test(err.message)) return tooLarge();
+  if (err.message === 'timed out') return failure('timed out', msg('reason_timeout'));
+  return err;
+}
+
 // A file the tab had not loaded (another site's, or one that was not on screen) is downloaded
 // by the tab itself through the debugger (Network.loadNetworkResource, the way DevTools loads
 // source maps; background.js `loadResource`). The extension has no host permission, only
 // activeTab on the captured tab, so it never downloads anything on its own.
 async function viaDebugger(url) {
-  if (!mainFrameId) throw new Error('needs the debugger, which could not be attached');
-  const res = await call('loadResource', { frameId: mainFrameId, url, maxBytes: MAX_RESOURCE_BYTES, timeoutMs: FETCH_TIMEOUT_MS });
+  if (!mainFrameId) throw failure('needs the debugger, which could not be attached', msg('reason_no_debugger'));
+  const res = await call('loadResource', { frameId: mainFrameId, url, maxBytes: MAX_RESOURCE_BYTES, timeoutMs: FETCH_TIMEOUT_MS }).catch((err) => { throw fromWorker(err); });
   if (res.status && (res.status < 200 || res.status > 299)) throw httpError(res.status, res.retryAfter);
   if (res.error) throw new Error(res.error);
   const parts = res.chunks.map((c) => (c.base64 ? base64ToBytes(c.data) : new TextEncoder().encode(c.data)));
@@ -290,7 +312,7 @@ async function downloadAsset(url, kind, chain) {
   try {
     ({ bytes, type, source } = await limited(() => fetchBytes(url)));
   } catch (err) {
-    failures.push({ url, reason: err.message || String(err) });
+    failures.push({ url, reason: err.message || String(err), text: err.text || null });
     return null;
   }
 
@@ -445,7 +467,7 @@ async function processElement(el, base, page, depth) {
     let saved = false;
     if (wanted && linkedFiles < MAX_LINKED_FILES) {
       linkedFiles++;
-      step('files', `Saving downloadable files… ${linkedFiles}`);
+      step('files', msg('step_files_saving', linkedFiles));
       const name = fileNameFromUrl(href.href);
       href.hash = '';
       const file = await getAsset(href.href, 'file');
@@ -533,54 +555,54 @@ function stamp(date) {
   return `${date.getFullYear()}${p(date.getMonth() + 1)}${p(date.getDate())}-${p(date.getHours())}${p(date.getMinutes())}`;
 }
 
-function showError(message) {
+function showError(text) {
   for (const st of state.steps) if (st.state === 'running') st.state = 'fail';
   state.phase = 'error';
   state.now = '';
-  state.error = message;
+  state.error = text;
   publish(true);
 }
 
 async function main() {
-  step('tab', 'Finding the tab to capture…');
+  step('tab', msg('step_tab_finding'));
 
   let tab;
   try {
     tab = await call('tab');
   } catch {
-    return showError('The tab to capture no longer exists.');
+    return showError(msg('error_tab_gone'));
   }
-  step('tab', 'Found the tab', 'done');
+  step('tab', msg('step_tab_found'), 'done');
   try { tabOrigin = new URL(tab.url).origin; } catch { /* not a URL */ }
 
   let page;
   try {
     let editorTexts = {};
-    step('editors', 'Looking for code editors and reading their text…');
+    step('editors', msg('step_editors_reading'));
     try {
       editorTexts = await call('readEditors');
     } catch { /* editors fall back to the rows that are drawn */ }
     const editorCount = Object.keys(editorTexts || {}).length;
-    if (editorCount) step('editors', `Read the full text of ${editorCount} code editor${editorCount === 1 ? '' : 's'} from the page`, 'done');
+    if (editorCount) step('editors', plural(editorCount, 'step_editors_read'), 'done');
     else dropStep('editors');
 
-    step('read', 'Reading the page…');
+    step('read', msg('step_read'));
     page = await call('extractPage', { editorTexts: editorTexts || {} });
     if (page?.cancelled) return; // background.js is closing this document
     if (!page) throw new Error('the page returned nothing');
     dropStep('read');
-    step('dom', 'Copied the page: DOM, styles, form values', 'done');
+    step('dom', msg('step_dom_copied'), 'done');
   } catch (err) {
-    return showError(`Chrome does not allow reading this page (${err.message}). Pages such as chrome:// and the Web Store are off limits.`);
+    return showError(msg('error_page_blocked', err.message));
   }
 
   const capturedAt = new Date();
-  step('debugger', 'Asking the page which files it has already loaded…');
+  step('debugger', msg('step_debugger_asking'));
   const attached = await attachDebugger();
-  if (attached.ok) step('debugger', `The page has ${attached.count} files loaded that can be reused (no re-download)`, 'done');
-  else step('debugger', `Could not read the page's loaded files (${attached.error}); only files from the page's own site can be saved`, 'warn');
+  if (attached.ok) step('debugger', plural(attached.count, 'step_debugger_ok'), 'done');
+  else step('debugger', msg('step_debugger_failed', attached.error), 'warn');
 
-  step('assets', 'Finding and downloading the page\'s resources…');
+  step('assets', msg('step_assets_finding'));
   let html;
   try {
     html = await processDocument(page.main, page);
@@ -588,25 +610,29 @@ async function main() {
     await detachDebugger();
   }
   state.now = '';
-  step('assets', `Saved ${resources.length} resources${fromBrowser ? ` (${fromBrowser} reused from the page)` : ''}${failures.length ? `; ${failures.length} could not be saved` : ''}`, failures.length ? 'warn' : 'done');
-  if (linkedFiles) step('files', `Saved ${linkedFiles} downloadable file${linkedFiles === 1 ? '' : 's'} next to the page`, 'done');
+  step('assets', [
+    plural(resources.length, 'assets_saved'),
+    ...(fromBrowser ? [msg('assets_saved_page', fromBrowser)] : []),
+    ...(failures.length ? [msg('assets_saved_failed', failures.length)] : []),
+  ], failures.length ? 'warn' : 'done');
+  if (linkedFiles) step('files', plural(linkedFiles, 'step_files_saved'), 'done');
   const sourceNote = page.url.replace(/--/g, '%2D%2D').replace(/>/g, '%3E');
   html = html.replace(
     /^(<!doctype[^>]*>\s*)?/i,
-    (doctype) => `${doctype}<!-- Saved by Page Snapshot from ${sourceNote} on ${capturedAt.toISOString()} -->\n`,
+    (doctype) => `${doctype}<!-- Saved by PageKeep from ${sourceNote} on ${capturedAt.toISOString()} -->\n`,
   );
 
-  step('zip', 'Packing everything into a ZIP…');
+  step('zip', msg('step_zip_packing'));
   const manifest = {
     source_url: page.url,
     title: page.title,
     captured_at: capturedAt.toISOString(),
-    tool: `Page Snapshot ${version}`,
+    tool: `PageKeep ${version}`,
     debugger: attached.ok ? 'used' : `unavailable: ${attached.error}`,
     editors: Object.fromEntries(editorReport),
     carousels: Object.fromEntries(Object.entries(page.pagers || {}).map(([id, pages]) => [id, { items: pages.length, avg_item_chars: Math.round(pages.reduce((n, h) => n + h.length, 0) / pages.length) }])),
     resources,
-    failed: failures,
+    failed: failures.map(({ url, reason }) => ({ url, reason })),
   };
   const zip = await buildZip(
     [
@@ -621,32 +647,32 @@ async function main() {
   try { host = new URL(page.url).hostname; } catch { /* keep empty */ }
   const name = `${slugify(page.title, 60) || slugify(host) || 'page'}-${stamp(capturedAt)}.zip`;
   const blobUrl = URL.createObjectURL(zip);
-  step('zip', `Packed the ZIP (${resources.length + 2} files, ${(zip.size / (1024 * 1024)).toFixed(1)} MB)`, 'done');
-  step('save', 'Saving it to your Downloads folder…');
+  step('zip', msg('step_zip_packed', resources.length + 2, (zip.size / (1024 * 1024)).toFixed(1)), 'done');
+  step('save', msg('step_save_saving'));
   try {
     await call('download', { url: blobUrl, name });
-    step('save', 'Sent to your Downloads folder', 'done');
+    step('save', msg('step_save_done'), 'done');
   } catch (err) {
-    step('save', `Could not start the download (${err.message}); use Download again`, 'warn');
+    step('save', msg('step_save_failed', err.message), 'warn');
   }
 
   state.bar = { max: 1, value: 1 };
   const mb = (zip.size / (1024 * 1024)).toFixed(1);
   const origin = attached.ok
-    ? `${fromBrowser} taken from the page's loaded resources, ${resources.length - fromBrowser} downloaded`
-    : `all downloaded; debugger unavailable: ${attached.error}`;
-  state.status = `Saved ${name} (${mb} MB, ${resources.length} resources: ${origin}).`;
+    ? msg('origin_debugger', fromBrowser, resources.length - fromBrowser)
+    : msg('origin_no_debugger', attached.error);
+  state.status = plural(resources.length, 'status_saved', name, mb, origin);
   const notes = [];
   const editors = [...editorReport.values()];
   const bySource = (name) => editors.filter((e) => e.source === name).length;
   if (editors.length) {
     const partial = bySource('visible-rows');
-    notes.push({ text: `${editors.length} code/text editor${editors.length === 1 ? '' : 's'} saved as scrollable, selectable text (${bySource('file')} from the complete linked file, ${bySource('monaco') + bySource('react')} read from the editor).` });
-    if (partial) notes.push({ warn: true, text: `${partial} editor${partial === 1 ? '' : 's'} could only be saved with the lines that were on screen when you captured.` });
+    notes.push({ text: plural(editors.length, 'note_editors', bySource('file'), bySource('monaco') + bySource('react')) });
+    if (partial) notes.push({ warn: true, text: plural(partial, 'note_editors_partial') });
   }
   const carousels = Object.values(page.pagers || {});
-  if (carousels.length) notes.push({ text: `${carousels.length} carousel${carousels.length === 1 ? '' : 's'} saved with all items (${carousels.map((p) => p.length).join(', ')}).` });
-  if (linkedFiles) notes.push({ text: `${linkedFiles} linked file${linkedFiles === 1 ? '' : 's'} (downloads, attachments) saved next to the page.` });
+  if (carousels.length) notes.push({ text: plural(carousels.length, 'note_carousels', carousels.map((p) => p.length).join(', ')) });
+  if (linkedFiles) notes.push({ text: plural(linkedFiles, 'note_files') });
   state.notes = notes;
   state.failures = failures;
   state.download = { url: blobUrl, name };
@@ -658,5 +684,5 @@ async function main() {
 // put to sleep meanwhile: keep it awake until the capture ends.
 const keepAwake = setInterval(() => call('ping').catch(() => {}), 20_000);
 main()
-  .catch((err) => showError(`Snapshot failed: ${err.message || err}`))
+  .catch((err) => showError(msg('error_failed', err.message || String(err))))
   .finally(() => clearInterval(keepAwake));

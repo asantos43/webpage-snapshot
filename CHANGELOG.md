@@ -6,6 +6,12 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- New name: **PageKeep** (formerly Page Snapshot), "PageKeep: Offline Page Saver" in the browser
+  and the store. Release files are now called `pagekeep-<version>.zip`.
+- The popup, its Help and the extension's name and description are in English and Brazilian
+  Portuguese, following the browser's language.
+- Counts of one are now written in the singular ("1 resource", not "1 resources").
+
 ## [1.1.1] - 2026-09-27
 
 - No more access to all websites: the extension now asks only for the tab you open its popup on

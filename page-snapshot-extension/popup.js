@@ -3,6 +3,23 @@
 const $ = (id) => document.getElementById(id);
 let activeTabId;
 
+// Every text of a job is a message of _locales, { key, args } (see offscreen.js), or an array of
+// them to join; plain strings (addresses, technical reasons) are shown as they are.
+function t(text) {
+  if (text == null) return '';
+  if (typeof text === 'string') return text;
+  if (Array.isArray(text)) return text.map(t).join('');
+  return chrome.i18n.getMessage(text.key, (text.args || []).map(t)) || text.key;
+}
+const plural = (n, key) => t({ key: `${key}_${n === 1 ? 'one' : 'other'}`, args: n === 1 ? [] : [String(n)] });
+
+function translatePage() {
+  for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = chrome.i18n.getMessage(el.dataset.i18n);
+  for (const el of document.querySelectorAll('[data-i18n-label]')) el.setAttribute('aria-label', chrome.i18n.getMessage(el.dataset.i18nLabel));
+  document.documentElement.lang = chrome.i18n.getUILanguage();
+}
+translatePage();
+
 async function send(type, extra = {}) {
   const reply = await chrome.runtime.sendMessage({ type, ...extra });
   if (reply?.error) throw new Error(reply.error);
@@ -30,17 +47,17 @@ function render(job) {
     $('bar').removeAttribute('value'); // indeterminate
   }
   $('status').hidden = job.phase === 'error';
-  $('status').textContent = job.status || '';
+  $('status').textContent = t(job.status);
   $('now').textContent = running ? job.now || '' : '';
-  fill($('steps'), job.steps || [], (li, s) => { li.className = s.state; li.textContent = s.text; });
+  fill($('steps'), job.steps || [], (li, s) => { li.className = s.state; li.textContent = t(s.text); });
   $('error').hidden = !job.error;
-  $('error').textContent = job.error || '';
+  $('error').textContent = t(job.error);
   $('notes').hidden = !job.notes?.length;
-  fill($('notes'), job.notes || [], (li, n) => { li.textContent = n.text; if (n.warn) li.className = 'warn'; });
+  fill($('notes'), job.notes || [], (li, n) => { li.textContent = t(n.text); if (n.warn) li.className = 'warn'; });
   const failures = job.failures || [];
   $('failed-box').hidden = !failures.length;
-  $('failed-summary').textContent = `${failures.length} resource${failures.length === 1 ? '' : 's'} could not be saved (their references were removed so the page never goes online)`;
-  fill($('failed'), failures, (li, f) => { li.textContent = `${f.url} — ${f.reason}`; });
+  $('failed-summary').textContent = plural(failures.length, 'failed_summary');
+  fill($('failed'), failures, (li, f) => { li.textContent = `${f.url} — ${f.text ? t(f.text) : f.reason}`; });
   $('download').hidden = !job.download;
   $('cancel').disabled = !running;
   const wasDisabled = $('ok').disabled;
@@ -51,7 +68,7 @@ function render(job) {
 $('ok').onclick = async () => { await send('popup-ok'); window.close(); };
 $('cancel').onclick = async () => {
   $('cancel').disabled = true;
-  $('status').textContent = 'Cancelling…';
+  $('status').textContent = chrome.i18n.getMessage('status_cancelling');
   await send('popup-cancel');
   window.close();
 };
@@ -67,6 +84,6 @@ chrome.storage.session.onChanged.addListener((changes) => {
   try {
     render(await send('popup-open', { tabId: activeTabId }));
   } catch (err) {
-    render({ phase: 'error', steps: [], error: `Could not start the capture: ${err.message}` });
+    render({ phase: 'error', steps: [], error: { key: 'error_start', args: [err.message] } });
   }
 })();

@@ -1,0 +1,302 @@
+{
+  "ext_name": {
+    "message": "PageKeep: Offline Page Saver",
+    "description": "Extension and store name (max 75 characters)."
+  },
+  "ext_description": {
+    "message": "Saves the page you are looking at as a ZIP with its styles, images and fonts, so it opens offline exactly as you saw it.",
+    "description": "Store and browser description: the single purpose (max 132 characters)."
+  },
+  "action_title": {
+    "message": "Save this page for offline use (ZIP)",
+    "description": "Tooltip of the toolbar icon."
+  },
+  "command_save": {
+    "message": "Save this page",
+    "description": "Keyboard shortcut description (Alt+Shift+S)."
+  },
+  "app_name": {
+    "message": "PageKeep",
+    "description": "Heading of the popup (the product name)."
+  },
+  "other_tab": {
+    "message": "This is the capture of another tab. It must finish, or be cancelled, before this tab can be captured.",
+    "description": "Shown when the popup is opened on a tab other than the one being captured."
+  },
+  "help": {
+    "message": "Help",
+    "description": "Title of the collapsible help section."
+  },
+  "help_intro": {
+    "message": "This popup saves the page you are looking at as a ZIP that opens offline. It reads the page, steps through each carousel, reuses the files the page already loaded and downloads the rest; then the ZIP goes to your Downloads folder.",
+    "description": "First paragraph of the help."
+  },
+  "help_close_label": {
+    "message": "You can close this popup",
+    "description": "Bold start of a help item."
+  },
+  "help_close": {
+    "message": "(or click on the page): the capture carries on. Click the extension's icon again to see how it is going. The icon's badge shows … while it runs, ✓ when it is done and ! if it failed.",
+    "description": "Rest of the help item after help_close_label."
+  },
+  "help_cancel": {
+    "message": "stops the capture: carousels go back to their first item and nothing is saved.",
+    "description": "Help item after the Cancel button's name."
+  },
+  "help_ok": {
+    "message": "becomes available when the capture ends; it clears the result, so the next click on the icon captures the page again.",
+    "description": "Help item after the OK button's name."
+  },
+  "help_download": {
+    "message": "saves the same ZIP once more.",
+    "description": "Help item after the Download again button's name."
+  },
+  "help_one": {
+    "message": "One capture runs at a time. While the capture runs, the browser shows an \"Extension started debugging this browser\" bar on the page; it is used to read the files the page already loaded and goes away at the end.",
+    "description": "Help item about one capture at a time and the debugging bar."
+  },
+  "help_unzip": {
+    "message": "Unzip the file and open index.html. Anything that could not be saved is listed below the results and is left out of the snapshot, which never goes online.",
+    "description": "Last help item."
+  },
+  "download_again": {
+    "message": "Download again",
+    "description": "Button: save the same ZIP again."
+  },
+  "cancel": {
+    "message": "Cancel",
+    "description": "Button: stop the capture."
+  },
+  "ok": {
+    "message": "OK",
+    "description": "Button: dismiss the finished capture."
+  },
+  "steps_label": {
+    "message": "What the extension is doing",
+    "description": "Accessible name of the list of steps."
+  },
+  "status_starting": {
+    "message": "Starting…",
+    "description": "Status before the first step."
+  },
+  "status_cancelling": {
+    "message": "Cancelling…",
+    "description": "Status after Cancel is pressed."
+  },
+  "error_start": {
+    "message": "Could not start the capture: $1",
+    "description": "$1 = technical reason."
+  },
+  "error_tab_gone": {
+    "message": "The tab to capture no longer exists.",
+    "description": "Error."
+  },
+  "error_page_blocked": {
+    "message": "The browser does not allow reading this page ($1). Pages such as chrome:// and the extension store are off limits.",
+    "description": "$1 = technical reason."
+  },
+  "error_failed": {
+    "message": "The capture failed: $1",
+    "description": "$1 = technical reason."
+  },
+  "step_tab_finding": {
+    "message": "Finding the tab to capture…",
+    "description": "Step."
+  },
+  "step_tab_found": {
+    "message": "Found the tab",
+    "description": "Step done."
+  },
+  "step_editors_reading": {
+    "message": "Looking for code editors and reading their text…",
+    "description": "Step."
+  },
+  "step_editors_read_one": {
+    "message": "Read the full text of 1 code editor from the page",
+    "description": "Step done, one editor."
+  },
+  "step_editors_read_other": {
+    "message": "Read the full text of $1 code editors from the page",
+    "description": "Step done; $1 = number of editors."
+  },
+  "step_read": {
+    "message": "Reading the page…",
+    "description": "Step."
+  },
+  "step_dom_copying": {
+    "message": "Copying the page: DOM, styles, form values…",
+    "description": "Step."
+  },
+  "step_dom_copied": {
+    "message": "Copied the page: DOM, styles, form values",
+    "description": "Step done."
+  },
+  "carousel_probe": {
+    "message": "Carousel $1 of $2: checking how it works…",
+    "description": "$1 = carousel number, $2 = total."
+  },
+  "carousel_recording": {
+    "message": "Carousel $1 of $2: recording item $3…",
+    "description": "$3 = item number."
+  },
+  "carousel_restore": {
+    "message": "Carousel $1 of $2: putting your page back to item 1…",
+    "description": "Step."
+  },
+  "carousel_done": {
+    "message": "Carousel $1 of $2: recorded $3 items",
+    "description": "$3 = number of items."
+  },
+  "step_debugger_asking": {
+    "message": "Asking the page which files it has already loaded…",
+    "description": "Step."
+  },
+  "step_debugger_ok_one": {
+    "message": "The page has 1 file loaded that can be reused (no re-download)",
+    "description": "Step done, one file."
+  },
+  "step_debugger_ok_other": {
+    "message": "The page has $1 files loaded that can be reused (no re-download)",
+    "description": "Step done; $1 = number of files."
+  },
+  "step_debugger_failed": {
+    "message": "Could not read the page's loaded files ($1); only files from the page's own site can be saved",
+    "description": "$1 = technical reason."
+  },
+  "step_assets_finding": {
+    "message": "Finding and downloading the page's resources…",
+    "description": "Step."
+  },
+  "assets_progress": {
+    "message": "Downloading resources… $1 of $2",
+    "description": "$1 done of $2 found."
+  },
+  "assets_progress_page": {
+    "message": ", $1 from the page",
+    "description": "Appended to assets_progress."
+  },
+  "assets_progress_failed": {
+    "message": ", $1 failed",
+    "description": "Appended to assets_progress."
+  },
+  "assets_saved_one": {
+    "message": "Saved 1 resource",
+    "description": "Step done, one file."
+  },
+  "assets_saved_other": {
+    "message": "Saved $1 resources",
+    "description": "Step done; $1 = number."
+  },
+  "assets_saved_page": {
+    "message": " (from the page: $1)",
+    "description": "Appended to assets_saved: how many were read from the page."
+  },
+  "assets_saved_failed": {
+    "message": "; not saved: $1",
+    "description": "Appended to assets_saved: how many failed."
+  },
+  "step_files_saving": {
+    "message": "Saving downloadable files… $1",
+    "description": "$1 = count so far."
+  },
+  "step_files_saved_one": {
+    "message": "Saved 1 downloadable file next to the page",
+    "description": "Step done."
+  },
+  "step_files_saved_other": {
+    "message": "Saved $1 downloadable files next to the page",
+    "description": "Step done."
+  },
+  "step_zip_packing": {
+    "message": "Packing everything into a ZIP…",
+    "description": "Step."
+  },
+  "step_zip_packed": {
+    "message": "Packed the ZIP ($1 files, $2 MB)",
+    "description": "Step done."
+  },
+  "step_save_saving": {
+    "message": "Saving it to your Downloads folder…",
+    "description": "Step."
+  },
+  "step_save_done": {
+    "message": "Sent to your Downloads folder",
+    "description": "Step done."
+  },
+  "step_save_failed": {
+    "message": "Could not start the download ($1); use Download again",
+    "description": "$1 = technical reason."
+  },
+  "status_saved_one": {
+    "message": "Saved $1 ($2 MB, 1 resource; $3).",
+    "description": "Final status; $1 = file name, $3 = origin_debugger or origin_no_debugger."
+  },
+  "status_saved_other": {
+    "message": "Saved $2 ($3 MB, $1 resources; $4).",
+    "description": "Final status; $1 = number of resources, $2 = file name, $4 = origin_debugger or origin_no_debugger."
+  },
+  "origin_debugger": {
+    "message": "from the page: $1, downloaded: $2",
+    "description": "Part of status_saved."
+  },
+  "origin_no_debugger": {
+    "message": "debugger unavailable: $1",
+    "description": "Part of status_saved."
+  },
+  "note_editors_one": {
+    "message": "1 code/text editor saved as scrollable, selectable text ($1 from the complete linked file, $2 read from the editor).",
+    "description": "Result note."
+  },
+  "note_editors_other": {
+    "message": "$1 code/text editors saved as scrollable, selectable text ($2 from the complete linked file, $3 read from the editor).",
+    "description": "Result note."
+  },
+  "note_editors_partial_one": {
+    "message": "1 editor could only be saved with the lines that were on screen when you captured.",
+    "description": "Result warning."
+  },
+  "note_editors_partial_other": {
+    "message": "$1 editors could only be saved with the lines that were on screen when you captured.",
+    "description": "Result warning."
+  },
+  "note_carousels_one": {
+    "message": "1 carousel saved with all items ($1).",
+    "description": "$1 = number of items."
+  },
+  "note_carousels_other": {
+    "message": "$1 carousels saved with all items ($2).",
+    "description": "$2 = items of each, comma-separated."
+  },
+  "note_files_one": {
+    "message": "1 linked file (downloads, attachments) saved next to the page.",
+    "description": "Result note."
+  },
+  "note_files_other": {
+    "message": "$1 linked files (downloads, attachments) saved next to the page.",
+    "description": "Result note."
+  },
+  "failed_summary_one": {
+    "message": "1 resource could not be saved (its reference was removed so the page never goes online)",
+    "description": "Title of the failed list."
+  },
+  "failed_summary_other": {
+    "message": "$1 resources could not be saved (their references were removed so the page never goes online)",
+    "description": "Title of the failed list."
+  },
+  "reason_timeout": {
+    "message": "timed out",
+    "description": "Why a file failed."
+  },
+  "reason_too_large": {
+    "message": "larger than $1 MB",
+    "description": "Why a file failed."
+  },
+  "reason_total_limit": {
+    "message": "snapshot size limit reached",
+    "description": "Why a file failed."
+  },
+  "reason_no_debugger": {
+    "message": "needs the debugger, which could not be attached",
+    "description": "Why a file failed."
+  }
+}

@@ -120,7 +120,9 @@ try {
     await popup.waitForLoadState();
     return popup;
   };
-  const recording = (from) => (j) => j?.steps?.some((s) => new RegExp(`recording item [${from}-9]`).test(s.text));
+  // Job texts are messages of _locales, { key, args } (see offscreen.js).
+  const recording = (from) => (j) => j?.steps?.some((s) => s.text?.key === 'carousel_recording' && Number(s.text.args[2]) >= from);
+  const carouselNote = (j) => j?.notes?.some((n) => n.text?.key === 'note_carousels_one' && n.text.args[0] === String(ITEMS));
 
   console.log('1. Capture');
   await openPopup();
@@ -129,17 +131,20 @@ try {
   const started = Date.now();
   let j = await waitJob((x) => {
     const carousel = x?.steps?.find((s) => s.id.startsWith('carousel'));
-    if (carousel) seen.push(carousel.text);
+    if (carousel) seen.push(carousel.text?.key);
     return x && x.phase !== 'running';
   });
-  check('capture finished', j.phase === 'done', `${Date.now() - started} ms; ${j.error || j.status}`);
-  check(`carousel recorded with all ${ITEMS} items`, j.notes?.some((n) => n.text.includes(`all items (${ITEMS})`)));
-  check('popup showed the carousel being recorded', seen.some((t) => /recording item \d+/.test(t)));
+  check('capture finished', j.phase === 'done', `${Date.now() - started} ms; ${JSON.stringify(j.error || j.status)}`);
+  check(`carousel recorded with all ${ITEMS} items`, carouselNote(j));
+  check('popup showed the carousel being recorded', seen.includes('carousel_recording'));
   check('page put back on item 1', (await tab.textContent('#item h2')) === 'Item 1');
   check('icon badge shows ✓', (await badge()) === '✓');
   await pause(300);
   check('popup: OK enabled, Cancel disabled, Download again shown', await popup.evaluate(() =>
     !document.getElementById('ok').disabled && document.getElementById('cancel').disabled && !document.getElementById('download').hidden));
+  const shownText = await popup.evaluate(() => document.body.innerText);
+  check('popup: every text translated (no message key or $1 left)', !/\b(step|note|status|carousel|assets|origin|reason|error|help)_[a-z_]+\b|\$\d/.test(shownText), shownText.slice(0, 200));
+  check('popup: the final status names the ZIP', /^Saved .+\.zip \(/.test(await popup.textContent('#status')), await popup.textContent('#status'));
   let zip;
   for (let k = 0; k < 50 && zip?.state !== 'complete'; k++, await pause(200)) [zip] = await downloads();
   check('ZIP saved to Downloads', zip?.state === 'complete');
@@ -185,7 +190,7 @@ try {
   await waitJob(recording(3));
   await popup.close();
   j = await waitJob((x) => x && x.phase !== 'running');
-  check('the capture carries on and finishes', j.phase === 'done' && j.notes?.some((n) => n.text.includes(`(${ITEMS})`)), j.error || j.status);
+  check('the capture carries on and finishes', j.phase === 'done' && carouselNote(j), JSON.stringify(j.error || j.status));
   await openPopup();
   await pause(1000);
   const again = await job();

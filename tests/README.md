@@ -1,6 +1,6 @@
 # Tests
 
-Loads Page Snapshot in a real Chromium with [Playwright](https://playwright.dev), so its service
+Loads PageKeep in a real Chromium with [Playwright](https://playwright.dev), so its service
 worker, `chrome.*` APIs and pages run for real.
 
 ```

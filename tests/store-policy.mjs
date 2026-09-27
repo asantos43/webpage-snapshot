@@ -3,7 +3,8 @@
 // - no remotely hosted or dynamically built code: no eval / new Function / string timers, no
 //   remote <script> or import, and the extension pages' CSP only allows packaged scripts;
 // - no telemetry: the code names no network host (the page's own files are the only downloads);
-// - name and description within the store's limits;
+// - name and description within the store's limits, in each language;
+// - two complete locales (en, pt_BR) with the same keys and $1…$9 values, every message used;
 // - icons are our own PNGs with no embedded metadata from a third-party icon set.
 // Exit code 1 if any check fails.
 // Usage: node store-policy.mjs [path-to-extension]   (default: ../page-snapshot-extension)
@@ -54,10 +55,37 @@ const ALLOWED_HOSTS = ['www.w3.org']; // XML namespaces, never requested
 const unexpected = [...hosts].filter((h) => !ALLOWED_HOSTS.includes(h));
 check('the code names no network host', unexpected.length === 0, unexpected.join(', '));
 
-// Metadata: the store's limits.
-check('name at most 75 characters', manifest.name.length <= 75, manifest.name);
+// Languages: English (default) and Brazilian Portuguese, with exactly the same messages.
+const locales = fs.readdirSync(path.join(extensionPath, '_locales')).sort();
+check('locales are en and pt_BR', JSON.stringify(locales) === '["en","pt_BR"]', locales.join(', '));
+check('default_locale is en', manifest.default_locale === 'en');
+const messages = Object.fromEntries(locales.map((l) => [l, JSON.parse(fs.readFileSync(path.join(extensionPath, '_locales', l, 'messages.json'), 'utf8'))]));
+const en = messages.en || {};
+const pt = messages.pt_BR || {};
+check('pt_BR has exactly the English keys', JSON.stringify(Object.keys(pt).sort()) === JSON.stringify(Object.keys(en).sort()));
+const values = (text) => [...new Set(text.match(/\$\d/g) || [])].sort().join();
+const mismatched = Object.keys(en).filter((k) => pt[k] && values(en[k].message) !== values(pt[k].message));
+check('every message has the same $1…$9 values in both languages', mismatched.length === 0, mismatched.join(', '));
+const empty = locales.flatMap((l) => Object.entries(messages[l]).filter(([, v]) => !v.message?.trim()).map(([k]) => `${l}:${k}`));
+check('no empty message', empty.length === 0, empty.join(', '));
+// Used: by name in the pages and scripts (plurals by their base name, which adds _one/_other).
+const sources = ['manifest.json', 'popup.html', 'popup.js', 'background.js', 'offscreen.js']
+  .map((f) => fs.readFileSync(path.join(extensionPath, f), 'utf8')).join('\n');
+const used = (key) => [key, key.replace(/_(one|other)$/, '')].some((k) => sources.includes(`'${k}'`) || sources.includes(`"${k}"`) || sources.includes(`__MSG_${k}__`));
+const unused = Object.keys(en).filter((k) => !used(k));
+check('every message is used', unused.length === 0, unused.join(', '));
+const missing = [...sources.matchAll(/(?:msg|plural)\(\s*(?:[^,()]+,\s*)?'([a-z_]+)'/g)].map((m) => m[1])
+  .filter((k) => !en[k] && !(en[`${k}_one`] && en[`${k}_other`]));
+check('every message the code asks for exists', missing.length === 0, missing.join(', '));
+
+// Metadata: the store's limits, in each language.
+const name = (l) => (manifest.name.startsWith('__MSG_') ? messages[l]?.[manifest.name.slice(6, -2)]?.message : manifest.name) || '';
+const description = (l) => (manifest.description.startsWith('__MSG_') ? messages[l]?.[manifest.description.slice(6, -2)]?.message : manifest.description) || '';
+for (const l of locales) {
+  check(`${l}: name at most 75 characters`, name(l).length > 0 && name(l).length <= 75, name(l));
+  check(`${l}: description at most 132 characters`, description(l).length > 0 && description(l).length <= 132, `${description(l).length} characters`);
+}
 check('short name at most 12 characters (toolbar label)', !manifest.short_name || manifest.short_name.length <= 12);
-check('description at most 132 characters', manifest.description.length <= 132, `${manifest.description.length} characters`);
 
 // Icons: the four sizes the manifest lists, as plain PNGs with no text chunks (icon sets such as
 // Apple's SF Symbols leave their names and licences in the file's metadata).

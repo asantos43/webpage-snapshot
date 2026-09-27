@@ -1,6 +1,6 @@
-# Page Snapshot
+# PageKeep
 
-**Page Snapshot** é uma extensão para navegadores Chromium (Chrome, Opera, Edge e outros; Manifest V3) que salva a aba que você está vendo como um ZIP. Cada folha de estilo, imagem, fonte e ícone é baixado e a página é reescrita para apontar para as cópias locais: basta descompactar e abrir o `index.html`, a qualquer momento e sem internet.
+**PageKeep** (até a versão 1.1.1 chamada Page Snapshot) é uma extensão para navegadores Chromium (Chrome, Opera, Edge e outros; Manifest V3) que salva a aba que você está vendo como um ZIP. Cada folha de estilo, imagem, fonte e ícone é baixado e a página é reescrita para apontar para as cópias locais: basta descompactar e abrir o `index.html`, a qualquer momento e sem internet.
 
 Ela captura a página **como está na tela agora**, e não como o servidor a enviou: conteúdo gerado por JavaScript, o que você digitou em formulários e canvases entram no snapshot.
 
@@ -18,6 +18,10 @@ Os detalhes técnicos (o que é capturado, de onde vêm os arquivos, limitaçõe
 - **Texto cortado com "…mais"** por clamp de CSS aparece inteiro.
 - **Progresso ao vivo:** o popup da extensão, embaixo do ícone, mostra cada fase com contadores e o arquivo sendo baixado naquele momento, com os botões **OK** e **Cancel** e uma seção **Help**. A captura continua mesmo com o popup fechado.
 
+## Idiomas
+
+A interface (popup, ajuda, nome e descrição no navegador e na loja) está em **inglês** e **português do Brasil**. O navegador escolhe pelo idioma dele; qualquer outro idioma usa o inglês. Os textos ficam em `page-snapshot-extension/_locales/`.
+
 ## Privacidade: o snapshot nunca acessa a rede
 
 Abrir o `index.html` não faz nenhuma requisição. Os scripts originais da página e os atributos `ping` são removidos, iframes de outros sites (anúncios, telemetria) não são carregados, e qualquer arquivo que não pôde ser salvo tem a referência removida em vez de apontar para o site ao vivo. Links (`<a href>`) continuam levando ao site real quando você está online.
@@ -26,7 +30,7 @@ Abrir o `index.html` não faz nenhuma requisição. Os scripts originais da pág
 
 | Pasta | Conteúdo |
 | --- | --- |
-| `page-snapshot-extension/` | A extensão (JavaScript puro, sem etapa de build e sem dependências) |
+| `page-snapshot-extension/` | A extensão (JavaScript puro, sem etapa de build e sem dependências; a pasta mantém o nome antigo) |
 | `tests/` | Smoke test com Playwright num Chromium real |
 | `docs/` | Notas de desenvolvimento: ambiente, navegadores, versões, releases e origem do repo |
 | `.github/workflows/` | A Action que publica uma release a cada pull request mergeado |
@@ -44,7 +48,7 @@ Depois de atualizar o código, recarregue a extensão na mesma página.
 
 ### A partir de uma release
 
-Cada versão é publicada em **Releases** no GitHub como `page-snapshot-<versão>.zip`. Baixe, descompacte numa pasta fixa e carregue essa pasta como acima. Para atualizar, substitua o conteúdo da pasta e recarregue a extensão.
+Cada versão é publicada em **Releases** no GitHub como `pagekeep-<versão>.zip`. Baixe, descompacte numa pasta fixa e carregue essa pasta como acima. Para atualizar, substitua o conteúdo da pasta e recarregue a extensão.
 
 ## Usar
 
