@@ -16,7 +16,7 @@ The Flatpak Google Chrome and Microsoft Edge are branded builds that ignore `--l
 
 Page Snapshot is for Chromium browsers in general, for example **Google Chrome**, **Opera** and **Microsoft Edge**. Load it unpacked from `page-snapshot-extension/` on the browser's extensions page (`chrome://extensions`, `opera://extensions`, `edge://extensions`, with Developer mode on), and reload it there after changing the code.
 
-- It needs `chrome.debugger` (to read the resources the tab already loaded) and `<all_urls>` (to download the rest from any CDN). While a capture runs, the browser shows an "Extension started debugging this browser" bar on the tab. If another debugging tool holds the tab, the capture falls back to plain downloads.
+- It needs `chrome.debugger` (to read the resources the tab already loaded, and to download the rest in the tab's own context with `Network.loadNetworkResource`) and `activeTab`; it has no host permissions (see `docs/STORE-POLICY.md`). While a capture runs, the browser shows an "Extension started debugging this browser" bar on the tab. If the debugger cannot be attached, only files from the page's own site are saved.
 - Browser-internal pages (`chrome://`, `opera://`, `edge://`) and the extension stores cannot be captured. `file://` pages need **Allow access to file URLs** on the extension's details page.
 - An unpacked extension's id comes from its folder path, so loading it from another folder (another clone, or an unpacked release) gives it a new id. Page Snapshot keeps no settings, so nothing is lost, but the keyboard shortcut may need to be set again.
 
@@ -38,7 +38,7 @@ So every merge is a new patch release, and a minor or major one is made by raisi
 The workflow writes a new version to the manifest and commits it to `main` itself ("Version 1.0.1"). These are the only commits that bypass pull requests, so run `git pull` after a merge. Runs go one at a time and GitHub keeps only the newest waiting run, so several merges made while a release is still running may come out together in a single release.
 
 What a run does:
-1. Runs the smoke test and the carousel end-to-end test (`tests/carousel.mjs`) on Playwright's Chromium.
+1. Runs the smoke test, the carousel end-to-end test (`tests/carousel.mjs`) and the store policy checks (`tests/store-policy.mjs`) on Playwright's Chromium.
 2. Zips the git-tracked files of `page-snapshot-extension/`, plus `CHANGELOG.md`, as `page-snapshot-<version>.zip`.
 3. Publishes it as the GitHub release `v<version>`, titled "Page Snapshot <version>". The notes are that version's section of `CHANGELOG.md`, followed by the install hints.
 

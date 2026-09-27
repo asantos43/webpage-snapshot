@@ -6,7 +6,7 @@
 # written to the manifest and committed to main as "Version x.y.z", together with CHANGELOG.md,
 # whose "Unreleased" section becomes the version's section. The smoke test must pass, then the
 # extension folder (plus CHANGELOG.md) is zipped and published as the GitHub release v<version>,
-# whose notes are that changelog section. The carousel end-to-end test must pass too.
+# whose notes are that changelog section. The carousel end-to-end test and the store policy checks must pass too.
 # A pull request labelled "no-release" (documentation, fixes that belong to the release already
 # out) is merged without a new release.
 name: Release
@@ -141,6 +141,10 @@ jobs:
       - name: Carousel end-to-end test
         working-directory: tests
         run: npm run carousel
+
+      - name: Store policy checks
+        working-directory: tests
+        run: npm run store-policy
 
       - name: Commit the new version and changelog
         env:

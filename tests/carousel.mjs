@@ -1,11 +1,18 @@
 // End-to-end test: capture a local page with a carousel through the extension's popup, then open
-// the saved ZIP and step through the carousel offline. Also checks OK, closing the popup in the
-// middle of a capture, and Cancel. Exit code 1 if any check fails.
+// the saved ZIP and step through the carousel offline. Also checks files from another site (which
+// the extension has no permission for), OK, closing the popup in the middle of a capture, and
+// Cancel. Exit code 1 if any check fails.
 // Usage: node carousel.mjs [path-to-extension]   (default: ../page-snapshot-extension)
 //
 // The real popup is opened with chrome.action.openPopup(), which starts the capture, but
 // Playwright cannot reach its page; popup.html opened in its own window runs the same code and
 // shows the same capture, so its buttons are clicked there.
+//
+// The extension asks for activeTab, which Chrome grants only after a real click on its icon, and
+// automation cannot click it. So, as in the Auto Refresh & Clicker tests, the test loads a copy
+// whose manifest lists the test site as a host permission instead; nothing else differs. The
+// second site (localhost, another origin and another site) is not granted: its files must come
+// through the debugger.
 import { chromium } from 'playwright';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -16,9 +23,25 @@ import path from 'node:path';
 const extensionPath = path.resolve(process.argv[2] || '../page-snapshot-extension');
 const ITEMS = 12;
 
+// The other site: no CORS headers, and no permission for the extension.
+const other = http.createServer((req, res) => {
+  if (req.url === '/logo.svg') {
+    res.setHeader('content-type', 'image/svg+xml');
+    return res.end('<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30"><circle cx="15" cy="15" r="12" fill="teal"/></svg>');
+  }
+  if (req.url === '/notes.txt') {
+    res.setHeader('content-type', 'text/plain');
+    return res.end('notes from the other site');
+  }
+  res.statusCode = 404;
+  res.end();
+}).listen(0);
+const otherOrigin = `http://localhost:${other.address().port}`;
+
 // A carousel that renders only its current item (a heading and an image), swapped in a little
 // after each click, like a real one waiting for its transition.
 const page = `<!doctype html><title>Carousel test</title><link rel="stylesheet" href="/style.css">
+<img id="logo" src="${otherOrigin}/logo.svg"><a id="notes" download href="${otherOrigin}/notes.txt">notes</a>
 <div class="card"><div id="item"><h2>Item 1</h2><img src="/img/1.svg"></div>
 <div id="nav"><button aria-label="Previous item" id="p" disabled>&lt;</button><button aria-label="Next item" id="n">&gt;</button></div></div>
 <script>let i=1;const show=()=>{p.disabled=i===1;n.disabled=i===${ITEMS};setTimeout(()=>{item.innerHTML='<h2>Item '+i+'</h2><img src="/img/'+i+'.svg">';},120);};
@@ -38,13 +61,19 @@ const server = http.createServer((req, res) => {
 }).listen(0);
 const url = `http://127.0.0.1:${server.address().port}/`;
 
+const copy = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-under-test-'));
+fs.cpSync(extensionPath, copy, { recursive: true });
+const manifest = JSON.parse(fs.readFileSync(path.join(copy, 'manifest.json'), 'utf8'));
+manifest.host_permissions = ['http://127.0.0.1/*']; // stands in for activeTab on the test page
+fs.writeFileSync(path.join(copy, 'manifest.json'), JSON.stringify(manifest, null, 2));
+
 const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-ext-'));
 const unzipDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-snap-'));
 const context = await chromium.launchPersistentContext(userDataDir, {
   channel: 'chromium',
   headless: true,
   acceptDownloads: true,
-  args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
+  args: [`--disable-extensions-except=${copy}`, `--load-extension=${copy}`],
 });
 
 let failed = 0;
@@ -135,6 +164,12 @@ try {
   check('Previous goes back', (await snap.textContent('h2')) === `Item ${ITEMS - 1}`);
   check('item images saved locally', await snap.$eval('#item img', (i) => i.complete && i.naturalWidth > 0 && i.getAttribute('src').startsWith('assets/')));
   check('stylesheet saved', (await snap.$eval('h2', (h) => getComputedStyle(h).color)) === 'rgb(0, 128, 128)');
+  check('image from the other site saved (the page had loaded it)', await snap.$eval('#logo', (i) => i.complete && i.naturalWidth > 0 && i.getAttribute('src').startsWith('assets/')));
+  const notesHref = await snap.$eval('#notes', (a) => a.getAttribute('href'));
+  check('file from the other site saved (the page had not loaded it)', notesHref.startsWith('assets/')
+    && fs.readFileSync(path.join(unzipDir, notesHref), 'utf8') === 'notes from the other site', notesHref);
+  const listed = JSON.parse(fs.readFileSync(path.join(unzipDir, 'snapshot.json'), 'utf8'));
+  check('nothing failed', listed.failed.length === 0, JSON.stringify(listed.failed));
   check('no network requests', online.length === 0, online.join(' '));
   await snap.close();
 
@@ -188,6 +223,8 @@ try {
 } finally {
   await context.close();
   server.close();
+  other.close();
+  fs.rmSync(copy, { recursive: true, force: true });
   fs.rmSync(userDataDir, { recursive: true, force: true });
   fs.rmSync(unzipDir, { recursive: true, force: true });
 }

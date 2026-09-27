@@ -24,3 +24,5 @@ automation. Playwright's Chromium (channel `chromium`, "new headless" mode) supp
 - Extensions need a persistent context: `chromium.launchPersistentContext(dir, { channel: 'chromium', args: ['--disable-extensions-except=…', '--load-extension=…'] })`.
 - The extension id comes from the service worker URL (`context.serviceWorkers()`).
 - The toolbar popup can be opened from the service worker with `chrome.action.openPopup({ windowId })` (the page's window must be focused), but Playwright does not expose the popup's page. `popup.html` opened in its own window runs the same code and shows the same capture, so tests click its buttons there. See `carousel.mjs`.
+- The extension asks for `activeTab`, which Chrome grants only after a real click on its icon. Tests load a copy of the extension whose manifest lists the test site under `host_permissions` instead (see `carousel.mjs`); files from any other site must then come through the debugger, as in real use.
+- `store-policy.mjs` needs no browser: it checks the manifest and the files against `docs/STORE-POLICY.md`.

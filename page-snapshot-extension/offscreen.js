@@ -116,6 +116,7 @@ let finished = 0;
 let fromBrowser = 0; // resources read from what the tab had already loaded
 let tabOrigin = ''; // origin of the captured tab, for fetching from inside it
 let pageResources = null; // remote URL -> { frameId, mimeType }, via the debugger API
+let mainFrameId = null; // the tab's top frame, which downloads the files it had not loaded
 
 function createLimiter(max) {
   let active = 0;
@@ -160,9 +161,10 @@ function base64ToBytes(b64) {
   return bytes;
 }
 
-// Attach Chrome's debugger to the tab just long enough to list the resources it
-// already loaded. Never throws: on failure capture carries on with plain downloads
-// and the reason is reported to the user.
+// Attach Chrome's debugger to the tab for the length of the capture: it lists the resources the
+// tab already loaded and downloads the rest in the page's own context (see viaDebugger). Never
+// throws: on failure the capture carries on with what the tab can fetch from its own site, and
+// the reason is reported to the user.
 async function attachDebugger() {
   try {
     await call('attach');
@@ -181,6 +183,7 @@ async function attachDebugger() {
       (node.childFrames || []).forEach(visit);
     };
     visit(frameTree);
+    mainFrameId = frameTree.frame.id;
     return { ok: true, count: pageResources.size };
   } catch (err) {
     await detachDebugger();
@@ -190,6 +193,7 @@ async function attachDebugger() {
 
 async function detachDebugger() {
   pageResources = null;
+  mainFrameId = null;
   try { await call('detach'); } catch { /* already detached */ }
 }
 
@@ -214,28 +218,25 @@ function httpError(status, retryAfter) {
   return Object.assign(new Error(`HTTP ${status}`), { status, retryAfterMs: seconds > 0 ? seconds * 1000 : 0 });
 }
 
-// Download from the extension itself (cookies included, CORS-exempt via host permissions).
-async function viaExtension(url) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, { credentials: 'include', cache: 'force-cache', signal: controller.signal });
-    if (!res.ok) throw httpError(res.status, res.headers.get('retry-after'));
-    const declared = Number(res.headers.get('content-length'));
-    if (declared > MAX_RESOURCE_BYTES) throw new Error(`larger than ${MAX_RESOURCE_BYTES >> 20} MB`);
-    const bytes = new Uint8Array(await res.arrayBuffer());
-    admit(bytes.length);
-    return { bytes, type: res.headers.get('content-type') || '', source: 'network' };
-  } catch (err) {
-    throw err.name === 'AbortError' ? new Error('timed out') : err;
-  } finally {
-    clearTimeout(timer);
-  }
+// A file the tab had not loaded (another site's, or one that was not on screen) is downloaded
+// by the tab itself through the debugger (Network.loadNetworkResource, the way DevTools loads
+// source maps; background.js `loadResource`). The extension has no host permission, only
+// activeTab on the captured tab, so it never downloads anything on its own.
+async function viaDebugger(url) {
+  if (!mainFrameId) throw new Error('needs the debugger, which could not be attached');
+  const res = await call('loadResource', { frameId: mainFrameId, url, maxBytes: MAX_RESOURCE_BYTES, timeoutMs: FETCH_TIMEOUT_MS });
+  if (res.status && (res.status < 200 || res.status > 299)) throw httpError(res.status, res.retryAfter);
+  if (res.error) throw new Error(res.error);
+  const parts = res.chunks.map((c) => (c.base64 ? base64ToBytes(c.data) : new TextEncoder().encode(c.data)));
+  const bytes = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  parts.reduce((at, p) => { bytes.set(p, at); return at + p.length; }, 0);
+  admit(bytes.length);
+  return { bytes, type: res.type, source: 'network' };
 }
 
 // Same-origin files can be requested from inside the tab (background.js `fetchInTab`): that
 // uses the page's own cookies and HTTP cache, so files it already loaded are served without a
-// network hit. Returns null when the tab cannot do it (caller falls back to viaExtension).
+// network hit. Returns null when the tab cannot do it (caller falls back to viaDebugger).
 async function viaTab(url) {
   let result;
   try {
@@ -262,7 +263,7 @@ async function fetchBytes(url) {
           const viaPage = await viaTab(url);
           if (viaPage) return viaPage;
         }
-        return await viaExtension(url);
+        return await viaDebugger(url);
       } catch (err) {
         const retryable = err.status === 429 || err.status === 503;
         if (!retryable || attempt >= MAX_RETRIES) throw err;
@@ -577,7 +578,7 @@ async function main() {
   step('debugger', 'Asking the page which files it has already loaded…');
   const attached = await attachDebugger();
   if (attached.ok) step('debugger', `The page has ${attached.count} files loaded that can be reused (no re-download)`, 'done');
-  else step('debugger', `Could not read the page's loaded files (${attached.error}); downloading everything instead`, 'warn');
+  else step('debugger', `Could not read the page's loaded files (${attached.error}); only files from the page's own site can be saved`, 'warn');
 
   step('assets', 'Finding and downloading the page\'s resources…');
   let html;

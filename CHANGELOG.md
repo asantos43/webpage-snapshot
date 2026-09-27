@@ -6,6 +6,11 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- No more access to all websites: the extension now asks only for the tab you open its popup on
+  (`activeTab`), and the page's files from other sites are downloaded by the tab itself through
+  the debugger. Chrome no longer warns that it can "read and change all your data on all websites".
+  Cookies are no longer sent to other sites for files the page had not loaded.
+
 ## [1.1.0] - 2026-09-26
 
 - Progress now shows in the extension's popup under its icon, like other extensions, instead of a
