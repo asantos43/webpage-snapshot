@@ -9,6 +9,8 @@
 //   offscreen document sends every change here;
 // - the offscreen document can only use chrome.runtime, so it asks this worker for anything
 //   that needs chrome.tabs, chrome.scripting, chrome.debugger or chrome.downloads ("rpc").
+// The extension has no host permission: activeTab gives it the tab the user opened the popup on,
+// and the debugger downloads the page's files from other sites in the tab's own context.
 // One capture runs at a time (there can only be one offscreen document).
 import { extractPage } from './inpage.js';
 import { readEditorsInMainWorld } from './inpage-main.js';
@@ -107,6 +109,41 @@ async function fetchInTab(u) {
   }
 }
 
+// Downloads a file in the tab's own context through the debugger (Network.loadNetworkResource,
+// the way DevTools loads source maps), so the extension needs no host permission. Returns the
+// body as IO.read chunks, or { status } for an HTTP error, or { error } for a network error.
+async function loadResource({ tabId, frameId, url, maxBytes, timeoutMs }) {
+  const send = (method, params) => chrome.debugger.sendCommand({ tabId }, method, params);
+  let timer;
+  const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('timed out')), timeoutMs); });
+  let stream;
+  try {
+    const { resource } = await Promise.race([
+      send('Network.loadNetworkResource', { frameId, url, options: { disableCache: false, includeCredentials: true } }),
+      timeout,
+    ]);
+    stream = resource.stream;
+    const headers = Object.fromEntries(Object.entries(resource.headers || {}).map(([k, v]) => [k.toLowerCase(), v]));
+    const status = resource.httpStatusCode || 0;
+    if (status && (status < 200 || status > 299)) return { status, retryAfter: headers['retry-after'] };
+    if (!resource.success) return { error: resource.netErrorName || 'download failed' };
+    if (Number(headers['content-length']) > maxBytes) throw new Error(`larger than ${maxBytes >> 20} MB`);
+    const chunks = [];
+    let size = 0;
+    for (;;) {
+      const { data, base64Encoded, eof } = await Promise.race([send('IO.read', { handle: stream, size: 1 << 20 }), timeout]);
+      size += base64Encoded ? Math.floor(data.length * 3 / 4) : data.length;
+      if (size > maxBytes) throw new Error(`larger than ${maxBytes >> 20} MB`);
+      chunks.push({ data, base64: base64Encoded });
+      if (eof) break;
+    }
+    return { status, type: headers['content-type'] || '', chunks };
+  } finally {
+    clearTimeout(timer);
+    if (stream) send('IO.close', { handle: stream }).catch(() => {});
+  }
+}
+
 const inTab = async (tabId, func, args, world) =>
   (await chrome.scripting.executeScript({ target: { tabId }, func, args, ...(world ? { world } : {}) }))[0]?.result;
 
@@ -123,6 +160,7 @@ const rpc = {
     }
   },
   command: ({ tabId, method, params }) => chrome.debugger.sendCommand({ tabId }, method, params),
+  loadResource,
   detach: ({ tabId }) => chrome.debugger.detach({ tabId }).catch(() => {}),
   download: ({ url, name }) => chrome.downloads.download({ url, filename: name }),
   ping: () => true, // keeps this worker awake during long steps

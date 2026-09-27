@@ -53,7 +53,7 @@ Links (`<a href>`) are made absolute, so clicking one opens the real site when y
 - "…more" only works when the full text is already in the page and merely clipped. If a site cuts the text in JavaScript and downloads the rest when you click, the rest was never in the page and cannot be saved.
 - Cross-origin iframes (ads, embeds, tracking frames), `blob:`/streamed video, and closed shadow roots are not captured.
 - Resources over 30 MB, or past 800 MB total, are skipped. A resource that could not be saved is listed in `snapshot.json` and in the popup, and its reference is removed from the page (see below).
-- If Chrome refuses to attach the debugger (for example another debugging tool holds the tab), capture falls back to plain downloads, and login-only files may then fail.
+- If Chrome refuses to attach the debugger, only the files from the page's own site can be saved; the others are listed as failed.
 - Chrome does not let extensions read `chrome://` pages or the Chrome Web Store.
 - To capture `file://` pages, enable **Allow access to file URLs** for the extension on `chrome://extensions`.
 
@@ -69,10 +69,10 @@ If a resource failed only because of a temporary problem (a timeout), the popup 
 
 ## Where the files come from
 
-Chrome gives extensions no direct access to its disk cache. Instead, during a capture the extension briefly attaches Chrome's debugger to the tab and asks for the resources the page **already loaded** (`Page.getResourceTree` / `Page.getResourceContent`). Those are the exact bytes you saw, including login-only images and cross-origin files, with no new request. Anything the tab does not have is fetched next, in this order:
+Chrome gives extensions no direct access to its disk cache. Instead, during a capture the extension briefly attaches Chrome's debugger to the tab and asks for the resources the page **already loaded** (`Page.getResourceTree` / `Page.getResourceContent`). Those are the exact bytes you saw, including login-only images and cross-origin files, with no new request. Anything the tab does not have is downloaded by the tab itself, never by the extension:
 
-1. **From inside the tab** (same-origin files only), so the page's own cookies and HTTP cache are used.
-2. **From the extension**, with cookies.
+1. **From inside the tab** (files from the page's own site), so the page's own cookies and HTTP cache are used.
+2. **Through the debugger** (`Network.loadNetworkResource`, the way DevTools loads source maps) for files from other sites. The request comes from the page, so the extension needs no permission for any website. Cookies are not sent to those other sites (the browser treats it as a third-party request).
 
 Downloads are throttled to 4 at a time per site, and a rate-limited response (HTTP 429/503) is retried up to 3 times with back-off, honouring `Retry-After`. Big sites such as LinkedIn rate-limit bursts of requests.
 
@@ -82,14 +82,14 @@ While it runs, Chrome shows an "Extension started debugging this browser" bar on
 
 ## Permissions
 
-- **All sites (`<all_urls>`)**: needed to download a page's remaining assets from other domains (CDNs) without being blocked by CORS.
-- **`debugger`**: needed to read the resources the tab already loaded, as described above.
-- **`scripting`**: needed to read the DOM of the tab you clicked on.
+- **`activeTab`**: access to the tab you open the popup on, and only that tab. The extension has no permission for any website.
+- **`debugger`**: reads the files the tab already loaded, and downloads the missing ones in the page's own context, as described above. Attached only to that tab, only while the capture runs.
+- **`scripting`**: reads the DOM of the tab you clicked on.
 - **`offscreen`**: the capture runs in a hidden extension page, so it carries on when the popup closes.
 - **`downloads`**: saves the finished ZIP to your Downloads folder (the popup may be closed by then).
 - **`storage`**: keeps the capture's progress for the popup while it runs (session storage, cleared when the browser closes).
 
-The extension only touches a tab when you click the button, and nothing is sent anywhere: everything stays in your browser until the ZIP is saved to disk.
+The extension only touches a tab when you click the button, and nothing is sent anywhere: everything stays in your browser until the ZIP is saved to disk. The Chrome Web Store checklist, with the reasons for each permission, is in [`docs/STORE-POLICY.md`](../docs/STORE-POLICY.md).
 
 ## Files
 
