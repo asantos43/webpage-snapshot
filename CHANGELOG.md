@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-09-27
+
 - Frames from other sites (ads, embedded video players, maps), which cannot be read, now appear in
   the saved copy as a picture of how they looked, in the same place, instead of an empty box. The
   copy still loads nothing: the picture is taken during the capture and saved in the ZIP.
