@@ -20,7 +20,7 @@ Os detalhes técnicos (o que é capturado, de onde vêm os arquivos, limitaçõe
 
 ## Idiomas
 
-A interface (popup, ajuda, nome e descrição no navegador e na loja) está em **inglês** e **português do Brasil**. O navegador escolhe pelo idioma dele; qualquer outro idioma usa o inglês. Os textos ficam em `page-snapshot-extension/_locales/`.
+A interface (popup, ajuda do popup, página de ajuda, nome e descrição no navegador e na loja) está em **inglês** e **português do Brasil**. O navegador escolhe pelo idioma dele; qualquer outro idioma usa o inglês. Os textos ficam em `page-snapshot-extension/_locales/`.
 
 ## Privacidade: o snapshot nunca acessa a rede
 
@@ -55,10 +55,20 @@ Cada versão é publicada em **Releases** no GitHub como `pagekeep-<versão>.zip
 Clique no botão da barra de ferramentas ou aperte **Alt+Shift+S**. O popup da extensão abre embaixo do ícone, mostra o progresso e, no fim, baixa `<título-da-página>-<AAAAMMDD-HHmm>.zip`.
 
 - Você pode fechar o popup ou clicar na página: a captura continua em segundo plano. Clique no ícone de novo para ver como está. O selo do ícone mostra **…** enquanto roda, **✓** quando termina e **!** se falhou.
-- **OK** fica disponível quando a captura termina: limpa o resultado, e o próximo clique no ícone captura a página de novo. **Download again** baixa o mesmo ZIP de novo.
-- **Cancel** interrompe a captura: os carrosséis voltam ao primeiro item e nada é salvo.
+- **OK** fica disponível quando a captura termina: limpa o resultado, e o próximo clique no ícone captura a página de novo. **Baixar de novo** (*Download again*) baixa o mesmo ZIP de novo.
+- **Cancelar** (*Cancel*) interrompe a captura: os carrosséis voltam ao primeiro item e nada é salvo.
 - Uma captura por vez. Abrir o popup em outra aba enquanto uma captura roda mostra essa captura.
-- **Help** resume esses pontos no próprio popup.
+- **Ajuda** (*Help*) resume esses pontos no próprio popup, com um link para a página de ajuda completa, com imagens (`help.pt_BR.html` em português, `help.html` em inglês), que faz parte da extensão e funciona offline.
+
+| Durante a captura | Captura terminada | O que não pôde ser salvo |
+| --- | --- | --- |
+| <img src="page-snapshot-extension/images/screenshots/pt_BR/popup-running.png" width="260" alt="O popup gravando o item 3 de um carrossel"> | <img src="page-snapshot-extension/images/screenshots/pt_BR/popup-done.png" width="260" alt="O popup com a captura terminada, as etapas concluídas e o botão OK"> | <img src="page-snapshot-extension/images/screenshots/pt_BR/popup-failed.png" width="260" alt="O popup listando uma imagem que faltava no site"> |
+
+A página salva, aberta offline a partir do ZIP, com o carrossel funcionando:
+
+<img src="page-snapshot-extension/images/screenshots/pt_BR/snapshot-offline.png" width="600" alt="A página de exemplo salva, aberta offline, no segundo item do carrossel">
+
+As imagens são capturas reais, geradas por `tests/screenshots.mjs` (veja Testes).
 
 A página capturada continua sendo a aba visível com o popup aberto por cima, então o navegador não a deixa lenta enquanto os carrosséis são percorridos; só não minimize a janela do navegador até a captura terminar.
 
@@ -78,6 +88,9 @@ Durante a captura o navegador mostra a barra "Extension started debugging this b
 cd tests
 npm install        # uma vez; o Chromium do Playwright fica em ~/.cache/ms-playwright
 npm run smoke      # carrega a extensão e abre as páginas dela
+npm run carousel   # captura uma página com carrossel, de ponta a ponta
+npm run store-policy   # confere as regras da Chrome Web Store (docs/STORE-POLICY.md)
+npm run screenshots    # refaz as capturas do popup nos dois idiomas
 ```
 
 ## Licença

@@ -6,6 +6,9 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- A full help page with pictures, in English and Portuguese, opened from the popup's Help
+  ("Full help, with pictures"). It is part of the extension and works offline.
+
 ## [1.2.0] - 2026-09-27
 
 - New name: **PageKeep** (formerly Page Snapshot), "PageKeep: Offline Page Saver" in the browser

@@ -59,6 +59,14 @@
     "message": "Unzip the file and open index.html. Anything that could not be saved is listed below the results and is left out of the snapshot, which never goes online.",
     "description": "Last help item."
   },
+  "help_full": {
+    "message": "Full help, with pictures",
+    "description": "Link at the end of the popup's Help to the full help page."
+  },
+  "help_page": {
+    "message": "help.html",
+    "description": "File name of the help page in this language (not shown)."
+  },
   "download_again": {
     "message": "Download again",
     "description": "Button: save the same ZIP again."

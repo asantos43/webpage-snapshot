@@ -59,6 +59,14 @@
     "message": "Descompacte o arquivo e abra o index.html. O que não pôde ser salvo aparece listado abaixo dos resultados e fica fora da cópia, que nunca acessa a internet.",
     "description": "Last help item."
   },
+  "help_full": {
+    "message": "Ajuda completa, com imagens",
+    "description": "Link at the end of the popup's Help to the full help page."
+  },
+  "help_page": {
+    "message": "help.pt_BR.html",
+    "description": "File name of the help page in this language (not shown)."
+  },
   "download_again": {
     "message": "Baixar de novo",
     "description": "Button: save the same ZIP again."
