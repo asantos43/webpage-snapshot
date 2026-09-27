@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-27
+
 - New name: **PageKeep** (formerly Page Snapshot), "PageKeep: Offline Page Saver" in the browser
   and the store. Release files are now called `pagekeep-<version>.zip`.
 - The popup, its Help and the extension's name and description are in English and Brazilian
