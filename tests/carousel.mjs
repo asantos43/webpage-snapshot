@@ -46,8 +46,19 @@ const page = `<!doctype html><title>Carousel test</title><link rel="stylesheet" 
 <img id="logo" src="${otherOrigin}/logo.svg"><a id="notes" download href="${otherOrigin}/notes.txt">notes</a>
 <div class="card"><div id="item"><h2>Item 1</h2><img src="/img/1.svg"></div>
 <div id="nav"><button aria-label="Previous item" id="p" disabled>&lt;</button><button aria-label="Next item" id="n">&gt;</button></div></div>
+<div class="pt"><p id="pt-item">Receita 1</p><nav><button aria-label="Anterior" id="pt-p" disabled>&lt;</button><button aria-label="Próximo" id="pt-n">&gt;</button></nav></div>
+<div class="es"><p id="es-item">Foto 1</p><nav><button aria-label="Imagen anterior" id="es-p" disabled>&lt;</button><button aria-label="Imagen siguiente" id="es-n">&gt;</button></nav></div>
+<form action="/submitted"><input name="email" value="a@b.c"><button aria-label="Anterior">&lt;</button><button aria-label="Próximo">&gt;</button></form>
 <script>let i=1;const show=()=>{p.disabled=i===1;n.disabled=i===${ITEMS};setTimeout(()=>{item.innerHTML='<h2>Item '+i+'</h2><img src="/img/'+i+'.svg">';},120);};
-n.onclick=()=>{i++;show();};p.onclick=()=>{i--;show();};</script>`;
+n.onclick=()=>{i++;show();};p.onclick=()=>{i--;show();};
+// Two small carousels labelled in Portuguese and Spanish, three items each.
+for (const [key, word] of [['pt', 'Receita'], ['es', 'Foto']]) {
+  let k = 1;
+  const [box, prev, next] = ['item', 'p', 'n'].map((s) => document.getElementById(key + '-' + s));
+  const show = () => { prev.disabled = k === 1; next.disabled = k === 3; setTimeout(() => { box.textContent = word + ' ' + k; }, 120); };
+  next.onclick = () => { k++; show(); }; prev.onclick = () => { k--; show(); };
+}</script>`;
+let formSubmitted = false; // the sign-up form's "Próximo" must never be pressed
 const server = http.createServer((req, res) => {
   if (req.url === '/style.css') {
     res.setHeader('content-type', 'text/css');
@@ -59,7 +70,8 @@ const server = http.createServer((req, res) => {
     res.setHeader('content-type', 'image/svg+xml');
     return res.end(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><text y="15">${img[1]}</text></svg>`);
   }
-  res.setHeader('content-type', 'text/html');
+  if (req.url.startsWith('/submitted')) formSubmitted = true;
+  res.setHeader('content-type', 'text/html; charset=utf-8');
   res.end(page);
 }).listen(0);
 const url = `http://127.0.0.1:${server.address().port}/`;
@@ -80,6 +92,7 @@ const context = await chromium.launchPersistentContext(userDataDir, {
 });
 
 let failed = 0;
+const labelLines = (file) => fs.readFileSync(path.join(extensionPath, file), 'utf8').match(/^\s*const (?:(?:NEXT|PREV)_RE|plain) = .*$/gm)?.map((l) => l.trim()).join('\n');
 const check = (label, ok, detail = '') => {
   console.log(`${ok ? 'ok  ' : 'FAIL'}  ${label}${detail ? `  (${detail})` : ''}`);
   if (!ok) failed++;
@@ -125,7 +138,10 @@ try {
   };
   // Job texts are messages of _locales, { key, args } (see offscreen.js).
   const recording = (from) => (j) => j?.steps?.some((s) => s.text?.key === 'carousel_recording' && Number(s.text.args[2]) >= from);
-  const carouselNote = (j) => j?.notes?.some((n) => n.text?.key === 'note_carousels_one' && n.text.args[0] === String(ITEMS));
+  // Three carousels: the English one, then the Portuguese and the Spanish ones (three items each).
+  const carouselNote = (j) => j?.notes?.some((n) => n.text?.key === 'note_carousels_other' && n.text.args[0] === '3' && n.text.args[1] === `${ITEMS}, 3, 3`);
+
+  check('carousel labels are the same in inpage.js and lib/interactions.js', !!labelLines('inpage.js') && labelLines('inpage.js') === labelLines('lib/interactions.js'));
 
   console.log('1. Capture');
   await openPopup();
@@ -138,9 +154,11 @@ try {
     return x && x.phase !== 'running';
   });
   check('capture finished', j.phase === 'done', `${Date.now() - started} ms; ${JSON.stringify(j.error || j.status)}`);
-  check(`carousel recorded with all ${ITEMS} items`, carouselNote(j));
+  check(`the three carousels (English, Portuguese, Spanish) recorded with all their items (${ITEMS}, 3, 3)`, carouselNote(j), JSON.stringify(j.notes));
   check('popup showed the carousel being recorded', seen.includes('carousel_recording'));
   check('page put back on item 1', (await tab.textContent('#item h2')) === 'Item 1');
+  check('Portuguese and Spanish carousels put back on item 1', (await tab.textContent('#pt-item')) === 'Receita 1' && (await tab.textContent('#es-item')) === 'Foto 1');
+  check('the form\'s "Próximo" button was never pressed', !formSubmitted && new URL(tab.url()).pathname === '/');
   check('icon badge shows ✓', (await badge()) === '✓');
   await pause(300);
   check('popup: OK enabled, Cancel disabled, Download again shown', await popup.evaluate(() =>
@@ -170,6 +188,13 @@ try {
   check('Next is disabled on the last item', await snap.$eval('[aria-label="Next item"]', (b) => b.disabled || b.getAttribute('aria-disabled') === 'true'));
   await snap.click('[aria-label="Previous item"]');
   check('Previous goes back', (await snap.textContent('h2')) === `Item ${ITEMS - 1}`);
+  await snap.click('#pt-n');
+  await snap.click('#pt-n');
+  check('Portuguese carousel works offline ("Próximo")', (await snap.textContent('#pt-item')) === 'Receita 3');
+  await snap.click('#pt-p');
+  check('Portuguese carousel goes back ("Anterior")', (await snap.textContent('#pt-item')) === 'Receita 2');
+  await snap.click('#es-n');
+  check('Spanish carousel works offline ("Imagen siguiente")', (await snap.textContent('#es-item')) === 'Foto 2');
   check('item images saved locally', await snap.$eval('#item img', (i) => i.complete && i.naturalWidth > 0 && i.getAttribute('src').startsWith('assets/')));
   check('stylesheet saved', (await snap.$eval('h2', (h) => getComputedStyle(h).color)) === 'rgb(0, 128, 128)');
   const after = await snap.$eval('h2', (h) => getComputedStyle(h, '::after').content);

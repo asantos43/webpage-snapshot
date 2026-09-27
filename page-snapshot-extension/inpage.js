@@ -129,15 +129,25 @@ export async function extractPage(editorTexts = {}) {
     clone.replaceWith(pre);
   }
 
-  // ---- Carousels ("Next item" / "Previous item") -------------------------------------------
+  // ---- Carousels ("Next" / "Previous", in English, Portuguese or Spanish) ---------------------
   //
   // A carousel that renders only its current item leaves the others out of the DOM entirely.
   // So at capture time we press Next through every item, record what the item area looked like
   // at each step, then press Previous to put the page back. The snapshot's own script then
   // swaps those recorded pages in when Next/Previous are clicked.
-  const NEXT_RE = /^next\s+(item|slide|image|photo|picture|card)$/i;
-  const PREV_RE = /^(previous|prev)\s+(item|slide|image|photo|picture|card)$/i;
-  const labelOf = (el) => el.getAttribute('aria-label') || '';
+  // Carousel arrows, by their aria-label, in English, Portuguese and Spanish: the word alone
+  // ("Next", "Próximo", "Siguiente") or with what it moves ("Next slide", "Próxima imagem",
+  // "Imagen anterior"). Labels are compared without accents, in lower case (plain()), so the
+  // patterns are written that way. Keep these three lines identical in inpage.js and
+  // lib/interactions.js (tests/carousel.mjs checks it).
+  const NEXT_RE = /^(?:(?:next|proxim[oa]|seguinte|siguiente)(?: (?:item|slide|image|photo|picture|card|imagem|foto|cartao|elemento|diapositiva|imagen|tarjeta))?|(?:item|slide|imagem|foto|cartao|elemento|diapositiva|imagen|tarjeta) (?:seguinte|siguiente|proxim[oa]))$/;
+  const PREV_RE = /^(?:(?:previous|prev|anterior)(?: (?:item|slide|image|photo|picture|card|imagem|foto|cartao|elemento|diapositiva|imagen|tarjeta))?|(?:item|slide|imagem|foto|cartao|elemento|diapositiva|imagen|tarjeta) anterior)$/;
+  // A label as the patterns expect it: no accents ("Próximo" → "proximo"), lower case, single spaces.
+  const plain = (label) => (label || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
+  const labelOf = (el) => plain(el.getAttribute('aria-label'));
+  // A button that would submit a form ("Next" in a sign-up wizard) is never pressed: it would
+  // send the form or leave the page.
+  const submitsForm = (el) => el.localName === 'button' && !!el.form && (el.getAttribute('type') || 'submit').toLowerCase() === 'submit';
   const isDisabled = (el) => !el || el.disabled || el.getAttribute('aria-disabled') === 'true';
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   // Tell offscreen.js what we are doing so the popup can show it live (no-op outside an extension).
@@ -171,14 +181,14 @@ export async function extractPage(editorTexts = {}) {
   async function explorePagers() {
     const pagers = {};
     const buttons = Array.from(document.querySelectorAll('button[aria-label], [role="button"][aria-label]'));
-    const candidates = buttons.filter((b) => NEXT_RE.test(labelOf(b)));
+    const candidates = buttons.filter((b) => NEXT_RE.test(labelOf(b)) && !submitsForm(b));
     for (const [n, next] of candidates.entries()) {
       if (cancelled) break;
       const pager = n + 1;
       const base = { pager, pagers: candidates.length };
       // The nav is the smallest ancestor holding both Next and Previous.
       let nav = next.parentElement;
-      const findPrev = (root) => Array.from(root.querySelectorAll('[aria-label]')).find((b) => PREV_RE.test(labelOf(b)));
+      const findPrev = (root) => Array.from(root.querySelectorAll('[aria-label]')).find((b) => PREV_RE.test(labelOf(b)) && !submitsForm(b));
       for (let up = 0; nav && !findPrev(nav) && up < 5; up++) nav = nav.parentElement;
       if (!nav || !findPrev(nav) || nav === document.body || isDisabled(next)) continue;
 
@@ -199,7 +209,7 @@ export async function extractPage(editorTexts = {}) {
 
       // Re-find the buttons every time: a re-render may replace them with new elements.
       let scope = nav;
-      const currentNext = () => Array.from(scope.querySelectorAll('[aria-label]')).find((b) => NEXT_RE.test(labelOf(b)));
+      const currentNext = () => Array.from(scope.querySelectorAll('[aria-label]')).find((b) => NEXT_RE.test(labelOf(b)) && !submitsForm(b));
       const currentPrev = () => findPrev(scope);
       currentNext().click();
       await sleep(250);
