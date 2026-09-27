@@ -75,6 +75,13 @@ $('cancel').onclick = async () => {
 };
 $('download').onclick = () => send('popup-download');
 
+// "Load the whole page first": a setting for the next captures (this one has already started).
+chrome.storage.local.get('settings').then(({ settings }) => { $('opt-reveal').checked = settings?.reveal !== false; });
+$('opt-reveal').onchange = async () => {
+  const { settings } = await chrome.storage.local.get('settings');
+  await chrome.storage.local.set({ settings: { ...settings, reveal: $('opt-reveal').checked } });
+};
+
 chrome.storage.session.onChanged.addListener((changes) => {
   if (changes.job) render(changes.job.newValue);
 });

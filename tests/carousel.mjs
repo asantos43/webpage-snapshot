@@ -54,6 +54,10 @@ ${[1, 2, 3, 4, 5].map((k) => `<li style="flex:none;width:200px">Slide ${k}</li>`
 <div class="scroller"><div id="rail" style="display:flex;overflow-x:auto;width:200px;scroll-behavior:smooth">
 ${[1, 2, 3, 4].map((k) => `<div style="flex:none;width:200px">Foto ${k}</div>`).join('')}</div>
 <nav><button aria-label="Anterior" id="r-p">&lt;</button><button aria-label="Próxima imagem" id="r-n">&gt;</button></nav></div>
+<div style="height:2600px">(a long page)</div>
+<img id="lazy" data-src="/img/77.svg" alt="">
+<ul id="feed"><li>News 1</li><li>News 2</li></ul><button id="more" type="button">Carregar mais</button>
+<a id="elsewhere" href="/elsewhere">Ver mais</a>
 <form action="/submitted"><input name="email" value="a@b.c"><button aria-label="Anterior">&lt;</button><button aria-label="Próximo">&gt;</button></form>
 <script>let i=1;const show=()=>{p.disabled=i===1;n.disabled=i===${ITEMS};setTimeout(()=>{item.innerHTML='<h2>Item '+i+'</h2><img src="/img/'+i+'.svg">';},120);};
 n.onclick=()=>{i++;show();};p.onclick=()=>{i--;show();};
@@ -74,8 +78,19 @@ for (const [key, word] of [['pt', 'Receita'], ['es', 'Foto']]) {
   const rail = document.getElementById('rail');
   document.getElementById('r-n').onclick = () => rail.scrollBy({ left: 200 });
   document.getElementById('r-p').onclick = () => rail.scrollBy({ left: -200 });
+}
+// Content that only appears as you scroll, or after "Load more" (twice, then the button goes).
+new IntersectionObserver((seen) => seen.forEach((e) => { if (e.isIntersecting && !e.target.src) e.target.src = e.target.dataset.src; })).observe(document.getElementById('lazy'));
+{
+  let presses = 0;
+  const feed = document.getElementById('feed'), more = document.getElementById('more');
+  more.onclick = () => {
+    presses++;
+    setTimeout(() => { for (let k = 1; k <= 3; k++) feed.insertAdjacentHTML('beforeend', '<li>Extra ' + presses + '.' + k + '</li>'); if (presses === 2) more.remove(); }, 150);
+  };
 }</script>`;
 let formSubmitted = false; // the sign-up form's "Próximo" must never be pressed
+let leftPage = false; // the "Ver mais" link to another page must never be followed
 const server = http.createServer((req, res) => {
   if (req.url === '/style.css') {
     res.setHeader('content-type', 'text/css');
@@ -88,6 +103,7 @@ const server = http.createServer((req, res) => {
     return res.end(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><text y="15">${img[1]}</text></svg>`);
   }
   if (req.url.startsWith('/submitted')) formSubmitted = true;
+  if (req.url.startsWith('/elsewhere')) leftPage = true;
   res.setHeader('content-type', 'text/html; charset=utf-8');
   res.end(page);
 }).listen(0);
@@ -178,6 +194,10 @@ try {
   check('Portuguese and Spanish carousels put back on item 1', (await tab.textContent('#pt-item')) === 'Receita 1' && (await tab.textContent('#es-item')) === 'Foto 1');
   check('sliding strips put back at the start', await tab.evaluate(() => getComputedStyle(document.getElementById('strip')).transform === 'matrix(1, 0, 0, 1, 0, 0)' && document.getElementById('rail').scrollLeft === 0 && document.getElementById('s-p').classList.contains('is-off')));
   check('the form\'s "Próximo" button was never pressed', !formSubmitted && new URL(tab.url()).pathname === '/');
+  const revealStep = j.steps.find((st) => st.id === 'reveal');
+  check('the page was scrolled to the end and "Carregar mais" pressed twice (the popup says so)', revealStep?.state === 'done' && revealStep.text?.[0]?.key === 'step_reveal_done' && revealStep.text?.[1]?.key === 'step_reveal_pressed_other' && revealStep.text[1].args[0] === '2', JSON.stringify(revealStep));
+  check('the link to another page ("Ver mais") was never followed', !leftPage);
+  check('the page is back at the top, where it was', (await tab.evaluate(() => scrollY)) === 0);
   check('icon badge shows ✓', (await badge()) === '✓');
   await pause(300);
   check('popup: OK enabled, Cancel disabled, Download again shown', await popup.evaluate(() =>
@@ -214,6 +234,8 @@ try {
   check('Portuguese carousel goes back ("Anterior")', (await snap.textContent('#pt-item')) === 'Receita 2');
   await snap.click('#es-n');
   check('Spanish carousel works offline ("Imagen siguiente")', (await snap.textContent('#es-item')) === 'Foto 2');
+  check('the image that only loads when scrolled into view is saved', await snap.$eval('#lazy', (i) => (i.getAttribute('src') || '').startsWith('assets/') && i.complete && i.naturalWidth > 0), await snap.$eval('#lazy', (i) => i.getAttribute('src')));
+  check('the items "Carregar mais" added are saved (2 + 6)', (await snap.$$eval('#feed li', (l) => l.length)) === 8);
   const strip = () => snap.evaluate(() => ({ at: new DOMMatrix(getComputedStyle(document.getElementById('strip')).transform).m41, prevOff: document.getElementById('s-p').classList.contains('is-off'), nextOff: document.getElementById('s-n').classList.contains('is-off') }));
   let s = await strip();
   check('sliding strip saved at the start, its Previous arrow greyed out', s.at === 0 && s.prevOff && !s.nextOff, JSON.stringify(s));
@@ -247,7 +269,11 @@ try {
   check('<link>s that download by themselves are removed, canonical kept', !links.some((r) => /dictionary|preload|future/.test(r)) && links.includes('canonical'), links.join(', '));
   await snap.close();
 
-  console.log('3. OK');
+  console.log('3. OK, and the option switched off');
+  check('the option "Load the whole page first" starts on', await popup.isChecked('#opt-reveal'));
+  await popup.uncheck('#opt-reveal');
+  await pause(300);
+  check('switching it off is saved', (await worker.evaluate(() => chrome.storage.local.get('settings'))).settings?.reveal === false);
   await popup.click('#ok');
   await pause(500);
   check('OK clears the capture and the badge', (await job()) === null && (await badge()) === '');
@@ -260,6 +286,8 @@ try {
   await popup.close();
   j = await waitJob((x) => x && x.phase !== 'running');
   check('the capture carries on and finishes', j.phase === 'done' && carouselNote(j), JSON.stringify(j.error || j.status));
+  check('with the option off, the page was not scrolled through', !j.steps.some((st) => st.id === 'reveal'));
+  await worker.evaluate(() => chrome.storage.local.set({ settings: { reveal: true } }));
   await openPopup();
   await pause(1000);
   const again = await job();

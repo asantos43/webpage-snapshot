@@ -306,5 +306,37 @@
   "reason_no_debugger": {
     "message": "precisa do debugger, que não pôde ser conectado",
     "description": "Why a file failed."
+  },
+  "option_reveal": {
+    "message": "Carregar a página inteira antes: rolar até o fim e apertar “Carregar mais”, para salvar tudo",
+    "description": "Popup option (checkbox)."
+  },
+  "option_reveal_hint": {
+    "message": "Vale a partir da próxima captura.",
+    "description": "Under the option: the capture in progress already started."
+  },
+  "step_reveal": {
+    "message": "Rolando a página para carregar tudo…",
+    "description": "Step."
+  },
+  "step_reveal_done": {
+    "message": "Página percorrida até o fim ($1 telas)",
+    "description": "Step done; $1 = screens scrolled."
+  },
+  "step_reveal_pressed_one": {
+    "message": "; “Carregar mais” apertado 1 vez",
+    "description": "Appended to step_reveal_done."
+  },
+  "step_reveal_pressed_other": {
+    "message": "; “Carregar mais” apertado $1 vezes",
+    "description": "Appended to step_reveal_done; $1 = times."
+  },
+  "help_reveal_label": {
+    "message": "Carregar a página inteira antes",
+    "description": "Bold start of a help item (the option's name)."
+  },
+  "help_reveal": {
+    "message": "(ligado, a menos que você desligue): antes de salvar, o PageKeep rola a página até o fim e aperta os botões “Carregar mais”, para salvar também as imagens e listas que só aparecem assim; depois volta para onde você estava. Vale a partir da próxima captura.",
+    "description": "Help item after help_reveal_label."
   }
 }

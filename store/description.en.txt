@@ -20,6 +20,10 @@ NOTHING LEFT POINTING ONLINE
 
 The page's own scripts and tracking attributes are removed, and frames from other sites are not loaded. Anything that could not be saved (a missing image, a file over 30 MB) is listed in the popup and its reference is removed from the copy instead of pointing at the live site, so the saved page never contacts a website.
 
+THE WHOLE PAGE, NOT JUST THE TOP
+
+Many pages load images and lists only as you scroll, or behind a "Load more" button. With the option "Load the whole page first" (on unless you turn it off), PageKeep scrolls through the page and presses those buttons before saving, then puts you back where you were. It never follows a link to another page or sends a form, and endless feeds stop after a limit.
+
 WORKS IN THE BACKGROUND
 
 • Click the toolbar icon or press Alt+Shift+S: the popup opens under the icon and the capture starts.

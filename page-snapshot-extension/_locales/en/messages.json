@@ -306,5 +306,37 @@
   "reason_no_debugger": {
     "message": "needs the debugger, which could not be attached",
     "description": "Why a file failed."
+  },
+  "option_reveal": {
+    "message": "Load the whole page first: scroll to the end and press “Load more”, so everything is saved",
+    "description": "Popup option (checkbox)."
+  },
+  "option_reveal_hint": {
+    "message": "Applies from the next capture.",
+    "description": "Under the option: the capture in progress already started."
+  },
+  "step_reveal": {
+    "message": "Scrolling through the page so everything loads…",
+    "description": "Step."
+  },
+  "step_reveal_done": {
+    "message": "Scrolled through the page ($1 screens)",
+    "description": "Step done; $1 = screens scrolled."
+  },
+  "step_reveal_pressed_one": {
+    "message": "; pressed “Load more” once",
+    "description": "Appended to step_reveal_done."
+  },
+  "step_reveal_pressed_other": {
+    "message": "; pressed “Load more” $1 times",
+    "description": "Appended to step_reveal_done; $1 = times."
+  },
+  "help_reveal_label": {
+    "message": "Load the whole page first",
+    "description": "Bold start of a help item (the option's name)."
+  },
+  "help_reveal": {
+    "message": "(on unless you turn it off): before saving, PageKeep scrolls through the page and presses its “Load more” buttons, so images and lists that only appear then are saved too; it then goes back to where you were. It applies from the next capture.",
+    "description": "Help item after help_reveal_label."
   }
 }

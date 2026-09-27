@@ -50,8 +50,16 @@ async function clearJob(job) {
   if (job) await setBadge(job.tabId, '');
 }
 
+// The popup's option "Load the whole page first" (on unless the user turned it off), kept in
+// storage.local, the extension's only setting.
+async function revealOption() {
+  const { settings } = await chrome.storage.local.get('settings');
+  return settings?.reveal !== false;
+}
+
 async function startCapture(tabId) {
   const tab = await chrome.tabs.get(tabId);
+  const reveal = await revealOption();
   const job = {
     jobId: crypto.randomUUID(),
     tabId,
@@ -64,7 +72,7 @@ async function startCapture(tabId) {
   await chrome.storage.session.set({ job });
   await setBadge(tabId, 'running');
   await chrome.offscreen.createDocument({
-    url: `${OFFSCREEN}?tabId=${tabId}&job=${job.jobId}&version=${chrome.runtime.getManifest().version}`,
+    url: `${OFFSCREEN}?tabId=${tabId}&job=${job.jobId}&version=${chrome.runtime.getManifest().version}&reveal=${reveal ? 1 : 0}`,
     reasons: ['DOM_PARSER', 'BLOBS'],
     justification: 'Rebuilds the captured page with its files and packs it into a ZIP while the popup may be closed.',
   });
@@ -150,7 +158,7 @@ const inTab = async (tabId, func, args, world) =>
 const rpc = {
   tab: ({ tabId }) => chrome.tabs.get(tabId).then((t) => ({ url: t.url || '' })),
   readEditors: ({ tabId }) => inTab(tabId, readEditorsInMainWorld, [], 'MAIN'),
-  extractPage: ({ tabId, editorTexts }) => inTab(tabId, extractPage, [editorTexts]),
+  extractPage: ({ tabId, editorTexts, options }) => inTab(tabId, extractPage, [editorTexts, options]),
   fetchInTab: ({ tabId, url }) => inTab(tabId, fetchInTab, [url]),
   attach: async ({ tabId }) => {
     await chrome.debugger.attach({ tabId }, '1.3');

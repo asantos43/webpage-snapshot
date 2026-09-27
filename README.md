@@ -58,6 +58,7 @@ Cada versão é publicada em **Releases** no GitHub como `pagekeep-<versão>.zip
 
 Clique no botão da barra de ferramentas ou aperte **Alt+Shift+S**. O popup da extensão abre embaixo do ícone, mostra o progresso e, no fim, baixa `<título-da-página>-<AAAAMMDD-HHmm>.zip`.
 
+- **Carregar a página inteira antes** (opção no popup, ligada a menos que você desligue): antes de copiar, a extensão rola a página até o fim, para que imagens e blocos que só carregam ao rolar entrem na cópia, e aperta os botões "Carregar mais" / "Ver mais" / "Load more" (até 5; nunca um link para outra página nem um botão de formulário), depois volta para onde você estava. Feeds infinitos param em 40 telas ou 20 segundos. A opção vale a partir da próxima captura, já que a captura começa quando o popup abre.
 - Você pode fechar o popup ou clicar na página: a captura continua em segundo plano. Clique no ícone de novo para ver como está. O selo do ícone mostra **…** enquanto roda, **✓** quando termina e **!** se falhou.
 - **OK** fica disponível quando a captura termina: limpa o resultado, e o próximo clique no ícone captura a página de novo. **Baixar de novo** (*Download again*) baixa o mesmo ZIP de novo.
 - **Cancelar** (*Cancel*) interrompe a captura: os carrosséis voltam ao primeiro item e nada é salvo.
@@ -74,7 +75,7 @@ A página salva, aberta offline a partir do ZIP, com o carrossel funcionando:
 
 ### Um site real: TudoGostoso
 
-A página inicial de https://www.tudogostoso.com.br salva pelo PageKeep: 159 arquivos em 4,3 MB e os dois carrosséis deslizantes da página (3 e 9 posições), que continuam deslizando na cópia; aberta offline, ela não faz nenhuma requisição. O único arquivo que faltou era um endereço de estatísticas de anúncios, e a referência a ele foi removida. O retângulo cinza é um anúncio num quadro de outro site, que a cópia não carrega.
+A página inicial de https://www.tudogostoso.com.br salva pelo PageKeep, com a opção "Carregar a página inteira antes": a página foi percorrida até o fim (13 telas), são 150 arquivos em 3,5 MB, e os dois carrosséis deslizantes da página (3 e 9 posições) continuam deslizando na cópia; aberta offline, ela não faz nenhuma requisição. O único arquivo que faltou era um endereço de estatísticas de anúncios, e a referência a ele foi removida. O retângulo cinza é um anúncio num quadro de outro site, que a cópia não carrega.
 
 | O popup depois da captura | A cópia aberta offline |
 | --- | --- |

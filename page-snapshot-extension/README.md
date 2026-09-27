@@ -16,6 +16,7 @@ There is no build step and no dependencies.
 
 Click the toolbar button, or press **Alt+Shift+S**. The extension's popup opens under its icon and shows what it is doing as it happens: a list with one line per phase (reading editors, stepping through each carousel item by item, copying the page, listing the files the page already loaded, downloading resources with running counts and the file being fetched right now, saving linked files, packing the ZIP), each with a spinner that turns into a check mark when done. It then downloads `<page-title>-<YYYYMMDD-HHmm>.zip`.
 
+- **Load the whole page first** (an option in the popup, on unless you turn it off): before copying, the extension scrolls through the page screen by screen, so images and blocks that only load as you scroll are there too, presses its "Load more" / "Carregar mais" / "Ver mais" / "Cargar más" buttons (up to 5; never a link to another page or a form button), then goes back to where you were. Endless feeds stop after 40 screens or 20 seconds. The option is a setting for the next captures, since a capture starts as soon as the popup opens.
 - You can close the popup, or click on the page: the capture carries on in the background. Click the icon again to see how it is going. The icon's badge shows **…** while it runs, **✓** when it is done and **!** if it failed.
 - When it is done, read the results and press **OK**, which clears them so the next click captures the page again. **Download again** saves the ZIP once more.
 - **Cancel** stops a capture in progress: carousels are put back to their first item and nothing is saved.
@@ -102,7 +103,7 @@ While it runs, Chrome shows an "Extension started debugging this browser" bar on
 - **`scripting`**: reads the DOM of the tab you clicked on.
 - **`offscreen`**: the capture runs in a hidden extension page, so it carries on when the popup closes.
 - **`downloads`**: saves the finished ZIP to your Downloads folder (the popup may be closed by then).
-- **`storage`**: keeps the capture's progress for the popup while it runs (session storage, cleared when the browser closes).
+- **`storage`**: keeps the capture's progress for the popup while it runs (session storage, cleared when the browser closes), and the one setting, the "Load the whole page first" option (local storage).
 
 The extension only touches a tab when you click the button, and nothing is sent anywhere: everything stays in your browser until the ZIP is saved to disk. The Chrome Web Store checklist, with the reasons for each permission, is in [`docs/STORE-POLICY.md`](../docs/STORE-POLICY.md).
 
