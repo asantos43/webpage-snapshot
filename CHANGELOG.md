@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-09-27
+
 - A full help page with pictures, in English and Portuguese, opened from the popup's Help
   ("Full help, with pictures"). It is part of the extension and works offline.
 
