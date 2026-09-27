@@ -29,6 +29,10 @@ const other = http.createServer((req, res) => {
     res.setHeader('content-type', 'image/svg+xml');
     return res.end('<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30"><circle cx="15" cy="15" r="12" fill="teal"/></svg>');
   }
+  if (req.url === '/ad') { // an "ad": a page of the other site, shown in a frame
+    res.setHeader('content-type', 'text/html');
+    return res.end('<body style="margin:0;background:repeating-linear-gradient(90deg,#c0392b 0 30px,#f1c40f 30px 60px)"><b style="font:40px sans-serif;color:#fff">AD</b></body>');
+  }
   if (req.url === '/notes.txt') {
     res.setHeader('content-type', 'text/plain');
     return res.end('notes from the other site');
@@ -44,6 +48,8 @@ const page = `<!doctype html><title>Carousel test</title><link rel="stylesheet" 
 <link rel="canonical" href="${otherOrigin}/canonical"><link rel="compression-dictionary" href="${otherOrigin}/dict">
 <link rel="preload" as="image" href="${otherOrigin}/logo.svg"><link rel="some-future-type" href="${otherOrigin}/future">
 <img id="logo" src="${otherOrigin}/logo.svg"><a id="notes" download href="${otherOrigin}/notes.txt">notes</a>
+<iframe id="ad" src="${otherOrigin}/ad" width="300" height="100" style="border:0;display:block"></iframe>
+<iframe id="tracker" src="${otherOrigin}/ad" width="1" height="1" style="border:0"></iframe>
 <div class="card"><div id="item"><h2>Item 1</h2><img src="/img/1.svg"></div>
 <div id="nav"><button aria-label="Previous item" id="p" disabled>&lt;</button><button aria-label="Next item" id="n">&gt;</button></div></div>
 <div class="pt"><p id="pt-item">Receita 1</p><nav><button aria-label="Anterior" id="pt-p" disabled>&lt;</button><button aria-label="Próximo" id="pt-n">&gt;</button></nav></div>
@@ -265,6 +271,17 @@ try {
   const listed = JSON.parse(fs.readFileSync(path.join(unzipDir, 'snapshot.json'), 'utf8'));
   check('nothing failed', listed.failed.length === 0, JSON.stringify(listed.failed));
   check('no network requests', online.length === 0, online.join(' '));
+  // The visible frame of the other site is kept, showing a local picture of how it looked.
+  const ad = await snap.$eval('#ad', (f) => ({ src: f.getAttribute('src'), srcdoc: f.getAttribute('srcdoc') || '', w: f.offsetWidth, h: f.offsetHeight }));
+  const picture = ad.srcdoc.match(/src="(assets\/[^"]+)"/)?.[1];
+  check('a frame from another site shows a picture of how it looked, in the same box', !ad.src && !!picture && ad.w === 300 && ad.h === 100, JSON.stringify({ ...ad, srcdoc: ad.srcdoc.slice(0, 80) }));
+  if (picture) {
+    const png = fs.readFileSync(path.join(unzipDir, picture));
+    check('the picture has the frame\'s size', png.readUInt32BE(16) === 300 && png.readUInt32BE(20) === 100, `${png.readUInt32BE(16)}×${png.readUInt32BE(20)}`);
+    const shown = await snap.frameLocator('#ad').locator('img').evaluate((i) => i.complete && i.naturalWidth > 0);
+    check('the picture is displayed offline', shown);
+  }
+  check('an invisible frame of another site (tracking) is removed', !(await snap.$('#tracker')));
   const links = await snap.$$eval('link', (ls) => ls.map((l) => l.rel));
   check('<link>s that download by themselves are removed, canonical kept', !links.some((r) => /dictionary|preload|future/.test(r)) && links.includes('canonical'), links.join(', '));
   await snap.close();

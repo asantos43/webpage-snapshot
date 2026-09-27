@@ -66,7 +66,7 @@ Links (`<a href>`) are made absolute, so clicking one opens the real site when y
 
 - **Only some interactivity survives.** The page's own scripts are removed on purpose, because re-running them offline would re-render or break the page. Instead the extension embeds small scripts of its own, from its offline library (`lib/offline/`, no network access), that restore behaviour whose content is already in the saved page: collapsible sections / accordions, "Expand all" / "Collapse all" buttons, tabs, carousels (both kinds, below) and editor buttons. A saved page only gets the scripts it needs. Menus, search boxes, drop-down pickers (such as a carousel's "jump to item" list) and anything else that needs the site's own code will not respond, and content a page only builds when you click, rather than hiding it, was never in the page and cannot be saved.
 - "…more" only works when the full text is already in the page and merely clipped. If a site cuts the text in JavaScript and downloads the rest when you click, the rest was never in the page and cannot be saved.
-- Cross-origin iframes (ads, embeds, tracking frames), `blob:`/streamed video, and closed shadow roots are not captured.
+- Cross-origin iframes (ads, embedded players, maps) cannot be read: the copy shows a picture of how each looked (below). `blob:`/streamed video and closed shadow roots are not captured.
 - Resources over 30 MB, or past 800 MB total, are skipped. A resource that could not be saved is listed in `snapshot.json` and in the popup, and its reference is removed from the page (see below).
 - If Chrome refuses to attach the debugger, only the files from the page's own site can be saved; the others are listed as failed.
 - Chrome does not let extensions read `chrome://` pages or the Chrome Web Store.
@@ -78,7 +78,7 @@ Opening `index.html` makes no network requests, so it is private and does not "p
 
 - The page's scripts are removed, and so are `ping` attributes.
 - `<link>` elements are kept only when the browser never downloads them by itself (canonical, alternate, author, next/prev and the like); stylesheets and icons are saved locally, and every other type is removed (preload, prefetch, manifest, `compression-dictionary`, which ad scripts use, and any type browsers add later).
-- Cross-origin iframes cannot be captured. Invisible ones are removed; visible ones stay as an empty box with their original address kept in a `data-snapshot-src` attribute.
+- Cross-origin iframes cannot be captured. Invisible ones (tracking) are removed. A visible one keeps its box, with its original address in a `data-snapshot-src` attribute, and shows a picture of how it looked: the debugger photographs its place on the page (scrolling it into view first; frames pinned to the screen, such as ad bars, are photographed first, before any scrolling), and the frame gets a local `srcdoc` with that picture. Without the debugger the box stays empty. An ad bar that closes once the page has been scrolled (by the "Load the whole page first" option) may come out empty.
 - Any image, font, stylesheet or other file that could not be saved has its reference removed (or replaced with an empty `data:` URL in CSS) instead of pointing at the live site. Links you click (`<a href>`) still go to the real site.
 
 If a resource failed only because of a temporary problem (a timeout), the popup lists it, so you can simply capture again.

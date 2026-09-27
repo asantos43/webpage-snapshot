@@ -1,6 +1,6 @@
 # PageKeep — Privacy policy
 
-*Last updated: 2026-09-27 (the option to load the whole page). Published at https://gist.github.com/asantos43/a0566af48d0894dc44b72bee43b22da8. Português abaixo.*
+*Last updated: 2026-09-27 (pictures of frames from other sites). Published at https://gist.github.com/asantos43/a0566af48d0894dc44b72bee43b22da8. Português abaixo.*
 
 PageKeep is a browser extension by Anderson Santos (asantos35@gmail.com). It saves the page in the
 tab you choose as a ZIP file that opens offline.
@@ -25,7 +25,8 @@ pages you save.
   (`snapshot.json`). What you do with the file afterwards is up to you.
 - **The files the page already loaded** are read from the tab through the browser's debugger, which
   the browser shows with a bar while the capture runs; it is attached only to that tab and only
-  for the capture.
+  for the capture. Frames from other sites on the page (ads, embedded players, maps) cannot be
+  read, so the debugger takes a picture of each, and the ZIP shows that picture in its place.
 
 ## What goes over the network
 
@@ -84,7 +85,8 @@ você salva.
   que você faz com o arquivo depois é decisão sua.
 - **Os arquivos que a página já carregou** são lidos da aba pelo depurador do navegador, que o
   navegador indica com uma barra enquanto a captura roda; ele fica conectado só a essa aba e só
-  durante a captura.
+  durante a captura. Quadros de outros sites na página (anúncios, players, mapas) não podem ser
+  lidos, então o depurador tira uma imagem de cada um, e o ZIP mostra essa imagem no lugar dele.
 
 ## O que passa pela rede
 

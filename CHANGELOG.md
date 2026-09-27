@@ -6,6 +6,10 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- Frames from other sites (ads, embedded video players, maps), which cannot be read, now appear in
+  the saved copy as a picture of how they looked, in the same place, instead of an empty box. The
+  copy still loads nothing: the picture is taken during the capture and saved in the ZIP.
+
 ## [1.3.0] - 2026-09-27
 
 - New option in the popup, **Load the whole page first** (on unless you turn it off): before saving,
