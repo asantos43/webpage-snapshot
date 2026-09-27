@@ -22,6 +22,10 @@ Os detalhes técnicos (o que é capturado, de onde vêm os arquivos, limitaçõe
 
 A interface (popup, ajuda do popup, página de ajuda, nome e descrição no navegador e na loja) está em **inglês** e **português do Brasil**. O navegador escolhe pelo idioma dele; qualquer outro idioma usa o inglês. Os textos ficam em `page-snapshot-extension/_locales/`.
 
+## Política de privacidade
+
+[`PRIVACY.md`](PRIVACY.md), em inglês e português, publicada num gist público para a loja: https://gist.github.com/asantos43/a0566af48d0894dc44b72bee43b22da8. Depois de mudar o arquivo: `gh gist edit a0566af48d0894dc44b72bee43b22da8 --filename PRIVACY.md PRIVACY.md`.
+
 ## Privacidade: o snapshot nunca acessa a rede
 
 Abrir o `index.html` não faz nenhuma requisição. Os scripts originais da página e os atributos `ping` são removidos, iframes de outros sites (anúncios, telemetria) não são carregados, e qualquer arquivo que não pôde ser salvo tem a referência removida em vez de apontar para o site ao vivo. Links (`<a href>`) continuam levando ao site real quando você está online.

@@ -13,7 +13,7 @@ Rules that shape the design:
 - A snapshot must never contact the network when opened: the page's own scripts, `ping` attributes and cross-origin iframes are removed, and references to anything that could not be saved are dropped rather than left pointing online.
 - Local scripts that restore page behaviour offline are welcome (extend `lib/interactions.js` when interactive content is already in the saved DOM); they must be self-contained and never use the network.
 
-`store/` holds the Chrome Web Store listing: `README.md` (field by field), `PUBLISHING.md` (the dashboard steps, in Portuguese), the descriptions (`description.en.txt`, `description.pt_BR.txt`, plain text, naming no other product) and the pictures. `docs/DEVELOPMENT.md` holds the background that is not in the code: tool versions, how to load and test in each browser, versioning and releases, and how this repository was extracted.
+`PRIVACY.md` (English and Portuguese) is the privacy policy, published as the public gist https://gist.github.com/asantos43/a0566af48d0894dc44b72bee43b22da8 for the store; after changing it, run `gh gist edit a0566af48d0894dc44b72bee43b22da8 --filename PRIVACY.md PRIVACY.md` (confirm with the user first: it is an external action). `store/` holds the Chrome Web Store listing: `README.md` (field by field), `PUBLISHING.md` (the dashboard steps, in Portuguese), the descriptions (`description.en.txt`, `description.pt_BR.txt`, plain text, naming no other product) and the pictures. `docs/DEVELOPMENT.md` holds the background that is not in the code: tool versions, how to load and test in each browser, versioning and releases, and how this repository was extracted.
 
 ## Tests
 

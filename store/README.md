@@ -31,8 +31,9 @@ The five screenshots, one per feature, each with the real screen:
 ## Other fields
 
 - **Support / contact email**: asantos35@gmail.com.
-- **Privacy policy URL**: added in the next step (a public gist with `../PRIVACY.md`, since this
-  repository is private).
+- **Privacy policy URL**: https://gist.github.com/asantos43/a0566af48d0894dc44b72bee43b22da8 (a public gist with [`../PRIVACY.md`](../PRIVACY.md), since this
+  repository is private; after changing `PRIVACY.md`, run
+  `gh gist edit a0566af48d0894dc44b72bee43b22da8 --filename PRIVACY.md PRIVACY.md`).
 - **Visibility** (Distribution tab): **Private**, with the testers' Google accounts.
 - **Package**: the `pagekeep-<version>.zip` of the latest GitHub release.
 

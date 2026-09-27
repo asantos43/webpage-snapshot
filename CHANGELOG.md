@@ -12,8 +12,11 @@ publishes it as the release's notes.
 - The help page and store pictures now show a richer example: a made-up news site with photos, tabs,
   a live-updates box, a photo gallery and an ad.
 
+## [1.2.3] - 2026-09-27
+
 - Fixed: a saved page could contact an ad server when opened, through a `<link rel="compression-dictionary">`
   (found on a real news site). Now only `<link>` types that never download anything are kept.
+- Privacy policy (`PRIVACY.md`, English and Portuguese), also published for the store listing.
 
 ## [1.2.2] - 2026-09-27
 
