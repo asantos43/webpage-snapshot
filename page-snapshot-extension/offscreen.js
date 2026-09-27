@@ -402,6 +402,23 @@ async function takeFramePicture(id, page) {
   }
 }
 
+// ---------------------------------------------------------------- galleries
+
+// Links to a large picture: saved when they belong to a photo gallery (lightbox).
+const IMAGE_LINK_RE = /\.(jpe?g|png|gif|webp|avif|svg)$/i;
+const galleryPictures = new Set();
+// The gallery a link to a picture belongs to, or null when it is not a gallery link: the name
+// the lightbox library gives it (Fancybox, Lightbox2, Magnific, GLightbox, PhotoSwipe…), or
+// "images" for a plain link that wraps its thumbnail.
+function galleryOf(link) {
+  for (const name of ['data-fancybox', 'data-lightbox', 'data-gallery', 'data-glightbox']) {
+    if (link.hasAttribute(name)) return link.getAttribute(name) || 'gallery';
+  }
+  if (/lightbox/i.test(link.getAttribute('rel') || '')) return link.getAttribute('rel');
+  if (/glightbox|lightbox|magnific|fancybox|pswp|popup-image/i.test(link.getAttribute('class') || '') || link.hasAttribute('data-pswp-width')) return 'gallery';
+  return link.querySelector('img, picture') ? 'images' : null;
+}
+
 // ---------------------------------------------------------------- DOM rewriting
 
 function* allElements(root) {
@@ -533,7 +550,19 @@ async function processElement(el, base, page, depth) {
     let saved = false;
     if (href) href.hash = '';
     // The same link can appear several times (a carousel's area is saved once per item).
-    if (wanted && (linkedFiles.has(href.href) || linkedFiles.size < MAX_LINKED_FILES)) {
+    // A gallery link (thumbnail → large picture) gets its large picture saved, for
+    // lib/offline/lightbox.js to open over the page.
+    const gallery = href && IMAGE_LINK_RE.test(href.pathname) ? galleryOf(el) : null;
+    if (gallery !== null) {
+      const file = await getAsset(href.href, 'bin');
+      if (file) {
+        el.setAttribute('href', `assets/${file}`);
+        el.setAttribute('data-snap-lightbox', gallery);
+        el.removeAttribute('target');
+        galleryPictures.add(href.href);
+        saved = true;
+      }
+    } else if (wanted && (linkedFiles.has(href.href) || linkedFiles.size < MAX_LINKED_FILES)) {
       if (!linkedFiles.has(href.href)) {
         linkedFiles.add(href.href);
         step('files', msg('step_files_saving', linkedFiles.size));
@@ -630,7 +659,7 @@ async function processDocument(data, page, depth = 0) {
 
   // Page scripts are gone, so give collapsible sections, tabs, carousels and editors their
   // behaviour back with the local scripts of lib/offline/ that this page needs.
-  const offline = offlineScript(data.html);
+  const offline = offlineScript(doc.documentElement.outerHTML); // with the capture's own marks
   if (offline) {
     const script = doc.createElement('script');
     script.textContent = offline;
@@ -729,7 +758,7 @@ async function main() {
     debugger: attached.ok ? 'used' : `unavailable: ${attached.error}`,
     editors: Object.fromEntries(editorReport),
     carousels: Object.fromEntries(Object.entries(page.pagers || {}).map(([id, pages]) => [id, { items: pages.length, avg_item_chars: Math.round(pages.reduce((n, h) => n + h.length, 0) / pages.length) }])),
-    sliding_carousels: Object.fromEntries(Object.entries(page.sliders || {}).map(([id, s]) => [id, { steps: s.positions.length }])),
+    sliding_carousels: Object.fromEntries(Object.entries(page.sliders || {}).map(([id, s]) => [id, { steps: (s.parts || s.positions).length }])),
     resources,
     failed: failures.map(({ url, reason }) => ({ url, reason })),
   };
@@ -770,10 +799,11 @@ async function main() {
     if (partial) notes.push({ warn: true, text: plural(partial, 'note_editors_partial') });
   }
   // Both kinds of carousel: those recorded item by item first, then the sliding ones.
-  const carousels = [...Object.values(page.pagers || {}).map((p) => p.length), ...Object.values(page.sliders || {}).map((s) => s.positions.length)];
+  const carousels = [...Object.values(page.pagers || {}).map((p) => p.length), ...Object.values(page.sliders || {}).map((s) => (s.parts || s.positions).length)];
   if (carousels.length) notes.push({ text: plural(carousels.length, 'note_carousels', carousels.join(', ')) });
   if (linkedFiles.size) notes.push({ text: plural(linkedFiles.size, 'note_files') });
   if (framePictures) notes.push({ text: plural(framePictures, 'note_frame_pictures') });
+  if (galleryPictures.size) notes.push({ text: plural(galleryPictures.size, 'note_gallery') });
   state.notes = notes;
   state.failures = failures;
   state.download = { url: blobUrl, name };

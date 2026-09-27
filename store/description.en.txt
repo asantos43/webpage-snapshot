@@ -14,7 +14,7 @@ A carousel usually shows one item at a time and leaves the others out of the pag
 
 OPENS OFFLINE, AS IT LOOKED
 
-Unzip the file anywhere and open index.html in your browser, with or without an internet connection. Collapsible sections, tabs, "Expand all" buttons and carousels keep working, through a small script packed into the copy. Opening it makes no request at all; links still lead to the real site when you click them while online.
+Unzip the file anywhere and open index.html in your browser, with or without an internet connection. Collapsible sections, accordions, tabs, drop-down menus, pop-up windows, photo galleries (the large pictures are saved too) and carousels, with their arrows and dots, keep working, through small scripts packed into the copy. Opening it makes no request at all; links still lead to the real site when you click them while online.
 
 NOTHING LEFT POINTING ONLINE
 

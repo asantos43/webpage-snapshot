@@ -14,7 +14,7 @@ Um carrossel costuma mostrar um item por vez e deixar os outros fora da página.
 
 ABRE OFFLINE, COMO ERA
 
-Descompacte o arquivo onde quiser e abra o index.html no navegador, com ou sem internet. Seções recolhíveis, abas, botões "Expandir tudo" e carrosséis continuam funcionando, graças a um pequeno script guardado na cópia. Abrir a cópia não faz nenhuma requisição; os links continuam levando ao site real quando você clica neles com internet.
+Descompacte o arquivo onde quiser e abra o index.html no navegador, com ou sem internet. Seções recolhíveis, acordeões, abas, menus suspensos, janelas sobrepostas, galerias de fotos (as fotos grandes também são salvas) e carrosséis, com suas setas e bolinhas, continuam funcionando, graças a pequenos scripts guardados na cópia. Abrir a cópia não faz nenhuma requisição; os links continuam levando ao site real quando você clica neles com internet.
 
 NADA FICA APONTANDO PARA A INTERNET
 

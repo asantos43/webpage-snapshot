@@ -346,5 +346,13 @@
   "note_frame_pictures_other": {
     "message": "$1 frames from other sites (ads, video or map players) saved as pictures of how they looked.",
     "description": "Result note; $1 = number of frames."
+  },
+  "note_gallery_one": {
+    "message": "1 gallery picture saved in full size; it opens over the page as on the site.",
+    "description": "Result note: pictures of a photo gallery (lightbox) saved."
+  },
+  "note_gallery_other": {
+    "message": "$1 gallery pictures saved in full size; they open over the page as on the site.",
+    "description": "Result note; $1 = number of pictures."
   }
 }

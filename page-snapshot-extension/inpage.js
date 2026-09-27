@@ -284,22 +284,18 @@ export async function extractPage(editorTexts = {}, options = {}) {
     }
     return last;
   }
-  // Presses an arrow and returns where the strip ends up. Libraries such as Glide ignore clicks
-  // while a slide is still animating, and some start moving late, so a press that moved nothing
-  // is given time and one more try before it counts as "the strip is at its end".
-  async function press(button, strip, from) {
-    button.click();
-    let place = await still(strip);
-    if (samePlace(place, from)) {
-      await sleep(400);
-      place = await still(strip);
-    }
-    if (samePlace(place, from)) {
-      button.click();
-      place = await still(strip);
-    }
-    return place;
-  }
+  // The parts of a carousel whose state a step changes, and what is recorded of them.
+  const PART_ATTRS = ['class', 'style', 'hidden', 'aria-hidden', 'aria-current', 'aria-selected', 'aria-disabled', 'disabled', 'tabindex'];
+  // An empty class or style (left by classList.toggle) is the same as none.
+  const partOf = (el) => PART_ATTRS.map((name) => {
+    const value = el.getAttribute(name);
+    return value === '' && (name === 'class' || name === 'style') ? null : value;
+  });
+  const sameValues = (a, b) => a.every((v, i) => v === b[i]);
+  // A carousel's dots (Swiper, Slick, Owl, Glide, Splide, Bootstrap indicators, or ARIA tabs), in
+  // page order; a dot wrapping another dot counts once, as the inner one.
+  const DOT_SELECTOR = '[data-slide-to], [data-bs-slide-to], .swiper-pagination-bullet, .slick-dots li, .slick-dots button, .owl-dot, .glide__bullet, .splide__pagination__page, [role="tab"]';
+  const dotsIn = (root) => Array.from(root.querySelectorAll(DOT_SELECTOR)).filter((dot) => !dot.querySelector(DOT_SELECTOR));
   // How the arrows look at each step (sites hide or grey them out at the ends).
   const arrowState = (b) => (b ? { cls: b.getAttribute('class'), disabled: !!b.disabled, aria: b.getAttribute('aria-disabled'), hidden: b.hidden } : null);
 
@@ -344,6 +340,7 @@ export async function extractPage(editorTexts = {}, options = {}) {
       const arrowsNow = [next, findPrev(nav)];
       const movers = [area, ...area.querySelectorAll('*')].slice(0, 3000).filter((el) => !arrowsNow.some((a) => a && a.contains(el)));
       const placesBefore = movers.map(placeOf);
+      const partsBefore = movers.map(partOf);
       const arrowsBefore = [arrowState(currentPrev()), arrowState(currentNext())];
       currentNext().click();
       await sleep(250);
@@ -355,38 +352,90 @@ export async function extractPage(editorTexts = {}, options = {}) {
         return before.some((was, i) => was !== null && (now[i].textContent !== was.text || now[i].getElementsByTagName('*').length !== was.count || formState(now[i]) !== was.form));
       });
       if (!changed) { // nothing was swapped in: all items already exist, or the click did nothing
+        // A carousel whose items are all in the page: record each step as where the strip sits
+        // (if one moves) and the state of every part that changes (the "active" item, the dots,
+        // aria-hidden…; in Bootstrap or fading carousels that is all that changes).
         const moved = movers.findIndex((el, k) => !samePlace(placeOf(el), placesBefore[k]));
-        if (moved >= 0) { // a sliding carousel: record where the strip sits at each step
-          const track = movers[moved];
-          const positions = [placesBefore[moved]];
+        const track = moved >= 0 ? movers[moved] : null;
+        const stateNow = () => {
+          const diff = {};
+          movers.forEach((el, k) => {
+            const values = partOf(el);
+            if (!sameValues(values, partsBefore[k])) diff[k] = values;
+          });
+          return { place: track ? placeOf(track) : null, diff };
+        };
+        const sig = (st) => (st.place ? `${st.place.transform}|${Math.round(st.place.left)}|${Math.round(st.place.top)}|` : '') + JSON.stringify(st.diff);
+        // Waits until the strip stops and the parts stop changing.
+        const settled = async () => {
+          if (track) await still(track);
+          let last = sig(stateNow());
+          for (let waited = 0; waited < 1500; waited += 80) {
+            await sleep(80);
+            const now = sig(stateNow());
+            if (now === last) break;
+            last = now;
+          }
+          return stateNow();
+        };
+        // Presses an arrow; a press that changed nothing gets time and one more try (Glide
+        // ignores clicks while a slide is still animating, some carousels react late).
+        const pressStep = async (button, from) => {
+          button.click();
+          let st = await settled();
+          if (sig(st) === sig(from)) {
+            await sleep(400);
+            st = await settled();
+          }
+          if (sig(st) === sig(from)) {
+            button.click();
+            st = await settled();
+          }
+          return st;
+        };
+        const start = { place: track ? placesBefore[moved] : null, diff: {} };
+        let st = await settled();
+        if (track || Object.keys(st.diff).length) {
+          const steps = [start];
           const arrows = [arrowsBefore];
           report({ ...base, phase: 'carousel', item: 1 });
-          let place = await still(track);
-          while (!cancelled && positions.length < MAX_PAGER_ITEMS && !positions.some((p) => samePlace(p, place))) {
-            positions.push(place);
+          while (!cancelled && steps.length < MAX_PAGER_ITEMS && !steps.some((p) => sig(p) === sig(st))) {
+            steps.push(st);
             arrows.push([arrowState(currentPrev()), arrowState(currentNext())]);
-            report({ ...base, phase: 'carousel', item: positions.length });
+            report({ ...base, phase: 'carousel', item: steps.length });
             const nextButton = currentNext();
             if (isDisabled(nextButton)) break;
-            place = await press(nextButton, track, place);
+            st = await pressStep(nextButton, st);
           }
           report({ ...base, phase: 'carousel-restore' });
           await sleep(400); // let the library accept clicks again after the last slide
-          place = placeOf(track);
-          for (let k = 1; k < positions.length * 2 && !samePlace(place, positions[0]); k++) {
+          st = stateNow();
+          for (let k = 1; k < steps.length * 2 && sig(st) !== sig(start); k++) {
             const prevButton = currentPrev();
             if (isDisabled(prevButton)) break;
-            const was = place;
-            place = await press(prevButton, track, place);
-            if (samePlace(place, was)) break; // Previous no longer moves it
+            const was = st;
+            st = await pressStep(prevButton, st);
+            if (sig(st) === sig(was)) break; // Previous no longer changes anything
           }
-          report({ ...base, phase: positions.length > 1 ? 'carousel-done' : 'carousel-skip', items: positions.length });
-          if (positions.length > 1) {
+          report({ ...base, phase: steps.length > 1 ? 'carousel-done' : 'carousel-skip', items: steps.length });
+          if (steps.length > 1) {
             const id = String(Object.keys(sliders).length + 1);
-            track.setAttribute('data-snap-slider', id);
+            // Every part that changes at some step; each step lists all their values.
+            const partIndexes = [...new Set(steps.flatMap((p) => Object.keys(p.diff).map(Number)))];
+            partIndexes.forEach((k, n) => movers[k].setAttribute('data-snap-part', `${id}:${n}`));
+            if (track) track.setAttribute('data-snap-slider', id);
             currentPrev()?.setAttribute('data-snap-slider-prev', id);
             currentNext()?.setAttribute('data-snap-slider-next', id);
-            sliders[id] = { positions, arrows };
+            // The dots jump to their step: the nearest set, going out from the arrows, with one
+            // dot per step (a wider area may hold another carousel's dots too).
+            const dots = [nav, ...levels.map((l) => l.holder), area].map(dotsIn).find((found) => found.length === steps.length);
+            dots?.forEach((dot, k) => dot.setAttribute('data-snap-slider-dot', `${id}:${k}`));
+            sliders[id] = {
+              positions: track ? steps.map((p) => p.place) : null,
+              arrows,
+              attrs: PART_ATTRS,
+              parts: steps.map((p) => partIndexes.map((k) => p.diff[k] || partsBefore[k])),
+            };
           }
           continue;
         }
@@ -552,7 +601,7 @@ export async function extractPage(editorTexts = {}, options = {}) {
   let recorded = { pagers: {}, sliders: {} };
   // The capture's own marks on the live page, removed once it is copied.
   const unmark = () => {
-    for (const name of ['data-snap-pager', 'data-snap-slider', 'data-snap-slider-prev', 'data-snap-slider-next']) {
+    for (const name of ['data-snap-pager', 'data-snap-slider', 'data-snap-slider-prev', 'data-snap-slider-next', 'data-snap-slider-dot', 'data-snap-part']) {
       document.querySelectorAll(`[${name}]`).forEach((el) => el.removeAttribute(name));
     }
   };

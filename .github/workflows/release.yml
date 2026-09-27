@@ -144,6 +144,10 @@ jobs:
         working-directory: tests
         run: npm run carousel
 
+      - name: Offline library end-to-end test
+        working-directory: tests
+        run: npm run library
+
       - name: Store policy checks
         working-directory: tests
         run: npm run store-policy
