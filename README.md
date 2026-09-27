@@ -13,7 +13,7 @@ Os detalhes técnicos (o que é capturado, de onde vêm os arquivos, limitaçõe
 - **Arquivos que a página já carregou:** lidos direto da aba pelo debugger do navegador, com os mesmos bytes que você viu, inclusive imagens que exigem login. O que faltar é baixado pela própria aba (direto, para arquivos do mesmo site, ou pelo debugger, para os de outros sites), com limite de 4 downloads por site e novas tentativas em caso de rate limit (HTTP 429/503). A extensão não tem permissão para nenhum site: só acessa a aba em que você abriu o popup (`activeTab`).
 - **Interatividade que continua funcionando offline:** seções recolhidas, acordeões, botões "Expandir tudo" / "Recolher tudo", abas e carrosséis (botões "Próximo" / "Anterior" em português, inglês ou espanhol, com ou sem acento), restaurados por um pequeno script local que nunca acessa a rede.
 - **Editores de código (Monaco / VS Code):** viram texto comum, rolável e selecionável, com o arquivo completo quando há link de download; os botões "Copy file" e "word wrap" continuam funcionando.
-- **Carrosséis:** a extensão percorre cada item na página ao vivo (e a devolve ao estado em que estava) e embute todos no snapshot.
+- **Carrosséis:** a extensão percorre cada item na página ao vivo (e a devolve ao estado em que estava). Os que mostram um item por vez têm todos os itens gravados; os que deslizam uma faixa com todos os itens (Glide, Swiper, Slick, rolagem lateral) têm as posições gravadas. Nos dois casos as setas funcionam na cópia offline.
 - **Arquivos para download:** links `<a download>` e documentos do mesmo site (`.zip`, `.pdf`, `.csv`…), até 25 arquivos, vão para `assets/`.
 - **Texto cortado com "…mais"** por clamp de CSS aparece inteiro.
 - **Progresso ao vivo:** o popup da extensão, embaixo do ícone, mostra cada fase com contadores e o arquivo sendo baixado naquele momento, com os botões **OK** e **Cancel** e uma seção **Help**. A captura continua mesmo com o popup fechado.
@@ -74,7 +74,7 @@ A página salva, aberta offline a partir do ZIP, com o carrossel funcionando:
 
 ### Um site real: TudoGostoso
 
-A página inicial de https://www.tudogostoso.com.br salva pelo PageKeep: 160 arquivos em 4,3 MB, e a cópia, aberta offline, não faz nenhuma requisição. O único arquivo que faltou era um endereço de estatísticas de anúncios, e a referência a ele foi removida. O retângulo cinza é um anúncio num quadro de outro site, que a cópia não carrega.
+A página inicial de https://www.tudogostoso.com.br salva pelo PageKeep: 159 arquivos em 4,3 MB e os dois carrosséis deslizantes da página (3 e 9 posições), que continuam deslizando na cópia; aberta offline, ela não faz nenhuma requisição. O único arquivo que faltou era um endereço de estatísticas de anúncios, e a referência a ele foi removida. O retângulo cinza é um anúncio num quadro de outro site, que a cópia não carrega.
 
 | O popup depois da captura | A cópia aberta offline |
 | --- | --- |

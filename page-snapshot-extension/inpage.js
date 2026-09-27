@@ -139,7 +139,7 @@ export async function extractPage(editorTexts = {}) {
   // ("Next", "Próximo", "Siguiente") or with what it moves ("Next slide", "Próxima imagem",
   // "Imagen anterior"). Labels are compared without accents, in lower case (plain()), so the
   // patterns are written that way. Keep these three lines identical in inpage.js and
-  // lib/interactions.js (tests/carousel.mjs checks it).
+  // lib/offline/pager.js (tests/carousel.mjs checks it).
   const NEXT_RE = /^(?:(?:next|proxim[oa]|seguinte|siguiente)(?: (?:item|slide|image|photo|picture|card|imagem|foto|cartao|elemento|diapositiva|imagen|tarjeta))?|(?:item|slide|imagem|foto|cartao|elemento|diapositiva|imagen|tarjeta) (?:seguinte|siguiente|proxim[oa]))$/;
   const PREV_RE = /^(?:(?:previous|prev|anterior)(?: (?:item|slide|image|photo|picture|card|imagem|foto|cartao|elemento|diapositiva|imagen|tarjeta))?|(?:item|slide|imagem|foto|cartao|elemento|diapositiva|imagen|tarjeta) anterior)$/;
   // A label as the patterns expect it: no accents ("Próximo" → "proximo"), lower case, single spaces.
@@ -178,8 +178,44 @@ export async function extractPage(editorTexts = {}) {
     return copy.innerHTML;
   }
 
+  // Sliding carousels (strips moved by a CSS transform or by scrolling) keep every item in the
+  // page; what changes is where the strip sits. A place is read from the computed style, so it
+  // is the same whichever library moved it.
+  const placeOf = (el) => ({ transform: getComputedStyle(el).transform, left: el.scrollLeft, top: el.scrollTop });
+  const samePlace = (a, b) => a.transform === b.transform && Math.abs(a.left - b.left) < 2 && Math.abs(a.top - b.top) < 2;
+  // Waits until a strip stops moving (its transition or smooth scroll has ended).
+  async function still(el) {
+    let last = placeOf(el);
+    for (let waited = 0; waited < 1500; waited += 80) {
+      await sleep(80);
+      const now = placeOf(el);
+      if (samePlace(now, last)) return now;
+      last = now;
+    }
+    return last;
+  }
+  // Presses an arrow and returns where the strip ends up. Libraries such as Glide ignore clicks
+  // while a slide is still animating, and some start moving late, so a press that moved nothing
+  // is given time and one more try before it counts as "the strip is at its end".
+  async function press(button, strip, from) {
+    button.click();
+    let place = await still(strip);
+    if (samePlace(place, from)) {
+      await sleep(400);
+      place = await still(strip);
+    }
+    if (samePlace(place, from)) {
+      button.click();
+      place = await still(strip);
+    }
+    return place;
+  }
+  // How the arrows look at each step (sites hide or grey them out at the ends).
+  const arrowState = (b) => (b ? { cls: b.getAttribute('class'), disabled: !!b.disabled, aria: b.getAttribute('aria-disabled'), hidden: b.hidden } : null);
+
   async function explorePagers() {
     const pagers = {};
+    const sliders = {};
     const buttons = Array.from(document.querySelectorAll('button[aria-label], [role="button"][aria-label]'));
     const candidates = buttons.filter((b) => NEXT_RE.test(labelOf(b)) && !submitsForm(b));
     for (const [n, next] of candidates.entries()) {
@@ -211,6 +247,14 @@ export async function extractPage(editorTexts = {}) {
       let scope = nav;
       const currentNext = () => Array.from(scope.querySelectorAll('[aria-label]')).find((b) => NEXT_RE.test(labelOf(b)) && !submitsForm(b));
       const currentPrev = () => findPrev(scope);
+      // Where everything near the arrows sits before the click, to find a strip that moves. The
+      // arrows themselves are left out (they may animate when pressed), but not the rest of the
+      // nav: in many carousels (Glide) the element holding both arrows also holds the strip.
+      const area = levels[Math.min(2, levels.length - 1)]?.holder || nav.parentElement;
+      const arrowsNow = [next, findPrev(nav)];
+      const movers = [area, ...area.querySelectorAll('*')].slice(0, 3000).filter((el) => !arrowsNow.some((a) => a && a.contains(el)));
+      const placesBefore = movers.map(placeOf);
+      const arrowsBefore = [arrowState(currentPrev()), arrowState(currentNext())];
       currentNext().click();
       await sleep(250);
 
@@ -220,7 +264,42 @@ export async function extractPage(editorTexts = {}) {
         if (now.length !== before.length) return true;
         return before.some((was, i) => was !== null && (now[i].textContent !== was.text || now[i].getElementsByTagName('*').length !== was.count || formState(now[i]) !== was.form));
       });
-      if (!changed) { // nothing was swapped in: either all items already exist, or the click did nothing
+      if (!changed) { // nothing was swapped in: all items already exist, or the click did nothing
+        const moved = movers.findIndex((el, k) => !samePlace(placeOf(el), placesBefore[k]));
+        if (moved >= 0) { // a sliding carousel: record where the strip sits at each step
+          const track = movers[moved];
+          const positions = [placesBefore[moved]];
+          const arrows = [arrowsBefore];
+          report({ ...base, phase: 'carousel', item: 1 });
+          let place = await still(track);
+          while (!cancelled && positions.length < MAX_PAGER_ITEMS && !positions.some((p) => samePlace(p, place))) {
+            positions.push(place);
+            arrows.push([arrowState(currentPrev()), arrowState(currentNext())]);
+            report({ ...base, phase: 'carousel', item: positions.length });
+            const nextButton = currentNext();
+            if (isDisabled(nextButton)) break;
+            place = await press(nextButton, track, place);
+          }
+          report({ ...base, phase: 'carousel-restore' });
+          await sleep(400); // let the library accept clicks again after the last slide
+          place = placeOf(track);
+          for (let k = 1; k < positions.length * 2 && !samePlace(place, positions[0]); k++) {
+            const prevButton = currentPrev();
+            if (isDisabled(prevButton)) break;
+            const was = place;
+            place = await press(prevButton, track, place);
+            if (samePlace(place, was)) break; // Previous no longer moves it
+          }
+          report({ ...base, phase: positions.length > 1 ? 'carousel-done' : 'carousel-skip', items: positions.length });
+          if (positions.length > 1) {
+            const id = String(Object.keys(sliders).length + 1);
+            track.setAttribute('data-snap-slider', id);
+            currentPrev()?.setAttribute('data-snap-slider-prev', id);
+            currentNext()?.setAttribute('data-snap-slider-next', id);
+            sliders[id] = { positions, arrows };
+          }
+          continue;
+        }
         if (!isDisabled(currentPrev())) currentPrev().click();
         await sleep(150);
         report({ ...base, phase: 'carousel-skip' });
@@ -255,7 +334,7 @@ export async function extractPage(editorTexts = {}) {
         pagers[id] = pages;
       }
     }
-    return pagers;
+    return { pagers, sliders };
   }
 
   function walk(live, clone, ctx) {
@@ -368,24 +447,31 @@ export async function extractPage(editorTexts = {}) {
     };
   }
 
-  let pagers;
+  let recorded = { pagers: {}, sliders: {} };
+  // The capture's own marks on the live page, removed once it is copied.
+  const unmark = () => {
+    for (const name of ['data-snap-pager', 'data-snap-slider', 'data-snap-slider-prev', 'data-snap-slider-next']) {
+      document.querySelectorAll(`[${name}]`).forEach((el) => el.removeAttribute(name));
+    }
+  };
   try {
-    pagers = await explorePagers();
+    recorded = await explorePagers();
   } finally {
     try { chrome.runtime.onMessage.removeListener(onCancel); } catch { /* not in an extension */ }
   }
   if (cancelled) {
-    document.querySelectorAll('[data-snap-pager]').forEach((el) => el.removeAttribute('data-snap-pager'));
+    unmark();
     return { cancelled: true };
   }
   report({ phase: 'snapshot' });
   const main = snapshot(document, 0);
-  document.querySelectorAll('[data-snap-pager]').forEach((el) => el.removeAttribute('data-snap-pager'));
+  unmark();
   return {
     url: location.href,
     title: document.title,
     main,
     frames,
-    pagers,
+    pagers: recorded.pagers,
+    sliders: recorded.sliders,
   };
 }

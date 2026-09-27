@@ -8,7 +8,7 @@
 // popup translates it. Why a file failed is an Error whose `text` is such a message; its English
 // `message` goes into snapshot.json.
 import { buildZip } from './lib/zip.js';
-import { interactionsRuntime } from './lib/interactions.js';
+import { offlineScript } from './lib/offline/index.js';
 import {
   assetFileName, fetchableUrl, parseSrcset, rewriteCss, serializeSrcset, slugify, textBytes,
 } from './lib/helpers.js';
@@ -528,7 +528,8 @@ async function processDocument(data, page, depth = 0) {
   const doc = new DOMParser().parseFromString(data.html, 'text/html');
   await processDom(doc, data.base, page, depth);
 
-  // Carousels: every recorded item, processed like the page itself, for the runtime to swap in.
+  // Carousels that keep one item in the page: every recorded item, processed like the page
+  // itself, for lib/offline/pager.js to swap in.
   if (depth === 0 && data.html.includes('data-snap-pager')) {
     const recorded = {};
     for (const region of doc.querySelectorAll('[data-snap-pager]')) {
@@ -542,11 +543,21 @@ async function processDocument(data, page, depth = 0) {
     doc.body.append(store);
   }
 
+  // Sliding carousels: where the strip sat at each step, for lib/offline/slider.js.
+  if (depth === 0 && data.html.includes('data-snap-slider')) {
+    const store = doc.createElement('script');
+    store.setAttribute('type', 'application/json');
+    store.id = 'snap-sliders';
+    store.textContent = JSON.stringify(page.sliders || {}).replace(/</g, '\\u003c');
+    doc.body.append(store);
+  }
+
   // Page scripts are gone, so give collapsible sections, tabs, carousels and editors their
-  // click behaviour back.
-  if (/aria-expanded|role="tab"|data-snap-pager|data-snap-editor/.test(data.html)) {
+  // behaviour back with the local scripts of lib/offline/ that this page needs.
+  const offline = offlineScript(data.html);
+  if (offline) {
     const script = doc.createElement('script');
-    script.textContent = `(${interactionsRuntime.toString()})();`;
+    script.textContent = offline;
     doc.body.append(script);
   }
 
@@ -640,6 +651,7 @@ async function main() {
     debugger: attached.ok ? 'used' : `unavailable: ${attached.error}`,
     editors: Object.fromEntries(editorReport),
     carousels: Object.fromEntries(Object.entries(page.pagers || {}).map(([id, pages]) => [id, { items: pages.length, avg_item_chars: Math.round(pages.reduce((n, h) => n + h.length, 0) / pages.length) }])),
+    sliding_carousels: Object.fromEntries(Object.entries(page.sliders || {}).map(([id, s]) => [id, { steps: s.positions.length }])),
     resources,
     failed: failures.map(({ url, reason }) => ({ url, reason })),
   };
@@ -679,8 +691,9 @@ async function main() {
     notes.push({ text: plural(editors.length, 'note_editors', bySource('file'), bySource('monaco') + bySource('react')) });
     if (partial) notes.push({ warn: true, text: plural(partial, 'note_editors_partial') });
   }
-  const carousels = Object.values(page.pagers || {});
-  if (carousels.length) notes.push({ text: plural(carousels.length, 'note_carousels', carousels.map((p) => p.length).join(', ')) });
+  // Both kinds of carousel: those recorded item by item first, then the sliding ones.
+  const carousels = [...Object.values(page.pagers || {}).map((p) => p.length), ...Object.values(page.sliders || {}).map((s) => s.positions.length)];
+  if (carousels.length) notes.push({ text: plural(carousels.length, 'note_carousels', carousels.join(', ')) });
   if (linkedFiles.size) notes.push({ text: plural(linkedFiles.size, 'note_files') });
   state.notes = notes;
   state.failures = failures;
