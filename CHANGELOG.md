@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-09-27
+
 - More of the page keeps working offline: photo galleries (the large pictures are saved; a
   thumbnail opens its picture over the page, with previous / next), pop-up windows (Bootstrap
   modals, dialogs), drop-down menus, accordions and tabs made with Bootstrap, and carousel dots.
