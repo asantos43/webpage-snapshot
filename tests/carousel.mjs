@@ -51,7 +51,8 @@ n.onclick=()=>{i++;show();};p.onclick=()=>{i--;show();};</script>`;
 const server = http.createServer((req, res) => {
   if (req.url === '/style.css') {
     res.setHeader('content-type', 'text/css');
-    return res.end('.card{border:2px solid teal;padding:8px}h2{color:teal}');
+    // UTF-8 without a charset, as many servers send CSS: must not come out garbled.
+    return res.end('.card{border:2px solid teal;padding:8px}h2{color:teal}h2::after{content:" ● é"}');
   }
   const img = req.url.match(/^\/img\/(\d+)\.svg/);
   if (img) {
@@ -171,6 +172,8 @@ try {
   check('Previous goes back', (await snap.textContent('h2')) === `Item ${ITEMS - 1}`);
   check('item images saved locally', await snap.$eval('#item img', (i) => i.complete && i.naturalWidth > 0 && i.getAttribute('src').startsWith('assets/')));
   check('stylesheet saved', (await snap.$eval('h2', (h) => getComputedStyle(h).color)) === 'rgb(0, 128, 128)');
+  const after = await snap.$eval('h2', (h) => getComputedStyle(h, '::after').content);
+  check('non-ASCII text in CSS served without a charset stays intact', after === '" ● é"', after);
   check('image from the other site saved (the page had loaded it)', await snap.$eval('#logo', (i) => i.complete && i.naturalWidth > 0 && i.getAttribute('src').startsWith('assets/')));
   const notesHref = await snap.$eval('#notes', (a) => a.getAttribute('href'));
   check('file from the other site saved (the page had not loaded it)', notesHref.startsWith('assets/')

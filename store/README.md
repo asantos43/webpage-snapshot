@@ -24,7 +24,7 @@ The five screenshots, one per feature, each with the real screen:
 
 1. **Saves the page as you see it**: the finished capture in the popup.
 2. **Every item of every carousel**: the popup while it records a carousel.
-3. **Opens offline, as it looked**: the saved page opened from the ZIP, on the carousel's second item.
+3. **Opens offline, as it looked**: an example news site saved and opened from the ZIP.
 4. **Nothing left pointing online**: the list of what could not be saved.
 5. **Runs in the background**: the popup's Help (the badge, Cancel, the help page, two languages, no telemetry).
 

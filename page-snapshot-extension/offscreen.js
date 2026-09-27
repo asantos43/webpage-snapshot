@@ -10,7 +10,7 @@
 import { buildZip } from './lib/zip.js';
 import { interactionsRuntime } from './lib/interactions.js';
 import {
-  assetFileName, fetchableUrl, parseSrcset, rewriteCss, serializeSrcset, slugify,
+  assetFileName, fetchableUrl, parseSrcset, rewriteCss, serializeSrcset, slugify, textBytes,
 } from './lib/helpers.js';
 
 const MAX_RESOURCE_BYTES = 30 * 1024 * 1024;
@@ -125,7 +125,7 @@ const failures = [];
 const usedNames = new Set();
 const fileBytes = new Map(); // linked file URL -> bytes, so editors can show the complete file
 const editorReport = new Map(); // editor uri -> { source, chars }
-let linkedFiles = 0;
+const linkedFiles = new Set(); // addresses of the linked files saved, each counted once
 let totalBytes = 0;
 let queued = 0;
 let finished = 0;
@@ -221,7 +221,7 @@ async function readFromPage(url) {
   if (!hit) return null;
   try {
     const { content, base64Encoded } = await call('command', { method: 'Page.getResourceContent', params: { frameId: hit.frameId, url } });
-    const bytes = base64Encoded ? base64ToBytes(content) : new TextEncoder().encode(content);
+    const bytes = base64Encoded ? base64ToBytes(content) : textBytes(content);
     admit(bytes.length);
     fromBrowser++;
     return { bytes, type: hit.mimeType, source: 'page' };
@@ -253,7 +253,9 @@ async function viaDebugger(url) {
   const res = await call('loadResource', { frameId: mainFrameId, url, maxBytes: MAX_RESOURCE_BYTES, timeoutMs: FETCH_TIMEOUT_MS }).catch((err) => { throw fromWorker(err); });
   if (res.status && (res.status < 200 || res.status > 299)) throw httpError(res.status, res.retryAfter);
   if (res.error) throw new Error(res.error);
-  const parts = res.chunks.map((c) => (c.base64 ? base64ToBytes(c.data) : new TextEncoder().encode(c.data)));
+  const parts = res.chunks.every((c) => !c.base64) // text arrives decoded, like readFromPage's
+    ? [textBytes(res.chunks.map((c) => c.data).join(''))]
+    : res.chunks.map((c) => (c.base64 ? base64ToBytes(c.data) : new TextEncoder().encode(c.data)));
   const bytes = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
   parts.reduce((at, p) => { bytes.set(p, at); return at + p.length; }, 0);
   admit(bytes.length);
@@ -469,11 +471,14 @@ async function processElement(el, base, page, depth) {
     const href = fetchableUrl(el.getAttribute('href'), base);
     const wanted = href && (el.hasAttribute('download') || (href.origin === tabOrigin && FILE_LINK_RE.test(href.pathname)));
     let saved = false;
-    if (wanted && linkedFiles < MAX_LINKED_FILES) {
-      linkedFiles++;
-      step('files', msg('step_files_saving', linkedFiles));
+    if (href) href.hash = '';
+    // The same link can appear several times (a carousel's area is saved once per item).
+    if (wanted && (linkedFiles.has(href.href) || linkedFiles.size < MAX_LINKED_FILES)) {
+      if (!linkedFiles.has(href.href)) {
+        linkedFiles.add(href.href);
+        step('files', msg('step_files_saving', linkedFiles.size));
+      }
       const name = fileNameFromUrl(href.href);
-      href.hash = '';
       const file = await getAsset(href.href, 'file');
       if (file) {
         el.setAttribute('href', `assets/${file}`);
@@ -619,7 +624,7 @@ async function main() {
     ...(fromBrowser ? [msg('assets_saved_page', fromBrowser)] : []),
     ...(failures.length ? [msg('assets_saved_failed', failures.length)] : []),
   ], failures.length ? 'warn' : 'done');
-  if (linkedFiles) step('files', plural(linkedFiles, 'step_files_saved'), 'done');
+  if (linkedFiles.size) step('files', plural(linkedFiles.size, 'step_files_saved'), 'done');
   const sourceNote = page.url.replace(/--/g, '%2D%2D').replace(/>/g, '%3E');
   html = html.replace(
     /^(<!doctype[^>]*>\s*)?/i,
@@ -676,7 +681,7 @@ async function main() {
   }
   const carousels = Object.values(page.pagers || {});
   if (carousels.length) notes.push({ text: plural(carousels.length, 'note_carousels', carousels.map((p) => p.length).join(', ')) });
-  if (linkedFiles) notes.push({ text: plural(linkedFiles, 'note_files') });
+  if (linkedFiles.size) notes.push({ text: plural(linkedFiles.size, 'note_files') });
   state.notes = notes;
   state.failures = failures;
   state.download = { url: blobUrl, name };
