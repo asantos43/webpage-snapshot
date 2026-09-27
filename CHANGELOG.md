@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.2.5] - 2026-09-27
+
 - Carousels labelled in Portuguese and Spanish are recorded too ("Próximo", "Anterior", "Siguiente",
   "Próxima imagem", "Imagen anterior"…), and so are English ones labelled just "Next" / "Previous".
   Labels are compared without accents or capitals. A button that would submit a form (a sign-up
