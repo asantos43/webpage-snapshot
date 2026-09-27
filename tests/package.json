@@ -7,7 +7,8 @@
     "smoke": "node smoke.mjs",
     "carousel": "node carousel.mjs",
     "store-policy": "node store-policy.mjs",
-    "screenshots": "node screenshots.mjs"
+    "screenshots": "node screenshots.mjs",
+    "store-images": "node store-images.mjs"
   },
   "devDependencies": {
     "playwright": "^1.63.0"

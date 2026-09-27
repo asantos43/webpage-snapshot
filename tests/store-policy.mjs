@@ -5,7 +5,9 @@
 // - no telemetry: the code names no network host (the page's own files are the only downloads);
 // - name and description within the store's limits, in each language;
 // - two complete locales (en, pt_BR) with the same keys and $1…$9 values, every message used;
-// - icons are our own PNGs with no embedded metadata from a third-party icon set.
+// - icons are our own PNGs with no embedded metadata from a third-party icon set;
+// - the store listing (store/): pictures of the exact sizes the store takes, and descriptions in
+//   both languages that name no other product and hold no links.
 // Exit code 1 if any check fails.
 // Usage: node store-policy.mjs [path-to-extension]   (default: ../page-snapshot-extension)
 import fs from 'node:fs';
@@ -101,6 +103,35 @@ for (const [size, rel] of Object.entries(manifest.icons)) {
     at += 12 + length;
   }
   check(`icon ${rel}: ${size}x${size} PNG without third-party metadata`, isPng && width === Number(size) && text.length === 0, text.join(' | '));
+}
+
+// The store listing.
+const storeDir = path.join(here, '../store');
+const jpegSize = (file) => {
+  const b = fs.readFileSync(file);
+  if (b[0] !== 0xff || b[1] !== 0xd8) return null;
+  for (let at = 2; at < b.length;) {
+    const marker = b[at + 1];
+    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) return [b.readUInt16BE(at + 7), b.readUInt16BE(at + 5)];
+    at += 2 + b.readUInt16BE(at + 2);
+  }
+  return null;
+};
+const PICTURES = { 'screenshot-1.jpg': [1280, 800], 'screenshot-2.jpg': [1280, 800], 'screenshot-3.jpg': [1280, 800], 'screenshot-4.jpg': [1280, 800], 'screenshot-5.jpg': [1280, 800], 'small-promo-tile.jpg': [440, 280], 'marquee-promo-tile.jpg': [1400, 560] };
+for (const l of ['en', 'pt_BR']) {
+  for (const [file, [w, h]] of Object.entries(PICTURES)) {
+    const at = path.join(storeDir, 'images', l, file);
+    const size = fs.existsSync(at) ? jpegSize(at) : null;
+    check(`store/images/${l}/${file} is a ${w}×${h} JPEG`, size?.[0] === w && size?.[1] === h, JSON.stringify(size));
+  }
+  const at = path.join(storeDir, `description.${l}.txt`);
+  const text = fs.existsSync(at) ? fs.readFileSync(at, 'utf8') : '';
+  check(`store/description.${l}.txt exists, at most 16000 characters`, text.length > 500 && text.length <= 16000, `${text.length} characters`);
+  // Other products' names invite a keyword-spam or impersonation strike; links belong in the
+  // dashboard's own fields.
+  const named = text.match(/\b(chrome|chromium|google|opera|edge|firefox|safari|brave|vs ?code|visual studio|monaco|microsoft|apple|linkedin|github|singlefile|mhtml)\b/gi);
+  check(`store/description.${l}.txt names no other product`, !named, named?.join(', '));
+  check(`store/description.${l}.txt has no links`, !/https?:\/\/|www\./i.test(text));
 }
 
 console.log(failed ? `${failed} check(s) failed` : 'all checks passed');

@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- Help page pictures: no focus ring on the OK button, and the saved page shown larger.
+
 ## [1.2.1] - 2026-09-27
 
 - A full help page with pictures, in English and Portuguese, opened from the popup's Help

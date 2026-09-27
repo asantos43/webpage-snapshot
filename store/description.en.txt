@@ -1,0 +1,44 @@
+PageKeep saves the page you are looking at as a ZIP file that opens offline, exactly as it looked on your screen: its styles, images and fonts, what scripts put on the page, what you typed in forms, and every item of its carousels. Useful for keeping a recipe, an article, a receipt, documentation or any page that may change or disappear.
+
+SAVES THE PAGE AS YOU SEE IT
+
+• The page as it is on screen now, not as the server first sent it: content that scripts added, sections you opened, the current values of forms (password fields are always left empty), and drawings on canvases, saved as pictures.
+• Its files: stylesheets, images in every size the page offers, fonts, icons, video posters and small audio or video files.
+• Code editors on the page become ordinary text you can scroll and select, with the complete file when the page links to it.
+• Files the page offers for download (attachments, documents, archives) are saved next to it, up to 25, so their links work offline.
+• Text cut short with "…more" appears in full.
+
+EVERY ITEM OF EVERY CAROUSEL
+
+A carousel usually shows one item at a time and leaves the others out of the page. PageKeep steps through each carousel item by item, records every one, and puts your page back on the first item. In the saved copy, Next and Previous still work.
+
+OPENS OFFLINE, AS IT LOOKED
+
+Unzip the file anywhere and open index.html in your browser, with or without an internet connection. Collapsible sections, tabs, "Expand all" buttons and carousels keep working, through a small script packed into the copy. Opening it makes no request at all; links still lead to the real site when you click them while online.
+
+NOTHING LEFT POINTING ONLINE
+
+The page's own scripts and tracking attributes are removed, and frames from other sites are not loaded. Anything that could not be saved (a missing image, a file over 30 MB) is listed in the popup and its reference is removed from the copy instead of pointing at the live site, so the saved page never contacts a website.
+
+WORKS IN THE BACKGROUND
+
+• Click the toolbar icon or press Alt+Shift+S: the popup opens under the icon and the capture starts.
+• Watch each step as it happens, or close the popup and keep working: the icon's badge shows … while it runs, ✓ when it is done and ! if it failed. Click the icon again to see the result.
+• Cancel stops a capture at any time: carousels go back to their first item and nothing is saved.
+• The ZIP goes to your Downloads folder, named after the page's title with the date and time. Download again saves it once more; OK clears the result.
+
+HOW IT READS THE FILES
+
+To save the exact files you saw, including images that need your login, PageKeep reads them from the tab through the browser's debugger, which the browser shows with a bar while the capture runs. Files the page had not loaded are downloaded by the tab itself. The extension has no access to any website: only to the tab you open its popup on, and only while you capture it.
+
+PRIVATE BY DESIGN
+
+No account, no server, no ads and no telemetry. Nothing is sent to the developer or anyone else: what PageKeep reads goes only into the ZIP saved on your computer. The only requests it makes are for the page's own files, to the servers that page already uses. Privacy policy: see the link on this page.
+
+ALSO
+
+• In English or Portuguese, following your browser's language.
+• Light and dark theme, following your system.
+• Built-in help page, with pictures, that works offline.
+
+PageKeep is by Anderson Santos.
