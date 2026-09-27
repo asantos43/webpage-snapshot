@@ -71,9 +71,11 @@ recebem as atualizações sozinhos.
 
 ## 6. Envio automático das próximas versões
 
-A action de release (`.github/workflows/release.yml`) terá o passo **Send to the Chrome Web
-Store**, que usa a API da loja (v2) com a **conta de serviço** do Google Cloud. Enquanto os
-segredos não existirem, ele só avisa e não faz nada.
+A action de release (`.github/workflows/release.yml`) tem o passo **Send to the Chrome Web
+Store**, que roda `.github/scripts/publish-to-chrome-web-store.sh` (o mesmo script da TabWatcher)
+com a API da loja (v2) e a **conta de serviço** do Google Cloud. Enquanto os segredos não
+existirem, ele só avisa e não faz nada. O script é testado a cada release contra uma loja falsa
+local (`tests/publish-script.mjs`), já que a loja de verdade só responde com os segredos reais.
 
 A conta de serviço é a mesma da TabWatcher & Clicker (a loja aceita uma por editor), então não é
 preciso criar outra no Google Cloud nem no painel. Neste repositório, `CWS_PUBLISHER_ID` e
