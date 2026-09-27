@@ -6,7 +6,9 @@
 # written to the manifest and committed to main as "Version x.y.z", together with CHANGELOG.md,
 # whose "Unreleased" section becomes the version's section. The smoke test must pass, then the
 # extension folder (plus CHANGELOG.md) is zipped and published as the GitHub release v<version>,
-# whose notes are that changelog section. The carousel end-to-end test and the store policy checks must pass too.
+# whose notes are that changelog section. The carousel end-to-end test, the store policy checks and
+# the store upload script's test must pass too. Finally the zip is sent to the Chrome Web Store for
+# review, when the CWS_* secrets are set and it is not a pre-release.
 # A pull request labelled "no-release" (documentation, fixes that belong to the release already
 # out) is merged without a new release.
 name: Release
@@ -146,6 +148,10 @@ jobs:
         working-directory: tests
         run: npm run store-policy
 
+      - name: Store upload script test (against a fake store)
+        working-directory: tests
+        run: npm run publish-script
+
       - name: Commit the new version and changelog
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -190,3 +196,15 @@ jobs:
             --title "PageKeep $VERSION" \
             --notes-file notes.md \
             "${flags[@]}"
+
+      # Uploads the same zip to the Chrome Web Store and submits it for review
+      # (.github/scripts/publish-to-chrome-web-store.sh, store/PUBLISHING.md step 6). Without the
+      # three CWS_* secrets it only prints a notice. Never for a pre-release; a pull request labelled
+      # "no-release" never gets here.
+      - name: Send to the Chrome Web Store
+        if: inputs.prerelease != true
+        env:
+          CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          CWS_ITEM_ID: ${{ secrets.CWS_ITEM_ID }}
+          CWS_SERVICE_ACCOUNT_KEY: ${{ secrets.CWS_SERVICE_ACCOUNT_KEY }}
+        run: .github/scripts/publish-to-chrome-web-store.sh "${{ steps.zip.outputs.name }}"
