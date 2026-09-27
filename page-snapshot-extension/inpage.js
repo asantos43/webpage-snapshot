@@ -7,9 +7,14 @@
 // offscreen.js, which has DOM APIs and cross-origin fetch.
 
 // `editorTexts` comes from inpage-main.js: the full text of Monaco editors, keyed by data-uri.
-export async function extractPage(editorTexts = {}) {
+// `options.reveal`: first scroll through the page and press its "Load more" buttons, so content
+// that only appears then is in the copy too (the popup's "Load the whole page first" option).
+export async function extractPage(editorTexts = {}, options = {}) {
   const MAX_FRAME_DEPTH = 4;
   const MAX_PAGER_ITEMS = 60;
+  const MAX_SCREENS = 40; // endless feeds stop here…
+  const MAX_REVEAL_MS = 20_000; // …or here
+  const MAX_LOAD_MORE = 5;
   const frames = {};
   let frameCounter = 0;
 
@@ -168,6 +173,77 @@ export async function extractPage(editorTexts = {}) {
       if (now === last) return;
       last = now;
     }
+  }
+
+  // ---- Content that only appears as you scroll, or after "Load more" --------------------------
+  //
+  // Lazy images and blocks load when they come into view, and lists grow when their "Load more"
+  // button is pressed: before copying, scroll through the page screen by screen (following it
+  // as it grows, up to MAX_SCREENS or MAX_REVEAL_MS), press up to MAX_LOAD_MORE such buttons, and
+  // go back to where the user was.
+  const LOAD_MORE_RE = /^(?:(?:load|show|see|view) more(?: \w+)?|(?:carregar|ver|mostrar|exibir) mais(?: \w+)?|(?:cargar|ver|mostrar) mas(?: \w+)?)$/;
+  // A real link to another page is never followed, and a form is never submitted.
+  const leavesPage = (el) => {
+    if (submitsForm(el)) return true;
+    const link = el.closest('a[href]');
+    const href = link && link.getAttribute('href').trim();
+    return !!href && !href.startsWith('#') && !/^javascript:/i.test(href);
+  };
+  // The element that scrolls the page: the document, or an app's own scrolling pane.
+  function scroller() {
+    const root = document.scrollingElement || document.documentElement;
+    if (root.scrollHeight > innerHeight + 2) return root;
+    let best = null;
+    for (const el of document.querySelectorAll('body *')) {
+      if (el.scrollHeight <= el.clientHeight + 2 || el.clientHeight < innerHeight / 2) continue;
+      if (!/(auto|scroll)/.test(getComputedStyle(el).overflowY)) continue;
+      if (!best || el.scrollHeight > best.scrollHeight) best = el;
+    }
+    return best || root;
+  }
+  // Waits until the page stops growing (new items or images arriving).
+  async function grown() {
+    let last = document.getElementsByTagName('*').length;
+    for (let waited = 0; waited < 3000; waited += 200) {
+      await sleep(200);
+      const now = document.getElementsByTagName('*').length;
+      if (now === last && waited >= 400) return;
+      last = now;
+    }
+  }
+  async function revealAll() {
+    report({ phase: 'reveal' });
+    const pane = scroller();
+    const start = { left: pane.scrollLeft, top: pane.scrollTop };
+    const deadline = Date.now() + MAX_REVEAL_MS;
+    let screens = 0;
+    let pressed = 0;
+    const scrollDown = async () => {
+      while (screens < MAX_SCREENS && Date.now() < deadline && !cancelled) {
+        const before = pane.scrollTop;
+        pane.scrollTop = before + pane.clientHeight * 0.9;
+        screens++;
+        await sleep(250);
+        if (pane.scrollTop + pane.clientHeight >= pane.scrollHeight - 2 || pane.scrollTop === before) {
+          await grown(); // an endless feed adds items at the bottom
+          if (pane.scrollTop + pane.clientHeight >= pane.scrollHeight - 2) return;
+        }
+      }
+    };
+    await scrollDown();
+    while (pressed < MAX_LOAD_MORE && Date.now() < deadline && !cancelled) {
+      const button = Array.from(document.querySelectorAll('button, [role="button"], a'))
+        .find((el) => LOAD_MORE_RE.test(plain(el.textContent || el.getAttribute('aria-label'))) && !leavesPage(el) && !isDisabled(el) && el.offsetParent !== null);
+      if (!button) break;
+      button.scrollIntoView({ block: 'center' });
+      button.click();
+      pressed++;
+      await grown();
+      await scrollDown(); // what it added may load more as it comes into view
+    }
+    pane.scrollTo(start.left, start.top);
+    await sleep(300);
+    report({ phase: 'reveal-done', screens, pressed });
   }
 
   function fragmentHtml(region) {
@@ -455,7 +531,8 @@ export async function extractPage(editorTexts = {}) {
     }
   };
   try {
-    recorded = await explorePagers();
+    if (options.reveal) await revealAll();
+    if (!cancelled) recorded = await explorePagers();
   } finally {
     try { chrome.runtime.onMessage.removeListener(onCancel); } catch { /* not in an extension */ }
   }

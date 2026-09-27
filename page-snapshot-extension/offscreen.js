@@ -44,6 +44,7 @@ const params = new URLSearchParams(location.search);
 const tabId = Number(params.get('tabId'));
 const jobId = params.get('job');
 const version = params.get('version'); // offscreen documents have no chrome.runtime.getManifest
+const reveal = params.get('reveal') === '1'; // the popup's "Load the whole page first" option
 
 async function call(op, args = {}) {
   const reply = await chrome.runtime.sendMessage({ type: 'rpc', op, args: { tabId, ...args } });
@@ -112,6 +113,11 @@ chrome.runtime.onMessage.addListener((report, sender) => {
     case 'carousel-done': step(id, msg('carousel_done', pager, pagers, report.items), 'done'); break;
     case 'carousel-skip': dropStep(id); break;
     case 'snapshot': step('dom', msg('step_dom_copying')); break;
+    case 'reveal': step('reveal', msg('step_reveal')); break;
+    case 'reveal-done': step('reveal', [
+      msg('step_reveal_done', report.screens),
+      ...(report.pressed ? [plural(report.pressed, 'step_reveal_pressed')] : []),
+    ], 'done'); break;
     default: break;
   }
 });
@@ -607,7 +613,7 @@ async function main() {
     else dropStep('editors');
 
     step('read', msg('step_read'));
-    page = await call('extractPage', { editorTexts: editorTexts || {} });
+    page = await call('extractPage', { editorTexts: editorTexts || {}, options: { reveal } });
     if (page?.cancelled) return; // background.js is closing this document
     if (!page) throw new Error('the page returned nothing');
     dropStep('read');

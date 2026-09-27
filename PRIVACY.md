@@ -1,6 +1,6 @@
 # PageKeep — Privacy policy
 
-*Last updated: 2026-09-27. Published at https://gist.github.com/asantos43/a0566af48d0894dc44b72bee43b22da8. Português abaixo.*
+*Last updated: 2026-09-27 (the option to load the whole page). Published at https://gist.github.com/asantos43/a0566af48d0894dc44b72bee43b22da8. Português abaixo.*
 
 PageKeep is a browser extension by Anderson Santos (asantos35@gmail.com). It saves the page in the
 tab you choose as a ZIP file that opens offline.
@@ -16,7 +16,9 @@ pages you save.
 - **The page you capture.** When you open PageKeep's popup on a tab (by clicking its icon or
   pressing Alt+Shift+S), it reads that page as it is on screen: its content, styles, images and
   fonts, the current values of its forms, its canvases and code editors, and every item of its
-  carousels. Password fields are always left empty. It does this only on that tab and only while
+  carousels. With the option "Load the whole page first" (on unless you turn it off), it first
+  scrolls through the page and presses its "Load more" buttons, as you could, so that content that
+  only appears then is saved too. Password fields are always left empty. It does this only on that tab and only while
   the capture runs.
 - **All of it goes only into the ZIP file** saved in your Downloads folder, on your computer. The
   ZIP also records the page's address and title and the time of the capture
@@ -37,7 +39,10 @@ saved copy makes no request at all when you open it.
 While a capture is running or its result is on screen, its progress (the page's address, the
 steps, the file name, what could not be saved) is kept in the browser's session storage, so the
 popup can show it when reopened. It is deleted when you press OK or Cancel, or when the browser
-quits; a finished capture is also deleted when its tab closes. The extension keeps no settings and no history.
+quits; a finished capture is also deleted when its tab closes.
+
+The extension's only setting, whether the popup's option "Load the whole page first" is on, is kept
+in the browser's local storage on this computer (not synced). The extension keeps no history.
 
 ## Limited Use
 
@@ -70,7 +75,9 @@ você salva.
 - **A página que você captura.** Quando você abre o popup do PageKeep numa aba (clicando no ícone
   ou apertando Alt+Shift+S), ele lê essa página como ela está na tela: o conteúdo, os estilos, as
   imagens e as fontes, os valores atuais dos formulários, os canvases e editores de código, e todos
-  os itens dos carrosséis. Campos de senha ficam sempre vazios. Isso acontece só nessa aba e só
+  os itens dos carrosséis. Com a opção "Carregar a página inteira antes" (ligada, a menos que você
+  desligue), ele primeiro rola a página até o fim e aperta os botões "Carregar mais", como você
+  faria, para salvar também o conteúdo que só aparece assim. Campos de senha ficam sempre vazios. Isso acontece só nessa aba e só
   enquanto a captura roda.
 - **Tudo isso vai apenas para o arquivo ZIP** salvo na sua pasta de Downloads, no seu computador. O
   ZIP também registra o endereço e o título da página e o horário da captura (`snapshot.json`). O
@@ -91,8 +98,11 @@ ao desenvolvedor. A cópia salva não faz nenhuma requisição quando você a ab
 Enquanto uma captura roda ou o resultado dela está na tela, o andamento (o endereço da página, as
 etapas, o nome do arquivo, o que não pôde ser salvo) fica no armazenamento de sessão do navegador,
 para o popup mostrá-lo quando for reaberto. Ele é apagado quando você aperta OK ou Cancelar, ou
-quando o navegador é encerrado; uma captura terminada também é apagada quando a aba dela é fechada. A extensão não guarda configurações nem
-histórico.
+quando o navegador é encerrado; uma captura terminada também é apagada quando a aba dela é fechada.
+
+A única configuração da extensão, se a opção "Carregar a página inteira antes" do popup está
+ligada, fica no armazenamento local do navegador, neste computador (não é sincronizada). A extensão
+não guarda histórico.
 
 ## Uso limitado
 

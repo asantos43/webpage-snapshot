@@ -58,6 +58,7 @@ Other permissions considered and kept:
   the ZIP then (an offscreen document cannot start a download itself).
 - `storage`: the popup must show a capture that is running or finished after being closed and
   reopened, and the service worker can be stopped in between; session storage keeps that state
+  (local storage keeps the one setting, the "Load the whole page first" option)
   (it is cleared when the browser closes, and nothing is stored on disk).
 - `offscreen`: the capture needs the DOM parser and must outlive the popup; a service worker has
   no DOM.
@@ -77,7 +78,7 @@ Other permissions considered and kept:
 | `debugger` | Reads the files the page has already loaded (images, styles, fonts) so the saved copy has exactly what the user saw, including files from other sites; and downloads the few files the page had not loaded, in the page's own context, so the extension needs no permission for any website. Attached only to the chosen tab and only while the capture runs; the browser shows its "debugging" bar during that time. |
 | `offscreen` | A hidden extension page rebuilds the saved page and packs the ZIP, so the capture continues when the popup closes (a service worker has no DOM parser). |
 | `downloads` | Saves the finished ZIP to the user's Downloads folder, also when the popup has already been closed, and again when the user presses "Download again". |
-| `storage` | Keeps the progress of the current capture in session storage so the popup can show it when reopened; cleared when the capture is dismissed or the browser closes. |
+| `storage` | Keeps the progress of the current capture in session storage so the popup can show it when reopened (cleared when the capture is dismissed or the browser closes), and the extension's one setting, the popup's "Load the whole page first" option, in local storage. |
 
 Host permissions: **none**. Remote code: **No**.
 

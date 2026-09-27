@@ -6,6 +6,11 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- New option in the popup, **Load the whole page first** (on unless you turn it off): before saving,
+  the page is scrolled to the end and its "Load more" buttons are pressed (up to 5), so images and
+  lists that only appear then are saved too; the page goes back to where you were. It never follows
+  a link to another page or sends a form; endless feeds stop after 40 screens or 20 seconds.
+
 ## [1.2.6] - 2026-09-27
 
 - Sliding carousels (Glide, Swiper, Slick, strips that scroll sideways) now work in the saved copy:

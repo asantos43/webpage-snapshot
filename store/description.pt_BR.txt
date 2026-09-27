@@ -20,6 +20,10 @@ NADA FICA APONTANDO PARA A INTERNET
 
 Os scripts da própria página e os atributos de rastreamento são removidos, e os quadros de outros sites não são carregados. O que não pôde ser salvo (uma imagem que faltava, um arquivo acima de 30 MB) aparece listado no popup, e a referência a ele é removida da cópia em vez de apontar para o site ao vivo, para que a página salva nunca acesse um site.
 
+A PÁGINA INTEIRA, NÃO SÓ O COMEÇO
+
+Muitas páginas só carregam imagens e listas quando você rola, ou atrás de um botão "Carregar mais". Com a opção "Carregar a página inteira antes" (ligada, a menos que você desligue), o PageKeep rola a página e aperta esses botões antes de salvar, e depois volta para onde você estava. Ele nunca segue um link para outra página nem envia um formulário, e feeds infinitos param num limite.
+
 FUNCIONA EM SEGUNDO PLANO
 
 • Clique no ícone na barra de ferramentas ou aperte Alt+Shift+S: o popup abre embaixo do ícone e a captura começa.
