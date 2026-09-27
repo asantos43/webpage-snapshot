@@ -72,7 +72,17 @@ A página salva, aberta offline a partir do ZIP, com o carrossel funcionando:
 
 <img src="page-snapshot-extension/images/screenshots/pt_BR/snapshot-offline.png" width="600" alt="Um site de notícias de exemplo salvo pelo PageKeep, aberto offline">
 
-As imagens são capturas reais, geradas por `tests/screenshots.mjs` (veja Testes) a partir de um site de notícias inventado (`tests/example-site.mjs`), com fotos desenhadas para o exemplo.
+### Um site real: TudoGostoso
+
+A página inicial de https://www.tudogostoso.com.br salva pelo PageKeep: 160 arquivos em 4,3 MB, e a cópia, aberta offline, não faz nenhuma requisição. O único arquivo que faltou era um endereço de estatísticas de anúncios, e a referência a ele foi removida. O retângulo cinza é um anúncio num quadro de outro site, que a cópia não carrega.
+
+| O popup depois da captura | A cópia aberta offline |
+| --- | --- |
+| <img src="docs/images/readme/popup-done.png" width="300" alt="O popup do PageKeep depois de salvar a página inicial do TudoGostoso: 160 recursos, 4,3 MB"> | <img src="docs/images/readme/snapshot-offline.png" width="520" alt="A página inicial do TudoGostoso salva, aberta offline"> |
+
+Essas duas imagens mostram um site de terceiros, então ficam só neste repositório (`docs/images/readme/`), nunca no pacote da extensão nem na loja. Foram geradas por `tests/readme-images.mjs`, que precisa de internet e falha se a cópia tentar acessar a rede.
+
+As imagens de cima são capturas reais, geradas por `tests/screenshots.mjs` (veja Testes) a partir de um site de notícias inventado (`tests/example-site.mjs`), com fotos desenhadas para o exemplo.
 
 A página capturada continua sendo a aba visível com o popup aberto por cima, então o navegador não a deixa lenta enquanto os carrosséis são percorridos; só não minimize a janela do navegador até a captura terminar.
 
