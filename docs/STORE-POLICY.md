@@ -1,13 +1,13 @@
 # Chrome Web Store: policy checklist
 
-Page Snapshot is meant to be published as a **Private** item (visible only to the Google accounts
+PageKeep (called Page Snapshot up to 1.1.1) is meant to be published as a **Private** item (visible only to the Google accounts
 added as testers), from the same developer account as TabWatcher & Clicker. Private items are
 reviewed like public ones, and a policy strike counts against the developer account, which also
 limits how many items it may publish. So every release must stay within the
 [Developer Program Policies](https://developer.chrome.com/docs/webstore/program-policies). This
 file is the checklist, and it also holds the answers for the dashboard's "Privacy practices" tab.
 
-Page Snapshot was written from scratch for this project: there is no third-party code, text or
+PageKeep was written from scratch for this project: there is no third-party code, text or
 image in it, and nothing to credit.
 
 ## Checklist
@@ -18,8 +18,8 @@ image in it, and nothing to credit.
 | **Minimum permissions** | No host permissions at all: `activeTab` gives access only to the tab the user opens the popup on, and the page's files from other sites are downloaded by that tab itself through the debugger. Each permission below is used; none is broader than needed (see "Permissions: what was reduced"). | `tests/store-policy.mjs` (exact permission list, no host access, each one justified here) |
 | **No remotely hosted code** | Every script is in the package; the extension pages' CSP is `script-src 'self'; object-src 'self'`; no `eval`, `new Function` or remote `<script>`/`import`. The small script embedded in each saved snapshot (`lib/interactions.js`) is packaged, written into the saved file, and never loads anything. | `tests/store-policy.mjs` |
 | **User data** | The page is read only on the tab the user asked to capture, only while that capture runs, and the result goes only into the ZIP in the user's Downloads folder. Nothing is sent to the developer or anyone else: there is no server, no analytics, no account. See [PRIVACY.md](../PRIVACY.md) (step 5). | review; `tests/store-policy.mjs` (no network host in the code) |
-| **Intellectual property** | Own code, texts and icon, made for this project (the icon: a camera outline on a blue square, drawn for Page Snapshot; the PNGs carry no third-party metadata). | `tests/store-policy.mjs` (icons) |
-| **Impersonation / metadata** | A description that states what it does (no keyword lists, no other product's name, no contact details), screenshots of the real popup. The name needs a decision, see "Name". | `tests/store-policy.mjs` (name ≤ 75, description ≤ 132 characters) |
+| **Intellectual property** | Own code, texts and icon, made for this project (the icon: a camera outline on a blue square, drawn for this extension; the PNGs carry no third-party metadata). | `tests/store-policy.mjs` (icons) |
+| **Impersonation / metadata** | Own name ("PageKeep: Offline Page Saver", see "Name"), a description that states what it does (no keyword lists, no other product's name, no contact details), screenshots of the real popup. Name and description in English and Brazilian Portuguese. | `tests/store-policy.mjs` (name ≤ 75, description ≤ 132 characters, in each language) |
 | **Account security** | 2-Step Verification on the publishing Google account. | developer |
 
 Before each store upload: `npm run smoke`, `npm run carousel` and `npm run store-policy` in `tests/`
@@ -107,18 +107,13 @@ is private).
 
 ## Name
 
-The store has no item called exactly "Page Snapshot" (searched on 2026-09-27), but the name is
-generic and close to several existing items: "SnapShot", "Snapshots", "Chrome Snapshot",
-"Paper Snapshot" and "Page Screenshot" (a screenshot tool, which "snapshot" also suggests). A
-reviewer or a user could take it for one of them. Names with no match found in the same search:
-
-- **Offline Page Keeper**
-- **PageKeep: Offline Page Saver**
-- **Snapshot to ZIP: Offline Page Saver**
-
-The name is the developer's decision; until then the manifest keeps "Page Snapshot". Whatever is
-chosen goes into the manifest (step 2 moves it into `_locales`), the store listing and the
-screenshots.
+**PageKeep: Offline Page Saver** (Portuguese: "PageKeep: Salvar páginas offline"), chosen on
+2026-09-27; up to 1.1.1 the extension was called "Page Snapshot". The store has no item called
+exactly "Page Snapshot", but that name is generic and close to several existing items
+("SnapShot", "Snapshots", "Chrome Snapshot", "Paper Snapshot", and "Page Screenshot", a screenshot
+tool that "snapshot" also suggests), and a reviewer or a user could take it for one of them. No
+item named PageKeep came up in the same search. The name lives in `_locales/*/messages.json`
+(`ext_name`); the popup's heading is "PageKeep" (`app_name`).
 
 ## Publishing
 

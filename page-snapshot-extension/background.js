@@ -57,7 +57,7 @@ async function startCapture(tabId) {
     tabId,
     source: tab.url || '',
     phase: 'running',
-    status: 'Starting…',
+    status: { key: 'status_starting', args: [] }, // translated by the popup, like every text of a job
     steps: [],
   };
   await closeOffscreen();

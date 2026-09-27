@@ -161,7 +161,7 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          name="page-snapshot-$VERSION.zip"
+          name="pagekeep-$VERSION.zip"
           # Only the files git tracks, plus the changelog.
           git ls-files "$EXT_DIR" > files.txt
           (cd "$EXT_DIR" && sed "s|^$EXT_DIR/||" ../files.txt | zip -X -q "../$name" -@)
@@ -187,6 +187,6 @@ jobs:
           [ "$PRERELEASE" = true ] && flags+=(--prerelease)
           gh release create "v$VERSION" "$ZIP" \
             --target "$(git rev-parse HEAD)" \
-            --title "Page Snapshot $VERSION" \
+            --title "PageKeep $VERSION" \
             --notes-file notes.md \
             "${flags[@]}"

@@ -1,0 +1,302 @@
+{
+  "ext_name": {
+    "message": "PageKeep: Salvar páginas offline",
+    "description": "Extension and store name (max 75 characters)."
+  },
+  "ext_description": {
+    "message": "Salva a página que você está vendo num ZIP com estilos, imagens e fontes, para abri-la offline exatamente como você a viu.",
+    "description": "Store and browser description: the single purpose (max 132 characters)."
+  },
+  "action_title": {
+    "message": "Salvar esta página para ver offline (ZIP)",
+    "description": "Tooltip of the toolbar icon."
+  },
+  "command_save": {
+    "message": "Salvar esta página",
+    "description": "Keyboard shortcut description (Alt+Shift+S)."
+  },
+  "app_name": {
+    "message": "PageKeep",
+    "description": "Heading of the popup (the product name)."
+  },
+  "other_tab": {
+    "message": "Esta é a captura de outra aba. Ela precisa terminar, ou ser cancelada, antes que esta aba possa ser capturada.",
+    "description": "Shown when the popup is opened on a tab other than the one being captured."
+  },
+  "help": {
+    "message": "Ajuda",
+    "description": "Title of the collapsible help section."
+  },
+  "help_intro": {
+    "message": "Este popup salva a página que você está vendo num ZIP que abre offline. Ele lê a página, percorre cada carrossel, reaproveita os arquivos que a página já carregou e baixa o resto; depois o ZIP vai para a sua pasta de Downloads.",
+    "description": "First paragraph of the help."
+  },
+  "help_close_label": {
+    "message": "Você pode fechar este popup",
+    "description": "Bold start of a help item."
+  },
+  "help_close": {
+    "message": "(ou clicar na página): a captura continua. Clique de novo no ícone da extensão para ver como está. O selo do ícone mostra … enquanto roda, ✓ quando termina e ! se falhou.",
+    "description": "Rest of the help item after help_close_label."
+  },
+  "help_cancel": {
+    "message": "interrompe a captura: os carrosséis voltam ao primeiro item e nada é salvo.",
+    "description": "Help item after the Cancel button's name."
+  },
+  "help_ok": {
+    "message": "fica disponível quando a captura termina; limpa o resultado, e o próximo clique no ícone captura a página de novo.",
+    "description": "Help item after the OK button's name."
+  },
+  "help_download": {
+    "message": "baixa o mesmo ZIP de novo.",
+    "description": "Help item after the Download again button's name."
+  },
+  "help_one": {
+    "message": "Uma captura por vez. Enquanto a captura roda, o navegador mostra na página uma barra dizendo que a extensão está depurando o navegador; ela serve para ler os arquivos que a página já carregou e some no fim.",
+    "description": "Help item about one capture at a time and the debugging bar."
+  },
+  "help_unzip": {
+    "message": "Descompacte o arquivo e abra o index.html. O que não pôde ser salvo aparece listado abaixo dos resultados e fica fora da cópia, que nunca acessa a internet.",
+    "description": "Last help item."
+  },
+  "download_again": {
+    "message": "Baixar de novo",
+    "description": "Button: save the same ZIP again."
+  },
+  "cancel": {
+    "message": "Cancelar",
+    "description": "Button: stop the capture."
+  },
+  "ok": {
+    "message": "OK",
+    "description": "Button: dismiss the finished capture."
+  },
+  "steps_label": {
+    "message": "O que a extensão está fazendo",
+    "description": "Accessible name of the list of steps."
+  },
+  "status_starting": {
+    "message": "Começando…",
+    "description": "Status before the first step."
+  },
+  "status_cancelling": {
+    "message": "Cancelando…",
+    "description": "Status after Cancel is pressed."
+  },
+  "error_start": {
+    "message": "Não foi possível começar a captura: $1",
+    "description": "$1 = technical reason."
+  },
+  "error_tab_gone": {
+    "message": "A aba a capturar não existe mais.",
+    "description": "Error."
+  },
+  "error_page_blocked": {
+    "message": "O navegador não permite ler esta página ($1). Páginas como chrome:// e a loja de extensões ficam de fora.",
+    "description": "$1 = technical reason."
+  },
+  "error_failed": {
+    "message": "A captura falhou: $1",
+    "description": "$1 = technical reason."
+  },
+  "step_tab_finding": {
+    "message": "Procurando a aba a capturar…",
+    "description": "Step."
+  },
+  "step_tab_found": {
+    "message": "Aba encontrada",
+    "description": "Step done."
+  },
+  "step_editors_reading": {
+    "message": "Procurando editores de código e lendo o texto deles…",
+    "description": "Step."
+  },
+  "step_editors_read_one": {
+    "message": "Texto completo de 1 editor de código lido da página",
+    "description": "Step done, one editor."
+  },
+  "step_editors_read_other": {
+    "message": "Texto completo de $1 editores de código lido da página",
+    "description": "Step done; $1 = number of editors."
+  },
+  "step_read": {
+    "message": "Lendo a página…",
+    "description": "Step."
+  },
+  "step_dom_copying": {
+    "message": "Copiando a página: DOM, estilos, valores de formulários…",
+    "description": "Step."
+  },
+  "step_dom_copied": {
+    "message": "Página copiada: DOM, estilos, valores de formulários",
+    "description": "Step done."
+  },
+  "carousel_probe": {
+    "message": "Carrossel $1 de $2: vendo como funciona…",
+    "description": "$1 = carousel number, $2 = total."
+  },
+  "carousel_recording": {
+    "message": "Carrossel $1 de $2: gravando o item $3…",
+    "description": "$3 = item number."
+  },
+  "carousel_restore": {
+    "message": "Carrossel $1 de $2: voltando a página ao item 1…",
+    "description": "Step."
+  },
+  "carousel_done": {
+    "message": "Carrossel $1 de $2: $3 itens gravados",
+    "description": "$3 = number of items."
+  },
+  "step_debugger_asking": {
+    "message": "Perguntando à página quais arquivos ela já carregou…",
+    "description": "Step."
+  },
+  "step_debugger_ok_one": {
+    "message": "A página tem 1 arquivo carregado que pode ser reaproveitado (sem baixar de novo)",
+    "description": "Step done, one file."
+  },
+  "step_debugger_ok_other": {
+    "message": "A página tem $1 arquivos carregados que podem ser reaproveitados (sem baixar de novo)",
+    "description": "Step done; $1 = number of files."
+  },
+  "step_debugger_failed": {
+    "message": "Não foi possível ler os arquivos carregados pela página ($1); só os arquivos do próprio site da página podem ser salvos",
+    "description": "$1 = technical reason."
+  },
+  "step_assets_finding": {
+    "message": "Procurando e baixando os recursos da página…",
+    "description": "Step."
+  },
+  "assets_progress": {
+    "message": "Baixando recursos… $1 de $2",
+    "description": "$1 done of $2 found."
+  },
+  "assets_progress_page": {
+    "message": ", $1 da página",
+    "description": "Appended to assets_progress."
+  },
+  "assets_progress_failed": {
+    "message": ", $1 com falha",
+    "description": "Appended to assets_progress."
+  },
+  "assets_saved_one": {
+    "message": "1 recurso salvo",
+    "description": "Step done, one file."
+  },
+  "assets_saved_other": {
+    "message": "$1 recursos salvos",
+    "description": "Step done; $1 = number."
+  },
+  "assets_saved_page": {
+    "message": " (da página: $1)",
+    "description": "Appended to assets_saved: how many were read from the page."
+  },
+  "assets_saved_failed": {
+    "message": "; sem salvar: $1",
+    "description": "Appended to assets_saved: how many failed."
+  },
+  "step_files_saving": {
+    "message": "Salvando arquivos para download… $1",
+    "description": "$1 = count so far."
+  },
+  "step_files_saved_one": {
+    "message": "1 arquivo para download salvo junto da página",
+    "description": "Step done."
+  },
+  "step_files_saved_other": {
+    "message": "$1 arquivos para download salvos junto da página",
+    "description": "Step done."
+  },
+  "step_zip_packing": {
+    "message": "Juntando tudo num ZIP…",
+    "description": "Step."
+  },
+  "step_zip_packed": {
+    "message": "ZIP pronto ($1 arquivos, $2 MB)",
+    "description": "Step done."
+  },
+  "step_save_saving": {
+    "message": "Salvando na sua pasta de Downloads…",
+    "description": "Step."
+  },
+  "step_save_done": {
+    "message": "Enviado para a sua pasta de Downloads",
+    "description": "Step done."
+  },
+  "step_save_failed": {
+    "message": "Não foi possível começar o download ($1); use Baixar de novo",
+    "description": "$1 = technical reason."
+  },
+  "status_saved_one": {
+    "message": "$1 salvo ($2 MB, 1 recurso; $3).",
+    "description": "Final status; $1 = file name, $3 = origin_debugger or origin_no_debugger."
+  },
+  "status_saved_other": {
+    "message": "$2 salvo ($3 MB, $1 recursos; $4).",
+    "description": "Final status; $1 = number of resources, $2 = file name, $4 = origin_debugger or origin_no_debugger."
+  },
+  "origin_debugger": {
+    "message": "da página: $1, baixados: $2",
+    "description": "Part of status_saved."
+  },
+  "origin_no_debugger": {
+    "message": "debugger indisponível: $1",
+    "description": "Part of status_saved."
+  },
+  "note_editors_one": {
+    "message": "1 editor de código/texto salvo como texto rolável e selecionável ($1 do arquivo completo do link, $2 lido do editor).",
+    "description": "Result note."
+  },
+  "note_editors_other": {
+    "message": "$1 editores de código/texto salvos como texto rolável e selecionável ($2 do arquivo completo do link, $3 lidos do editor).",
+    "description": "Result note."
+  },
+  "note_editors_partial_one": {
+    "message": "1 editor só pôde ser salvo com as linhas que estavam na tela na hora da captura.",
+    "description": "Result warning."
+  },
+  "note_editors_partial_other": {
+    "message": "$1 editores só puderam ser salvos com as linhas que estavam na tela na hora da captura.",
+    "description": "Result warning."
+  },
+  "note_carousels_one": {
+    "message": "1 carrossel salvo com todos os itens ($1).",
+    "description": "$1 = number of items."
+  },
+  "note_carousels_other": {
+    "message": "$1 carrosséis salvos com todos os itens ($2).",
+    "description": "$2 = items of each, comma-separated."
+  },
+  "note_files_one": {
+    "message": "1 arquivo de link (downloads, anexos) salvo junto da página.",
+    "description": "Result note."
+  },
+  "note_files_other": {
+    "message": "$1 arquivos de links (downloads, anexos) salvos junto da página.",
+    "description": "Result note."
+  },
+  "failed_summary_one": {
+    "message": "1 recurso não pôde ser salvo (a referência a ele foi removida para a página nunca acessar a internet)",
+    "description": "Title of the failed list."
+  },
+  "failed_summary_other": {
+    "message": "$1 recursos não puderam ser salvos (as referências a eles foram removidas para a página nunca acessar a internet)",
+    "description": "Title of the failed list."
+  },
+  "reason_timeout": {
+    "message": "tempo esgotado",
+    "description": "Why a file failed."
+  },
+  "reason_too_large": {
+    "message": "maior que $1 MB",
+    "description": "Why a file failed."
+  },
+  "reason_total_limit": {
+    "message": "limite de tamanho da cópia atingido",
+    "description": "Why a file failed."
+  },
+  "reason_no_debugger": {
+    "message": "precisa do debugger, que não pôde ser conectado",
+    "description": "Why a file failed."
+  }
+}

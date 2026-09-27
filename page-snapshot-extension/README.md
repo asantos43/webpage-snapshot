@@ -1,4 +1,4 @@
-# Page Snapshot
+# PageKeep
 
 A Chrome extension that saves the tab you are looking at as a ZIP. Every stylesheet, image, font and icon is downloaded and the page is rewritten to point at the local copies, so you can unzip it and open `index.html` offline at any time.
 
@@ -24,6 +24,10 @@ Click the toolbar button, or press **Alt+Shift+S**. The extension's popup opens 
 The page you capture stays the visible tab while the popup is open over it, so the browser does not slow it down while carousels are stepped through; just keep the browser window from being minimized until the capture ends. The popup's **Help** section explains all this in short.
 
 Unzip it and open `index.html`. You can turn off the network to check that it is self-contained.
+
+## Languages
+
+The popup, its Help, and the name and description shown by the browser and the store are in English (the default) and Brazilian Portuguese; the browser picks one by its own language. The texts are in `_locales/en` and `_locales/pt_BR`, with the same keys. The popup translates everything, including the steps the capture reports: the offscreen page has no `chrome.i18n`, so it sends message keys with their values, and `popup.js` turns them into text.
 
 ## ZIP layout
 
@@ -98,6 +102,7 @@ The extension only touches a tab when you click the button, and nothing is sent 
 | `manifest.json` | Manifest V3 config |
 | `background.js` | Service worker: starts a capture when the popup opens, keeps its progress, and makes the tab, debugger and download calls for the offscreen page |
 | `popup.html/.css/.js` | The popup under the icon: progress, OK, Cancel, Download again, Help |
+| `_locales/en`, `_locales/pt_BR` | Every text of the popup, its Help and the manifest |
 | `offscreen.html/.js` | Hidden page that does the capture: downloads assets, rewrites URLs, builds the ZIP |
 | `inpage.js` | Runs inside the tab; snapshots the live DOM and its state |
 | `lib/helpers.js` | Pure helpers: CSS/`srcset` rewriting, file naming |

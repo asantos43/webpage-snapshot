@@ -14,11 +14,11 @@ The Flatpak Google Chrome and Microsoft Edge are branded builds that ignore `--l
 
 ## Browsers
 
-Page Snapshot is for Chromium browsers in general, for example **Google Chrome**, **Opera** and **Microsoft Edge**. Load it unpacked from `page-snapshot-extension/` on the browser's extensions page (`chrome://extensions`, `opera://extensions`, `edge://extensions`, with Developer mode on), and reload it there after changing the code.
+PageKeep is for Chromium browsers in general, for example **Google Chrome**, **Opera** and **Microsoft Edge**. Load it unpacked from `page-snapshot-extension/` on the browser's extensions page (`chrome://extensions`, `opera://extensions`, `edge://extensions`, with Developer mode on), and reload it there after changing the code.
 
 - It needs `chrome.debugger` (to read the resources the tab already loaded, and to download the rest in the tab's own context with `Network.loadNetworkResource`) and `activeTab`; it has no host permissions (see `docs/STORE-POLICY.md`). While a capture runs, the browser shows an "Extension started debugging this browser" bar on the tab. If the debugger cannot be attached, only files from the page's own site are saved.
 - Browser-internal pages (`chrome://`, `opera://`, `edge://`) and the extension stores cannot be captured. `file://` pages need **Allow access to file URLs** on the extension's details page.
-- An unpacked extension's id comes from its folder path, so loading it from another folder (another clone, or an unpacked release) gives it a new id. Page Snapshot keeps no settings, so nothing is lost, but the keyboard shortcut may need to be set again.
+- An unpacked extension's id comes from its folder path, so loading it from another folder (another clone, or an unpacked release) gives it a new id. PageKeep keeps no settings, so nothing is lost, but the keyboard shortcut may need to be set again.
 
 ## Versions and releases
 
@@ -51,4 +51,4 @@ To use a release, unzip it into a fixed folder and load that folder unpacked.
 
 ## History of the repository
 
-Page Snapshot was created on 2026-09-19 in `asantos43/projetos-ia-genericos` (`~/Dev/AI/claude`), first at `page-snapshot-extension/` and from 2026-09-23 at `chrome-extensions/page-snapshot-extension/`. There it shared `chrome-extensions/tests/` with the Auto Refresh & Clicker extension. On 2026-09-25 it was extracted with its full history using `git-filter-repo` (run via `uvx`). Only the extension, the generic `smoke.mjs`, the tests' `.gitignore` and the LICENSE were kept, with both old paths merged into `page-snapshot-extension/`. The test `package.json` and `README.md` were written anew. The old copy stays in that repository, frozen for reference; all development happens here. Auto Refresh & Clicker went the same way, into `asantos43/auto-refresh-and-clicker`, whose release workflow this one is adapted from.
+PageKeep, called Page Snapshot until 1.1.1 (renamed for the Chrome Web Store, see `docs/STORE-POLICY.md` → Name), was created on 2026-09-19 in `asantos43/projetos-ia-genericos` (`~/Dev/AI/claude`), first at `page-snapshot-extension/` and from 2026-09-23 at `chrome-extensions/page-snapshot-extension/`. There it shared `chrome-extensions/tests/` with the Auto Refresh & Clicker extension. On 2026-09-25 it was extracted with its full history using `git-filter-repo` (run via `uvx`). Only the extension, the generic `smoke.mjs`, the tests' `.gitignore` and the LICENSE were kept, with both old paths merged into `page-snapshot-extension/`. The test `package.json` and `README.md` were written anew. The old copy stays in that repository, frozen for reference; all development happens here. Auto Refresh & Clicker went the same way, into `asantos43/auto-refresh-and-clicker`, whose release workflow this one is adapted from.
