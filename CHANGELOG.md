@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- Privacy policy (`PRIVACY.md`, English and Portuguese), also published for the store listing.
+
 ## [1.2.2] - 2026-09-27
 
 - Help page pictures: no focus ring on the OK button, and the saved page shown larger.
