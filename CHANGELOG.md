@@ -6,6 +6,12 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- Sliding carousels (Glide, Swiper, Slick, strips that scroll sideways) now work in the saved copy:
+  the capture records where the strip sits at each step and how the arrows look, and the arrows
+  replay it offline. Tested on a real site's carousels.
+- The local scripts that restore a page's behaviour offline are now a small library, one script
+  per kind of element; a saved page only gets the ones it needs.
+
 ## [1.2.5] - 2026-09-27
 
 - Carousels labelled in Portuguese and Spanish are recorded too ("Próximo", "Anterior", "Siguiente",

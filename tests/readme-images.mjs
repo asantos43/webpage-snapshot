@@ -55,14 +55,19 @@ try {
   await tab.waitForTimeout(6000);
   const info = await worker.evaluate(async (u) => { const [t] = await chrome.tabs.query({ url: u }); return { id: t.id, windowId: t.windowId, url: t.url, active: true }; }, tab.url());
 
-  // The popup as a page that takes the site's tab for the active tab (see screenshots.mjs).
-  const popup = await context.newPage();
-  await popup.setViewportSize({ width: 440, height: 900 });
-  await popup.addInitScript((activeTab) => {
+  // The popup as a page that takes the site's tab for the active tab (see screenshots.mjs), in a
+  // window of its own: a new tab in the site's window would hide the site, and the browser then
+  // slows down its animations, so sliding carousels could not be followed.
+  await context.addInitScript((activeTab) => {
+    if (location.protocol !== 'chrome-extension:' || !globalThis.chrome?.tabs) return;
     const real = chrome.tabs.query.bind(chrome.tabs);
     chrome.tabs.query = async (q) => (q && q.active && q.currentWindow ? [activeTab] : real(q));
   }, info);
-  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+  const opened = context.waitForEvent('page');
+  await worker.evaluate((id) => chrome.windows.create({ url: `chrome-extension://${id}/popup.html`, focused: false, width: 440, height: 900 }), extensionId);
+  const popup = await opened;
+  await popup.waitForLoadState();
+  await popup.setViewportSize({ width: 440, height: 900 });
   await popup.waitForFunction(() => !document.getElementById('ok').disabled, null, { timeout: 180000 });
   const job = await worker.evaluate(() => chrome.storage.session.get('job').then((r) => r.job));
   if (job.phase !== 'done') fail(`the capture ended in "${job.phase}": ${JSON.stringify(job.error)}`);

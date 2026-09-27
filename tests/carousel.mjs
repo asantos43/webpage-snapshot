@@ -48,6 +48,12 @@ const page = `<!doctype html><title>Carousel test</title><link rel="stylesheet" 
 <div id="nav"><button aria-label="Previous item" id="p" disabled>&lt;</button><button aria-label="Next item" id="n">&gt;</button></div></div>
 <div class="pt"><p id="pt-item">Receita 1</p><nav><button aria-label="Anterior" id="pt-p" disabled>&lt;</button><button aria-label="Próximo" id="pt-n">&gt;</button></nav></div>
 <div class="es"><p id="es-item">Foto 1</p><nav><button aria-label="Imagen anterior" id="es-p" disabled>&lt;</button><button aria-label="Imagen siguiente" id="es-n">&gt;</button></nav></div>
+<div class="glide"><div style="overflow:hidden;width:200px"><ul id="strip" style="display:flex;margin:0;padding:0;list-style:none;transition:transform .3s;transform:translateX(0)">
+${[1, 2, 3, 4, 5].map((k) => `<li style="flex:none;width:200px">Slide ${k}</li>`).join('')}</ul></div>
+<div class="arrows"><button aria-label="Previous slide" id="s-p" class="arrow is-off">&lt;</button><button aria-label="Next slide" id="s-n" class="arrow">&gt;</button></div></div>
+<div class="scroller"><div id="rail" style="display:flex;overflow-x:auto;width:200px;scroll-behavior:smooth">
+${[1, 2, 3, 4].map((k) => `<div style="flex:none;width:200px">Foto ${k}</div>`).join('')}</div>
+<nav><button aria-label="Anterior" id="r-p">&lt;</button><button aria-label="Próxima imagem" id="r-n">&gt;</button></nav></div>
 <form action="/submitted"><input name="email" value="a@b.c"><button aria-label="Anterior">&lt;</button><button aria-label="Próximo">&gt;</button></form>
 <script>let i=1;const show=()=>{p.disabled=i===1;n.disabled=i===${ITEMS};setTimeout(()=>{item.innerHTML='<h2>Item '+i+'</h2><img src="/img/'+i+'.svg">';},120);};
 n.onclick=()=>{i++;show();};p.onclick=()=>{i--;show();};
@@ -57,6 +63,17 @@ for (const [key, word] of [['pt', 'Receita'], ['es', 'Foto']]) {
   const [box, prev, next] = ['item', 'p', 'n'].map((s) => document.getElementById(key + '-' + s));
   const show = () => { prev.disabled = k === 1; next.disabled = k === 3; setTimeout(() => { box.textContent = word + ' ' + k; }, 120); };
   next.onclick = () => { k++; show(); }; prev.onclick = () => { k--; show(); };
+}
+// A sliding strip (every slide in the page, moved by a transform) whose arrows change class at
+// the ends, and a strip that scrolls sideways.
+{
+  let k = 0;
+  const strip = document.getElementById('strip'), sp = document.getElementById('s-p'), sn = document.getElementById('s-n');
+  const move = () => { strip.style.transform = 'translateX(' + (-200 * k) + 'px)'; sp.classList.toggle('is-off', k === 0); sn.classList.toggle('is-off', k === 4); };
+  sn.onclick = () => { if (k < 4) { k++; move(); } }; sp.onclick = () => { if (k > 0) { k--; move(); } };
+  const rail = document.getElementById('rail');
+  document.getElementById('r-n').onclick = () => rail.scrollBy({ left: 200 });
+  document.getElementById('r-p').onclick = () => rail.scrollBy({ left: -200 });
 }</script>`;
 let formSubmitted = false; // the sign-up form's "Próximo" must never be pressed
 const server = http.createServer((req, res) => {
@@ -138,10 +155,11 @@ try {
   };
   // Job texts are messages of _locales, { key, args } (see offscreen.js).
   const recording = (from) => (j) => j?.steps?.some((s) => s.text?.key === 'carousel_recording' && Number(s.text.args[2]) >= from);
-  // Three carousels: the English one, then the Portuguese and the Spanish ones (three items each).
-  const carouselNote = (j) => j?.notes?.some((n) => n.text?.key === 'note_carousels_other' && n.text.args[0] === '3' && n.text.args[1] === `${ITEMS}, 3, 3`);
+  // Five carousels: recorded item by item, the English one, then the Portuguese and the Spanish
+  // ones (three items each); then the two sliding strips (5 and 4 steps).
+  const carouselNote = (j) => j?.notes?.some((n) => n.text?.key === 'note_carousels_other' && n.text.args[0] === '5' && n.text.args[1] === `${ITEMS}, 3, 3, 5, 4`);
 
-  check('carousel labels are the same in inpage.js and lib/interactions.js', !!labelLines('inpage.js') && labelLines('inpage.js') === labelLines('lib/interactions.js'));
+  check('carousel labels are the same in inpage.js and lib/offline/pager.js', !!labelLines('inpage.js') && labelLines('inpage.js') === labelLines('lib/offline/pager.js'));
 
   console.log('1. Capture');
   await openPopup();
@@ -154,10 +172,11 @@ try {
     return x && x.phase !== 'running';
   });
   check('capture finished', j.phase === 'done', `${Date.now() - started} ms; ${JSON.stringify(j.error || j.status)}`);
-  check(`the three carousels (English, Portuguese, Spanish) recorded with all their items (${ITEMS}, 3, 3)`, carouselNote(j), JSON.stringify(j.notes));
+  check(`the five carousels recorded: English, Portuguese, Spanish, and two sliding strips (${ITEMS}, 3, 3, 5, 4)`, carouselNote(j), JSON.stringify(j.notes));
   check('popup showed the carousel being recorded', seen.includes('carousel_recording'));
   check('page put back on item 1', (await tab.textContent('#item h2')) === 'Item 1');
   check('Portuguese and Spanish carousels put back on item 1', (await tab.textContent('#pt-item')) === 'Receita 1' && (await tab.textContent('#es-item')) === 'Foto 1');
+  check('sliding strips put back at the start', await tab.evaluate(() => getComputedStyle(document.getElementById('strip')).transform === 'matrix(1, 0, 0, 1, 0, 0)' && document.getElementById('rail').scrollLeft === 0 && document.getElementById('s-p').classList.contains('is-off')));
   check('the form\'s "Próximo" button was never pressed', !formSubmitted && new URL(tab.url()).pathname === '/');
   check('icon badge shows ✓', (await badge()) === '✓');
   await pause(300);
@@ -195,6 +214,24 @@ try {
   check('Portuguese carousel goes back ("Anterior")', (await snap.textContent('#pt-item')) === 'Receita 2');
   await snap.click('#es-n');
   check('Spanish carousel works offline ("Imagen siguiente")', (await snap.textContent('#es-item')) === 'Foto 2');
+  const strip = () => snap.evaluate(() => ({ at: new DOMMatrix(getComputedStyle(document.getElementById('strip')).transform).m41, prevOff: document.getElementById('s-p').classList.contains('is-off'), nextOff: document.getElementById('s-n').classList.contains('is-off') }));
+  let s = await strip();
+  check('sliding strip saved at the start, its Previous arrow greyed out', s.at === 0 && s.prevOff && !s.nextOff, JSON.stringify(s));
+  await snap.click('#s-n');
+  await snap.click('#s-n');
+  await snap.waitForTimeout(500);
+  s = await strip();
+  check('sliding strip moves offline (Next twice: slide 3), Previous no longer greyed out', s.at === -400 && !s.prevOff, JSON.stringify(s));
+  for (let k = 0; k < 3; k++) await snap.click('#s-n');
+  await snap.waitForTimeout(500);
+  s = await strip();
+  check('sliding strip stops at the last slide, its Next arrow greyed out as on the site', s.at === -800 && s.nextOff, JSON.stringify(s));
+  await snap.click('#s-p');
+  await snap.waitForTimeout(500);
+  check('sliding strip goes back', (await strip()).at === -600);
+  await snap.click('#r-n');
+  await snap.waitForTimeout(900);
+  check('scrolling strip moves offline ("Próxima imagem")', Math.abs(await snap.$eval('#rail', (r) => r.scrollLeft) - 200) < 2, String(await snap.$eval('#rail', (r) => r.scrollLeft)));
   check('item images saved locally', await snap.$eval('#item img', (i) => i.complete && i.naturalWidth > 0 && i.getAttribute('src').startsWith('assets/')));
   check('stylesheet saved', (await snap.$eval('h2', (h) => getComputedStyle(h).color)) === 'rgb(0, 128, 128)');
   const after = await snap.$eval('h2', (h) => getComputedStyle(h, '::after').content);
