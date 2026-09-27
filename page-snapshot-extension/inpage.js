@@ -17,6 +17,20 @@ export async function extractPage(editorTexts = {}, options = {}) {
   const MAX_LOAD_MORE = 5;
   const frames = {};
   let frameCounter = 0;
+  // Frames from other sites (ads, embedded players, maps) cannot be read, so the copy shows a
+  // picture of them instead (offscreen.js takes it through the debugger). Where each one sits on
+  // the page, in CSS pixels from the top-left of the document, by the data-snap-shot id.
+  const shots = {};
+  let shotCounter = 0;
+  const MIN_SHOT = 30; // smaller frames are counters, pixels and the like: left as an empty box
+  // Whether an element stays put on the screen when the page scrolls (it or an ancestor is fixed).
+  // Only the main page counts: "fixed" inside a frame is relative to that frame, not the screen,
+  // so a nested document is pinned only if the frame holding it is (ctx.offset.pinned).
+  const pinnedIn = (ctx, el) => !!ctx.offset?.pinned || (ctx.depth === 0 && isPinned(el));
+  const isPinned = (el) => {
+    for (; el; el = el.parentElement) if (el.ownerDocument.defaultView.getComputedStyle(el).position === 'fixed') return true;
+    return false;
+  };
 
   const rulesToText = (sheet) => {
     try {
@@ -463,14 +477,25 @@ export async function extractPage(editorTexts = {}, options = {}) {
       if (frameDoc && frameDoc.documentElement && ctx.depth < MAX_FRAME_DEPTH) {
         const id = String(++frameCounter);
         clone.setAttribute('data-snap-frame', id);
-        frames[id] = snapshot(frameDoc, ctx.depth + 1);
+        // The frame's own content starts inside its border, at this place on the page.
+        const box = live.getBoundingClientRect();
+        const offset = ctx.offset && { x: ctx.offset.x + box.left + live.clientLeft, y: ctx.offset.y + box.top + live.clientTop };
+        // A frame inside something pinned to the screen is pinned too (ad bars nest frames).
+        if (offset) offset.pinned = pinnedIn(ctx, live);
+        frames[id] = snapshot(frameDoc, ctx.depth + 1, offset);
       } else {
-        // Cross-origin: cannot be captured. Note whether it was visible so that invisible
-        // ones (ad verification, ID syncing) can be dropped instead of left phoning home.
+        // Cross-origin: cannot be captured. Invisible ones (ad verification, ID syncing) are
+        // dropped instead of left phoning home; visible ones get a picture of how they look.
         const box = live.getBoundingClientRect();
         const cs = live.ownerDocument.defaultView.getComputedStyle(live);
         if (box.width < 2 || box.height < 2 || cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') {
           clone.setAttribute('data-snap-hidden', '');
+        } else if (ctx.offset && box.width >= MIN_SHOT && box.height >= MIN_SHOT) {
+          const id = String(++shotCounter);
+          clone.setAttribute('data-snap-shot', id);
+          // A frame pinned to the screen (an ad bar) moves with the scroll: it is photographed with
+          // the page scrolled as it is now, the others each brought into view.
+          shots[id] = { x: ctx.offset.x + box.left, y: ctx.offset.y + box.top, width: box.width, height: box.height, pinned: pinnedIn(ctx, live) };
         }
       }
       return;
@@ -508,12 +533,13 @@ export async function extractPage(editorTexts = {}, options = {}) {
     }
   }
 
-  function snapshot(doc, depth) {
+  // `offset`: where the document's top-left corner is on the page (for pictures of frames).
+  function snapshot(doc, depth, offset) {
     // An inert document has no custom-element registry and loads nothing, so
     // cloning cannot run page code or trigger network requests.
     const inert = doc.implementation.createHTMLDocument('');
     const root = inert.importNode(doc.documentElement, true);
-    walk(doc.documentElement, root, { inert, depth });
+    walk(doc.documentElement, root, { inert, depth, offset });
     removeToggles(root);
     appendAdopted(root.querySelector('head') || root, doc.adoptedStyleSheets, inert);
     return {
@@ -541,7 +567,7 @@ export async function extractPage(editorTexts = {}, options = {}) {
     return { cancelled: true };
   }
   report({ phase: 'snapshot' });
-  const main = snapshot(document, 0);
+  const main = snapshot(document, 0, { x: scrollX, y: scrollY });
   unmark();
   return {
     url: location.href,
@@ -549,6 +575,10 @@ export async function extractPage(editorTexts = {}, options = {}) {
     main,
     frames,
     pagers: recorded.pagers,
+    shots,
+    scale: Math.min(2, devicePixelRatio || 1),
+    scroll: { x: scrollX, y: scrollY },
+    viewport: { width: innerWidth, height: innerHeight },
     sliders: recorded.sliders,
   };
 }

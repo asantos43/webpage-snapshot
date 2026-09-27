@@ -348,6 +348,60 @@ async function downloadAsset(url, kind, chain) {
   return file;
 }
 
+// A picture of a frame from another site (an ad, an embedded player or map), which cannot be
+// read: the debugger photographs its place on the page (inpage.js recorded it, `page.shots`),
+// one at a time. The page is scrolled to bring the frame into view first, as a person would:
+// photographing outside the visible area makes the browser re-lay out the page, and frames
+// from other sites then come out garbled. Returns the asset's file name, or null without the
+// debugger or on failure. restoreScroll() puts the page back afterwards.
+let framePictures = 0;
+let shotQueue = Promise.resolve();
+let scrolledForShots = false;
+const pictureOf = new Map(); // shot id -> Promise<file name | null>, each frame photographed once
+const scrollTab = (x, y) => call('command', { method: 'Runtime.evaluate', params: { expression: `window.scrollTo(${Math.round(x)}, ${Math.round(y)})` } });
+function framePicture(id, page) {
+  if (!pictureOf.has(id)) pictureOf.set(id, takeFramePicture(id, page));
+  return pictureOf.get(id);
+}
+
+// Frames pinned to the screen (ad bars) first, while the page is still as the user left it:
+// many slide away once the page scrolls, which photographing the other frames does.
+async function pinnedFramePictures(page) {
+  const pinned = Object.entries(page.shots || {}).filter(([, place]) => place.pinned).map(([id]) => id);
+  await Promise.all(pinned.map((id) => framePicture(id, page)));
+}
+
+async function takeFramePicture(id, page) {
+  const place = page.shots?.[id];
+  if (!place || !mainFrameId) return null;
+  const view = page.viewport || { width: 1280, height: 800 };
+  const { pinned, ...clip } = place;
+  const run = shotQueue.then(async () => {
+    scrolledForShots = true;
+    if (pinned) await scrollTab(page.scroll.x, page.scroll.y);
+    else await scrollTab(Math.max(0, clip.x - 20), Math.max(0, clip.y - Math.max(20, (view.height - clip.height) / 2)));
+    await sleep(400); // let the frame paint
+    return call('command', {
+      method: 'Page.captureScreenshot',
+      params: { format: 'png', captureBeyondViewport: clip.height > view.height || clip.width > view.width, clip: { ...clip, scale: page.scale || 1 } },
+    });
+  });
+  shotQueue = run.catch(() => {});
+  try {
+    const bytes = base64ToBytes((await run).data);
+    admit(bytes.length);
+    let file = `frame-${id}.png`;
+    for (let n = 2; usedNames.has(file); n++) file = `frame-${id}-${n}.png`;
+    usedNames.add(file);
+    entries.push({ name: `assets/${file}`, data: bytes, compress: false });
+    resources.push({ url: `picture of a frame (${Math.round(place.width)}×${Math.round(place.height)})`, file: `assets/${file}`, bytes: bytes.length, source: 'picture' });
+    framePictures++;
+    return file;
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------- DOM rewriting
 
 function* allElements(root) {
@@ -509,10 +563,20 @@ async function processElement(el, base, page, depth) {
     } else if (el.hasAttribute('data-snap-hidden')) {
       el.remove(); // invisible third-party frame (tracking, ID sync, ad verification)
     } else {
-      // Cross-origin frame that could not be captured: keep the box, but do not load it.
+      // Cross-origin frame that could not be captured: keep the box, but do not load it, and
+      // show a picture of how it looked when the debugger could take one.
       const src = fetchableUrl(el.getAttribute('src'), base);
       if (src) el.setAttribute('data-snapshot-src', src.href);
       el.removeAttribute('src');
+      const shot = el.getAttribute('data-snap-shot');
+      el.removeAttribute('data-snap-shot');
+      if (shot) {
+        tasks.push(framePicture(shot, page).then((file) => {
+          if (!file) return;
+          // A srcdoc document resolves "assets/…" against the saved page, so the picture is local.
+          el.setAttribute('srcdoc', `<!doctype html><meta charset="utf-8"><style>html,body{margin:0;height:100%;overflow:hidden}img{display:block;width:100%;height:100%}</style><img src="assets/${file}" alt="">`);
+        }));
+      }
     }
   }
 
@@ -522,6 +586,12 @@ async function processElement(el, base, page, depth) {
 async function processDom(doc, base, page, depth) {
   const elements = [...allElements(doc)];
   await Promise.all(elements.map((el) => processElement(el, base, page, depth)));
+}
+
+async function restoreScroll(page) {
+  if (!scrolledForShots || !page.scroll) return;
+  await shotQueue;
+  await scrollTab(page.scroll.x, page.scroll.y).catch(() => {});
 }
 
 async function processFragment(html, base, page, depth) {
@@ -631,8 +701,10 @@ async function main() {
   step('assets', msg('step_assets_finding'));
   let html;
   try {
+    await pinnedFramePictures(page);
     html = await processDocument(page.main, page);
   } finally {
+    await restoreScroll(page);
     await detachDebugger();
   }
   state.now = '';
@@ -701,6 +773,7 @@ async function main() {
   const carousels = [...Object.values(page.pagers || {}).map((p) => p.length), ...Object.values(page.sliders || {}).map((s) => s.positions.length)];
   if (carousels.length) notes.push({ text: plural(carousels.length, 'note_carousels', carousels.join(', ')) });
   if (linkedFiles.size) notes.push({ text: plural(linkedFiles.size, 'note_files') });
+  if (framePictures) notes.push({ text: plural(framePictures, 'note_frame_pictures') });
   state.notes = notes;
   state.failures = failures;
   state.download = { url: blobUrl, name };

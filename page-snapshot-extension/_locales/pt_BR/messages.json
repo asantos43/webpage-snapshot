@@ -338,5 +338,13 @@
   "help_reveal": {
     "message": "(ligado, a menos que você desligue): antes de salvar, o PageKeep rola a página até o fim e aperta os botões “Carregar mais”, para salvar também as imagens e listas que só aparecem assim; depois volta para onde você estava. Vale a partir da próxima captura.",
     "description": "Help item after help_reveal_label."
+  },
+  "note_frame_pictures_one": {
+    "message": "1 quadro de outro site (um anúncio, um player de vídeo ou mapa) salvo como imagem de como aparecia.",
+    "description": "Result note: frames from other sites saved as pictures."
+  },
+  "note_frame_pictures_other": {
+    "message": "$1 quadros de outros sites (anúncios, players de vídeo ou mapas) salvos como imagens de como apareciam.",
+    "description": "Result note; $1 = number of frames."
   }
 }

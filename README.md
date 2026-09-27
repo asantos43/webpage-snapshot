@@ -75,7 +75,7 @@ A página salva, aberta offline a partir do ZIP, com o carrossel funcionando:
 
 ### Um site real: TudoGostoso
 
-A página inicial de https://www.tudogostoso.com.br salva pelo PageKeep, com a opção "Carregar a página inteira antes": a página foi percorrida até o fim (13 telas), são 150 arquivos em 3,5 MB, e os dois carrosséis deslizantes da página (3 e 9 posições) continuam deslizando na cópia; aberta offline, ela não faz nenhuma requisição. O único arquivo que faltou era um endereço de estatísticas de anúncios, e a referência a ele foi removida. O retângulo cinza é um anúncio num quadro de outro site, que a cópia não carrega.
+A página inicial de https://www.tudogostoso.com.br salva pelo PageKeep, com a opção "Carregar a página inteira antes": a página foi percorrida até o fim (13 telas), são 150 arquivos em 3,5 MB, e os dois carrosséis deslizantes da página (3 e 9 posições) continuam deslizando na cópia; aberta offline, ela não faz nenhuma requisição. O único arquivo que faltou era um endereço de estatísticas de anúncios, e a referência a ele foi removida. Os anúncios, que vêm em quadros de outros sites, aparecem na cópia como uma imagem de como estavam na tela, sem carregar nada.
 
 | O popup depois da captura | A cópia aberta offline |
 | --- | --- |

@@ -338,5 +338,13 @@
   "help_reveal": {
     "message": "(on unless you turn it off): before saving, PageKeep scrolls through the page and presses its “Load more” buttons, so images and lists that only appear then are saved too; it then goes back to where you were. It applies from the next capture.",
     "description": "Help item after help_reveal_label."
+  },
+  "note_frame_pictures_one": {
+    "message": "1 frame from another site (an ad, a video or map player) saved as a picture of how it looked.",
+    "description": "Result note: frames from other sites saved as pictures."
+  },
+  "note_frame_pictures_other": {
+    "message": "$1 frames from other sites (ads, video or map players) saved as pictures of how they looked.",
+    "description": "Result note; $1 = number of frames."
   }
 }
