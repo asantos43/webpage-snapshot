@@ -187,6 +187,7 @@ async function shots(lang, outDir) {
     if (leftover) fail(`${name}: untranslated text "${leftover[0]}"`);
     if (await popup.isVisible('#other')) fail(`${name}: shows the note for another tab`);
     await popup.mouse.move(1, 1);
+    await popup.evaluate(() => document.activeElement?.blur()); // no focus ring on OK
     await popup.waitForTimeout(200);
     const height = await popup.evaluate(() => Math.ceil(document.getElementById('buttons').getBoundingClientRect().bottom));
     await popup.setViewportSize({ width: 440, height });
@@ -259,7 +260,7 @@ async function shots(lang, outDir) {
     {
       execFileSync('unzip', ['-q', '-o', zipPath, '-d', unzipDir]);
       const offline = await context.newPage();
-      await offline.setViewportSize({ width: 1000, height: 640 });
+      await offline.setViewportSize({ width: 760, height: 560 });
       const online = [];
       offline.on('request', (r) => { if (!r.url().startsWith('file:')) online.push(r.url()); });
       await offline.goto(`file://${path.join(unzipDir, 'index.html')}`);

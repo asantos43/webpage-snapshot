@@ -19,7 +19,7 @@ image in it, and nothing to credit.
 | **No remotely hosted code** | Every script is in the package; the extension pages' CSP is `script-src 'self'; object-src 'self'`; no `eval`, `new Function` or remote `<script>`/`import`. The small script embedded in each saved snapshot (`lib/interactions.js`) is packaged, written into the saved file, and never loads anything. | `tests/store-policy.mjs` |
 | **User data** | The page is read only on the tab the user asked to capture, only while that capture runs, and the result goes only into the ZIP in the user's Downloads folder. Nothing is sent to the developer or anyone else: there is no server, no analytics, no account. See [PRIVACY.md](../PRIVACY.md) (step 5). | review; `tests/store-policy.mjs` (no network host in the code) |
 | **Intellectual property** | Own code, texts and icon, made for this project (the icon: a camera outline on a blue square, drawn for this extension; the PNGs carry no third-party metadata). | `tests/store-policy.mjs` (icons) |
-| **Impersonation / metadata** | Own name ("PageKeep: Offline Page Saver", see "Name"), a description that states what it does (no keyword lists, no other product's name, no contact details), screenshots of the real popup. Name and description in English and Brazilian Portuguese. | `tests/store-policy.mjs` (name ≤ 75, description ≤ 132 characters, in each language) |
+| **Impersonation / metadata** | Own name ("PageKeep: Offline Page Saver", see "Name"), a description that states what it does (no keyword lists, no other product's name, no links), screenshots of the real popup and of a page it saved. Name, descriptions and pictures in English and Brazilian Portuguese (`store/`). | `tests/store-policy.mjs` (name ≤ 75, summary ≤ 132 characters, in each language; store pictures' sizes; descriptions without other products' names or links) |
 | **Account security** | 2-Step Verification on the publishing Google account. | developer |
 
 Before each store upload: `npm run smoke`, `npm run carousel` and `npm run store-policy` in `tests/`
@@ -99,6 +99,10 @@ What the extension handles, and where it goes:
 Nothing is transmitted to the developer or any third party: the only network requests are for the
 captured page's own files, to the servers that page already uses.
 
+In the dashboard, tick **Website content** and **Web history** and nothing else. Nothing leaves the
+computer, but the extension does read the captured page's content and address, and declaring more
+than needed carries no risk while declaring less does.
+
 Certify all three: not sold to third parties; not used or transferred for purposes unrelated to
 the single purpose; not used or transferred to determine creditworthiness or for lending.
 
@@ -117,6 +121,6 @@ item named PageKeep came up in the same search. The name lives in `_locales/*/me
 
 ## Publishing
 
-The dashboard steps, and how to connect the release workflow to the store, will be in
-`store/PUBLISHING.md` (steps 4 and 6). Each new version is reviewed again, so every release must
+The store listing, field by field, is in [`store/README.md`](../store/README.md); the dashboard
+steps, in Portuguese, in [`store/PUBLISHING.md`](../store/PUBLISHING.md). Each new version is reviewed again, so every release must
 still pass this checklist.
