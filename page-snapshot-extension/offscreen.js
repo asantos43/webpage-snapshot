@@ -26,7 +26,11 @@ const FILE_LINK_RE = /\.(zip|tar|gz|tgz|7z|rar|diff|patch|pdf|csv|tsv|json|ya?ml
 const RETRY_BASE_MS = 1000;
 
 const REMOVE_TAGS = new Set(['script', 'noscript', 'base']);
-const DROP_LINK_RELS = new Set(['preload', 'prefetch', 'modulepreload', 'preconnect', 'dns-prefetch', 'prerender', 'manifest']);
+// <link> types the browser never downloads by itself: kept, pointing at the live site like links
+// you click. Every other type is removed unless it is a stylesheet or an icon (saved locally):
+// preload, prefetch, manifest, compression-dictionary and whatever browsers add next would make
+// the saved page contact the network when opened.
+const INERT_LINK_RELS = new Set(['canonical', 'alternate', 'author', 'license', 'next', 'prev', 'previous', 'me', 'bookmark', 'help', 'shortlink', 'tag', 'first', 'last', 'up', 'index', 'contents', 'copyright', 'archives', 'privacy-policy', 'terms-of-service']);
 const ICON_RELS = new Set(['icon', 'shortcut', 'apple-touch-icon', 'apple-touch-icon-precomposed', 'mask-icon']);
 const DROP_META_HTTP_EQUIV = new Set(['content-security-policy', 'refresh', 'content-type']);
 const SRC_ATTRS = {
@@ -419,10 +423,10 @@ async function processElement(el, base, page, depth) {
 
   if (tag === 'link') {
     const rels = (el.getAttribute('rel') || '').toLowerCase().split(/\s+/);
-    if (rels.some((r) => DROP_LINK_RELS.has(r))) return el.remove();
     if (rels.includes('stylesheet')) await localizeAttr(el, 'href', 'css', base);
     else if (rels.some((r) => ICON_RELS.has(r))) await localizeAttr(el, 'href', 'bin', base);
-    else absolutizeAttr(el, 'href', base);
+    else if (rels[0] && rels.every((r) => INERT_LINK_RELS.has(r))) absolutizeAttr(el, 'href', base);
+    else el.remove();
     return;
   }
 

@@ -6,6 +6,9 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- Fixed: a saved page could contact an ad server when opened, through a `<link rel="compression-dictionary">`
+  (found on a real news site). Now only `<link>` types that never download anything are kept.
+
 ## [1.2.2] - 2026-09-27
 
 - Help page pictures: no focus ring on the OK button, and the saved page shown larger.
