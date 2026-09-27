@@ -1,0 +1,220 @@
+// End-to-end test of the offline library (page-snapshot-extension/lib/offline/) for the elements
+// most common on websites: it captures a local page that imitates them (by hand, no external
+// library), opens the saved ZIP with no network and uses each one.
+//   - a Bootstrap-style carousel that switches items by class, with indicators (dots);
+//   - a Swiper-style carousel that moves a strip, with bullets;
+//   - a photo gallery (thumbnails linking to large pictures, Fancybox-style);
+//   - a Bootstrap modal, a <dialog>, a drop-down menu, an accordion (collapse) and tabs.
+// Exit code 1 if any check fails.
+// Usage: node library.mjs [path-to-extension]   (default: ../page-snapshot-extension)
+//
+// Like carousel.mjs, it loads a copy of the extension with the test site as a host permission
+// (activeTab cannot be granted under automation) and opens popup.html in its own window.
+import { chromium } from 'playwright';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
+
+const extensionPath = path.resolve(process.argv[2] || '../page-snapshot-extension');
+
+const svg = (text, colour, w = 320, h = 180) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="${colour}"/><text x="20" y="${h / 2}" font-size="28" fill="#fff">${text}</text></svg>`;
+
+const page = `<!doctype html><html><head><meta charset="utf-8"><title>Library test</title><style>
+body{font:16px sans-serif;margin:20px}
+.carousel-item{display:none}.carousel-item.active{display:block}
+.carousel-indicators button{width:14px;height:14px;border-radius:50%;border:0;background:#ccc}.carousel-indicators button.active{background:#c00}
+.swiper{overflow:hidden;width:200px}.swiper-wrapper{display:flex;transition:transform .3s}.swiper-slide{flex:none;width:200px}
+.swiper-pagination-bullet{display:inline-block;width:10px;height:10px;border-radius:50%;background:#ccc}.swiper-pagination-bullet-active{background:#06c}
+.modal{display:none}.dropdown-menu{display:none}.dropdown-menu.show{display:block}
+.collapse:not(.show){display:none}.tab-pane{display:none}.tab-pane.active{display:block}
+</style></head><body>
+<section><div id="bs" class="carousel">
+  <div class="carousel-indicators"><button data-bs-slide-to="0" class="active" aria-label="Slide 1"></button><button data-bs-slide-to="1" aria-label="Slide 2"></button><button data-bs-slide-to="2" aria-label="Slide 3"></button></div>
+  <div class="carousel-inner"><div class="carousel-item active">Bootstrap A</div><div class="carousel-item">Bootstrap B</div><div class="carousel-item">Bootstrap C</div></div>
+  <button class="carousel-control-prev" aria-label="Previous">‹</button><button class="carousel-control-next" aria-label="Next">›</button>
+</div></section>
+<section><div class="swiper" id="sw">
+  <div class="swiper-wrapper" id="sw-strip">${[1, 2, 3, 4].map((k) => `<div class="swiper-slide">Swiper ${k}</div>`).join('')}</div>
+</div>
+<div class="swiper-pagination">${[1, 2, 3, 4].map((k) => `<span class="swiper-pagination-bullet${k === 1 ? ' swiper-pagination-bullet-active' : ''}" aria-label="Go to slide ${k}"></span>`).join('')}</div>
+<button aria-label="Previous slide" id="sw-p">‹</button><button aria-label="Next slide" id="sw-n">›</button></section>
+<section id="gallery">
+  <a href="/photos/big-1.svg" data-fancybox="trip" data-caption="Harbour at dawn"><img src="/photos/thumb-1.svg" alt="thumb 1"></a>
+  <a href="/photos/big-2.svg" data-fancybox="trip" data-caption="Old lighthouse"><img src="/photos/thumb-2.svg" alt="thumb 2"></a>
+</section>
+<section>
+  <button id="open-modal" data-bs-toggle="modal" data-bs-target="#m">Open modal</button>
+  <div class="modal" id="m" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><p>Modal body</p><button id="close-modal" data-bs-dismiss="modal">Close</button></div></div>
+  <button id="open-dialog" aria-haspopup="dialog" aria-controls="d">Terms</button>
+  <dialog id="d"><p>Terms of use</p><form method="dialog"><button id="close-dialog">OK</button></form></dialog>
+</section>
+<section>
+  <div class="dropdown"><button id="menu" data-bs-toggle="dropdown" aria-expanded="false">Menu</button><ul class="dropdown-menu" id="menu-list"><li>Profile</li><li>Settings</li></ul></div>
+  <div id="acc">
+    <button id="q1" data-bs-toggle="collapse" data-bs-target="#c1" aria-expanded="false" aria-controls="c1">Question 1</button><div id="c1" class="collapse" data-bs-parent="#acc">Answer 1</div>
+    <button id="q2" data-bs-toggle="collapse" data-bs-target="#c2" aria-expanded="false" aria-controls="c2">Question 2</button><div id="c2" class="collapse" data-bs-parent="#acc">Answer 2</div>
+  </div>
+  <ul class="nav nav-tabs" role="tablist">
+    <li><button class="nav-link active" id="t1" data-bs-toggle="tab" data-bs-target="#p1" role="tab" aria-controls="p1" aria-selected="true">One</button></li>
+    <li><button class="nav-link" id="t2" data-bs-toggle="tab" data-bs-target="#p2" role="tab" aria-controls="p2" aria-selected="false">Two</button></li>
+  </ul>
+  <div class="tab-content"><div class="tab-pane active" id="p1" role="tabpanel">Pane one</div><div class="tab-pane" id="p2" role="tabpanel">Pane two</div></div>
+</section>
+<script>
+// Bootstrap-style: the "active" class moves (and wraps around), on the items and the indicators.
+{
+  const items = [...document.querySelectorAll('#bs .carousel-item')], dots = [...document.querySelectorAll('#bs .carousel-indicators button')];
+  let k = 0;
+  const go = (n) => { k = (n + items.length) % items.length; items.forEach((it, i) => it.classList.toggle('active', i === k)); dots.forEach((d, i) => d.classList.toggle('active', i === k)); };
+  document.querySelector('#bs .carousel-control-next').onclick = () => go(k + 1);
+  document.querySelector('#bs .carousel-control-prev').onclick = () => go(k - 1);
+}
+// Swiper-style: a strip moved by a transform, with bullets.
+{
+  const strip = document.getElementById('sw-strip'), bullets = [...document.querySelectorAll('.swiper-pagination-bullet')];
+  let k = 0;
+  const go = (n) => { k = Math.max(0, Math.min(3, n)); strip.style.transform = 'translate3d(' + (-200 * k) + 'px,0,0)'; bullets.forEach((b, i) => b.classList.toggle('swiper-pagination-bullet-active', i === k)); };
+  document.getElementById('sw-n').onclick = () => go(k + 1);
+  document.getElementById('sw-p').onclick = () => go(k - 1);
+}
+</script></body></html>`;
+
+const server = http.createServer((req, res) => {
+  const pic = req.url.match(/^\/photos\/(big|thumb)-(\d)\.svg$/);
+  if (pic) {
+    res.setHeader('content-type', 'image/svg+xml');
+    return res.end(pic[1] === 'big' ? svg(`Large ${pic[2]}`, pic[2] === '1' ? '#2a6f97' : '#9b2226', 800, 450) : svg(`Thumb ${pic[2]}`, '#555', 120, 68));
+  }
+  res.setHeader('content-type', 'text/html; charset=utf-8');
+  res.end(page);
+}).listen(0);
+const url = `http://127.0.0.1:${server.address().port}/`;
+
+const copy = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-under-test-'));
+fs.cpSync(extensionPath, copy, { recursive: true });
+const manifest = JSON.parse(fs.readFileSync(path.join(copy, 'manifest.json'), 'utf8'));
+manifest.host_permissions = ['http://127.0.0.1/*']; // stands in for activeTab on the test page
+fs.writeFileSync(path.join(copy, 'manifest.json'), JSON.stringify(manifest, null, 2));
+const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-ext-'));
+const unzipDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-snap-'));
+const context = await chromium.launchPersistentContext(userDataDir, {
+  channel: 'chromium',
+  headless: true,
+  acceptDownloads: true,
+  args: [`--disable-extensions-except=${copy}`, `--load-extension=${copy}`],
+});
+
+let failed = 0;
+const check = (label, ok, detail = '') => {
+  console.log(`${ok ? 'ok  ' : 'FAIL'}  ${label}${detail ? `  (${detail})` : ''}`);
+  if (!ok) failed++;
+};
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+try {
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent('serviceworker', { timeout: 15000 });
+  const tab = context.pages()[0] || await context.newPage();
+  await tab.goto(url);
+
+  // Capture through the real popup, as carousel.mjs does.
+  await worker.evaluate(async (u) => {
+    const [t] = await chrome.tabs.query({ url: u });
+    await chrome.windows.update(t.windowId, { focused: true });
+    await chrome.action.openPopup({ windowId: t.windowId });
+  }, url);
+  let job;
+  for (let k = 0; k < 300 && job?.phase !== 'done' && job?.phase !== 'error'; k++, await pause(200)) {
+    job = await worker.evaluate(() => chrome.storage.session.get('job').then((r) => r.job || null));
+  }
+  check('capture finished', job?.phase === 'done', JSON.stringify(job?.error || job?.status));
+  check('both carousels recorded (3 and 4 steps)', job.notes.some((n) => n.text.key === 'note_carousels_other' && n.text.args[1] === '3, 4'), JSON.stringify(job.notes));
+  check('the popup reports the 2 gallery pictures', job.notes.some((n) => n.text.key === 'note_gallery_other' && n.text.args[0] === '2'));
+  check('the live carousels are back on their first item', await tab.evaluate(() => document.querySelector('#bs .carousel-item.active').textContent === 'Bootstrap A' && getComputedStyle(document.getElementById('sw-strip')).transform === 'matrix(1, 0, 0, 1, 0, 0)'));
+
+  let zip;
+  for (let k = 0; k < 50 && zip?.state !== 'complete'; k++, await pause(200)) {
+    [zip] = await worker.evaluate(() => chrome.downloads.search({ orderBy: ['-startTime'], limit: 1 }));
+  }
+  execFileSync('unzip', ['-q', zip.filename, '-d', unzipDir]);
+
+  const snap = await context.newPage();
+  const online = [];
+  const errors = [];
+  snap.on('request', (r) => { if (!/^(file|data|blob):/.test(r.url())) online.push(r.url()); });
+  snap.on('pageerror', (e) => errors.push(e.message));
+  await snap.goto(`file://${path.join(unzipDir, 'index.html')}`);
+  const shown = (sel) => snap.$eval(sel, (el) => getComputedStyle(el).display !== 'none' && !el.hidden && el.getClientRects().length > 0).catch(() => false);
+  const activeBs = () => snap.$eval('#bs .carousel-item.active', (el) => el.textContent).catch(() => null);
+
+  console.log('Bootstrap-style carousel (switches by class)');
+  check('saved on its first item', (await activeBs()) === 'Bootstrap A');
+  await snap.click('#bs .carousel-control-next');
+  check('Next shows the second item', (await activeBs()) === 'Bootstrap B' && await shown('#bs .carousel-item:nth-child(2)'));
+  await snap.click('#bs .carousel-indicators button:nth-child(3)');
+  check('the third indicator jumps to the third item, and becomes the active dot', (await activeBs()) === 'Bootstrap C' && await snap.$eval('#bs .carousel-indicators button:nth-child(3)', (b) => b.classList.contains('active')));
+  await snap.click('#bs .carousel-control-prev');
+  check('Previous goes back', (await activeBs()) === 'Bootstrap B');
+
+  console.log('Swiper-style carousel (strip + bullets)');
+  const at = () => snap.$eval('#sw-strip', (el) => new DOMMatrix(getComputedStyle(el).transform).m41);
+  await snap.click('.swiper-pagination-bullet:nth-child(3)');
+  await pause(500);
+  check('the third bullet moves the strip to the third slide', (await at()) === -400, String(await at()));
+  check('and becomes the active bullet', await snap.$eval('.swiper-pagination-bullet:nth-child(3)', (b) => b.classList.contains('swiper-pagination-bullet-active')));
+  await snap.click('#sw-n');
+  await pause(500);
+  check('Next continues from there', (await at()) === -600);
+
+  console.log('Photo gallery');
+  const galleryHref = await snap.$eval('#gallery a', (a) => a.getAttribute('href'));
+  check('the large picture is saved and linked locally', galleryHref.startsWith('assets/'), galleryHref);
+  await snap.click('#gallery a:first-child');
+  const overlayImg = () => snap.$eval('[role="dialog"][aria-modal="true"] img', (i) => ({ src: i.getAttribute('src'), ok: i.complete && i.naturalWidth > 0 })).catch(() => null);
+  await pause(200);
+  let img = await overlayImg();
+  check('clicking a thumbnail opens the large picture over the page', img?.ok && img.src === galleryHref, JSON.stringify(img));
+  check('with its caption and position', /Harbour at dawn · 1 \/ 2/.test(await snap.textContent('[role="dialog"][aria-modal="true"] p')));
+  await snap.click('[role="dialog"][aria-modal="true"] [aria-label="Next"]');
+  await pause(200);
+  img = await overlayImg();
+  check('Next shows the other picture of the gallery', img?.ok && img.src !== galleryHref);
+  await snap.keyboard.press('Escape');
+  check('Esc closes it', !(await snap.$('[role="dialog"][aria-modal="true"]')));
+
+  console.log('Modal, dialog, menu, accordion, tabs');
+  await snap.click('#open-modal');
+  check('the Bootstrap modal opens', await shown('#m'));
+  await snap.click('#close-modal');
+  check('and its Close button closes it', !(await shown('#m')));
+  await snap.click('#open-dialog');
+  check('the <dialog> opens', await snap.$eval('#d', (d) => d.open));
+  await snap.click('#close-dialog');
+  check('and closes', !(await snap.$eval('#d', (d) => d.open)));
+  await snap.click('#menu');
+  check('the drop-down menu opens', await shown('#menu-list'));
+  await snap.click('h1, body', { position: { x: 5, y: 5 } }).catch(() => {});
+  check('a click elsewhere closes it', !(await shown('#menu-list')));
+  await snap.click('#q1');
+  check('accordion: Question 1 opens its answer', await shown('#c1'));
+  await snap.click('#q2');
+  check('Question 2 opens its answer and closes the other', await shown('#c2') && !(await shown('#c1')));
+  await snap.click('#t2');
+  check('tabs: "Two" shows its pane and hides the first', await shown('#p2') && !(await shown('#p1')));
+
+  check('no network requests', online.length === 0, online.join(' '));
+  check('no script errors in the saved page', errors.length === 0, errors.join(' | '));
+} catch (err) {
+  console.log(`FAIL  ${err.message}`);
+  failed++;
+} finally {
+  await context.close();
+  server.close();
+  fs.rmSync(copy, { recursive: true, force: true });
+  fs.rmSync(userDataDir, { recursive: true, force: true });
+  fs.rmSync(unzipDir, { recursive: true, force: true });
+}
+console.log(failed ? `${failed} check(s) failed` : 'all checks passed');
+process.exitCode = failed ? 1 : 0;

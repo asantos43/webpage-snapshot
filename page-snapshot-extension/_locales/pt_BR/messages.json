@@ -346,5 +346,13 @@
   "note_frame_pictures_other": {
     "message": "$1 quadros de outros sites (anúncios, players de vídeo ou mapas) salvos como imagens de como apareciam.",
     "description": "Result note; $1 = number of frames."
+  },
+  "note_gallery_one": {
+    "message": "1 foto de galeria salva em tamanho grande; ela abre sobre a página como no site.",
+    "description": "Result note: pictures of a photo gallery (lightbox) saved."
+  },
+  "note_gallery_other": {
+    "message": "$1 fotos de galeria salvas em tamanho grande; elas abrem sobre a página como no site.",
+    "description": "Result note; $1 = number of pictures."
   }
 }

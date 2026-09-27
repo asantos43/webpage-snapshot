@@ -6,6 +6,12 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- More of the page keeps working offline: photo galleries (the large pictures are saved; a
+  thumbnail opens its picture over the page, with previous / next), pop-up windows (Bootstrap
+  modals, dialogs), drop-down menus, accordions and tabs made with Bootstrap, and carousel dots.
+- Carousels that switch items by class instead of moving them (Bootstrap, fading carousels) are
+  recorded too, and every carousel keeps its "active" item and dot in step offline.
+
 ## [1.3.1] - 2026-09-27
 
 - Frames from other sites (ads, embedded video players, maps), which cannot be read, now appear in
