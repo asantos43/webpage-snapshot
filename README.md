@@ -66,9 +66,9 @@ Clique no botão da barra de ferramentas ou aperte **Alt+Shift+S**. O popup da e
 
 A página salva, aberta offline a partir do ZIP, com o carrossel funcionando:
 
-<img src="page-snapshot-extension/images/screenshots/pt_BR/snapshot-offline.png" width="600" alt="A página de exemplo salva, aberta offline, no segundo item do carrossel">
+<img src="page-snapshot-extension/images/screenshots/pt_BR/snapshot-offline.png" width="600" alt="Um site de notícias de exemplo salvo pelo PageKeep, aberto offline">
 
-As imagens são capturas reais, geradas por `tests/screenshots.mjs` (veja Testes).
+As imagens são capturas reais, geradas por `tests/screenshots.mjs` (veja Testes) a partir de um site de notícias inventado (`tests/example-site.mjs`), com fotos desenhadas para o exemplo.
 
 A página capturada continua sendo a aba visível com o popup aberto por cima, então o navegador não a deixa lenta enquanto os carrosséis são percorridos; só não minimize a janela do navegador até a captura terminar.
 

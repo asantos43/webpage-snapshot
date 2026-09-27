@@ -6,6 +6,12 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- Fixed: accented letters and symbols in stylesheets served without a charset (common on real
+  sites) came out garbled in the saved copy ("●" as "â—").
+- Fixed: a file linked inside a carousel was counted once per carousel item in the popup's totals.
+- The help page and store pictures now show a richer example: a made-up news site with photos, tabs,
+  a live-updates box, a photo gallery and an ad.
+
 - Fixed: a saved page could contact an ad server when opened, through a `<link rel="compression-dictionary">`
   (found on a real news site). Now only `<link>` types that never download anything are kept.
 

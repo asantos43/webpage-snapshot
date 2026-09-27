@@ -1,5 +1,6 @@
-// Regenerates the screenshots by driving the real popup in Playwright's Chromium against a small
-// local example site (a recipes page with a carousel and a downloadable file). Run it after
+// Regenerates the screenshots by driving the real popup in Playwright's Chromium against a local
+// example site: a made-up news site with photos, tabs, a live box, a photo-gallery carousel, a PDF
+// and an ad (example-site.mjs). Run it after
 // changing the popup's look or texts, then look at the images before committing them. It fails
 // (exit code 1) when a shot does not show what it should: wrong language, a message key or $1 left
 // untranslated, the wrong moment of the capture.
@@ -14,7 +15,7 @@
 //   popup-done.png       the finished capture: status, steps, notes, OK
 //   popup-failed.png     a page with a missing image: the list of what could not be saved
 //   popup-help.png       the Help section open
-//   snapshot-offline.png the saved ZIP's index.html opened offline, on the carousel's 2nd item
+//   snapshot-offline.png the saved ZIP's index.html opened offline (1280×800)
 //
 // The popup is opened as a page (Playwright cannot reach the real one) with chrome.tabs.query
 // answering with the example tab, as the real popup opened on that tab would. A capture in
@@ -23,10 +24,10 @@
 import { chromium } from 'playwright';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CDN, SITE, startSite } from './example-site.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const extensionPath = path.resolve(here, '../page-snapshot-extension');
@@ -35,79 +36,6 @@ const FOLDERS = { en: 'en', 'pt-BR': 'pt_BR' };
 const langs = option('lang') ? [option('lang')] : Object.keys(FOLDERS);
 for (const lang of langs) if (!FOLDERS[lang]) throw new Error(`--lang must be one of ${Object.keys(FOLDERS).join(', ')}`);
 if (option('out') && langs.length > 1) throw new Error('--out needs --lang');
-
-// What the example page says, per language. The carousel's buttons keep their English labels:
-// that is how the capture recognises a carousel.
-const SAMPLES = {
-  en: {
-    title: 'Weekend baking',
-    intro: 'Five recipes for a slow Saturday, from the oven to the table.',
-    items: ['Lemon drizzle cake', 'Apple crumble', 'Banana bread', 'Carrot muffins', 'Chocolate cookies'],
-    minutes: 'minutes',
-    list: 'Shopping list (PDF)',
-    file: 'shopping-list.pdf',
-  },
-  'pt-BR': {
-    title: 'Receitas de fim de semana',
-    intro: 'Cinco receitas para um sábado sem pressa, do forno à mesa.',
-    items: ['Bolo de limão', 'Torta de maçã', 'Pão de banana', 'Muffins de cenoura', 'Cookies de chocolate'],
-    minutes: 'minutos',
-    list: 'Lista de compras (PDF)',
-    file: 'lista-de-compras.pdf',
-  },
-};
-const SITE = 'recipes.example';
-const COLOURS = ['#f4c542', '#d9534f', '#c8a165', '#e8833a', '#7b4a2d'];
-
-// ---- the example site ------------------------------------------------------------------------
-
-function page(sample, broken) {
-  const card = (i) => `<figure><img src="/img/${i}.svg" alt=""><figcaption><strong>${sample.items[i]}</strong><span>${35 + i * 10} ${sample.minutes}</span></figcaption></figure>`;
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${sample.title}</title><link rel="stylesheet" href="/style.css"></head>
-<body><header><h1>${sample.title}</h1><p>${sample.intro}</p></header>
-<section class="carousel"><div id="item">${card(0)}</div>
-<nav><button aria-label="Previous item" id="prev" disabled>‹</button><span id="count">1 / ${sample.items.length}</span><button aria-label="Next item" id="next">›</button></nav></section>
-<p class="files"><a href="/files/${sample.file}" download>${sample.list}</a></p>
-${broken ? '<img class="banner" src="/img/banner-missing.jpg" alt="">' : ''}
-<script>
-const items = ${JSON.stringify(sample.items)}; const minutes = ${JSON.stringify(sample.minutes)}; let i = 0;
-const card = (k) => '<figure><img src="/img/' + k + '.svg" alt=""><figcaption><strong>' + items[k] + '</strong><span>' + (35 + k * 10) + ' ' + minutes + '</span></figcaption></figure>';
-function show() { prev.disabled = i === 0; next.disabled = i === items.length - 1; count.textContent = (i + 1) + ' / ' + items.length; setTimeout(() => { item.innerHTML = card(i); }, 120); }
-next.onclick = () => { i++; show(); }; prev.onclick = () => { i--; show(); };
-</script></body></html>`;
-}
-
-const STYLE = `body{margin:0;font:16px/1.5 Georgia,serif;background:#fbf7f0;color:#3b2f25}
-header{padding:32px 48px 8px}h1{margin:0 0 4px;font-size:34px}header p{margin:0;color:#7a6a5a}
-.carousel{margin:20px 48px;max-width:560px;background:#fff;border-radius:14px;box-shadow:0 2px 12px #0001;overflow:hidden}
-figure{margin:0}figure img{display:block;width:100%;height:260px}figcaption{display:flex;justify-content:space-between;padding:14px 18px;font-size:18px}
-figcaption span{color:#7a6a5a;font-size:15px}nav{display:flex;align-items:center;justify-content:center;gap:16px;padding:0 0 14px}
-nav button{font-size:22px;width:40px;height:40px;border-radius:50%;border:1px solid #d8cbb8;background:#fff;cursor:pointer}
-nav button:disabled{opacity:.35}.files{margin:0 48px}.files a{color:#9a4a1a}.banner{display:block;margin:12px 48px;width:200px;height:40px}`;
-
-// A downloadable file of a realistic size (about 0.4 MB), so the popup's totals look like a real page's.
-const PDF = Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.from(Array.from({ length: 400_000 }, (_, i) => (i * 7919) % 251))]);
-
-const svg = (k) => `<svg xmlns="http://www.w3.org/2000/svg" width="560" height="260" viewBox="0 0 560 260">
-<rect width="560" height="260" fill="${COLOURS[k]}"/><circle cx="280" cy="140" r="86" fill="#fff" opacity=".85"/>
-<circle cx="280" cy="140" r="58" fill="${COLOURS[k]}" opacity=".7"/></svg>`;
-
-function startSite(sample) {
-  const server = http.createServer((req, res) => {
-    const url = new URL(req.url, 'http://x');
-    // /archive is the same page with a banner image the site has lost (HTTP 404).
-    if (url.pathname === '/' || url.pathname === '/archive') { res.setHeader('content-type', 'text/html; charset=utf-8'); return res.end(page(sample, url.pathname === '/archive')); }
-    if (url.pathname === '/style.css') { res.setHeader('content-type', 'text/css'); return res.end(STYLE); }
-    const img = url.pathname.match(/^\/img\/(\d)\.svg$/);
-    if (img) { res.setHeader('content-type', 'image/svg+xml'); return res.end(svg(Number(img[1]))); }
-    if (url.pathname.startsWith('/files/')) { res.setHeader('content-type', 'application/pdf'); return res.end(PDF); }
-    res.statusCode = 404;
-    res.end();
-  });
-  // The browser reaches it as http://recipes.example/ (a reserved name, see launch()), so the
-  // popup shows a plausible address instead of 127.0.0.1 and a port.
-  return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve({ server, port: server.address().port, origin: `http://${SITE}` })));
-}
 
 // ---- the browser -----------------------------------------------------------------------------
 
@@ -128,7 +56,7 @@ async function launch(lang, port) {
     locale: lang,
     args: [
       `--lang=${lang}`,
-      `--host-resolver-rules=MAP ${SITE}:80 127.0.0.1:${port}`,
+      `--host-resolver-rules=MAP ${SITE}:80 127.0.0.1:${port}, MAP ${CDN}:80 127.0.0.1:${port}`,
       `--disable-extensions-except=${copy}`,
       `--load-extension=${copy}`,
     ],
@@ -148,8 +76,8 @@ async function launch(lang, port) {
 }
 
 async function shots(lang, outDir) {
-  const sample = SAMPLES[lang];
-  const site = await startSite(sample);
+  const site = await startSite(lang);
+  const sample = site.texts;
   const env = await launch(lang, site.port);
   const { context, worker, extensionId } = env;
   const unzipDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-snap-'));
@@ -226,7 +154,7 @@ async function shots(lang, outDir) {
       const j = await job();
       if (j.phase !== 'done') fail(`popup-done: the capture ended in "${j.phase}"`);
       if (j.failures.length) fail(`popup-done: ${j.failures.length} files failed: ${j.failures.map((f) => f.url)}`);
-      if (!j.notes.some((n) => n.text.key === 'note_carousels_one' && n.text.args[0] === String(sample.items.length))) fail('popup-done: the carousel note is missing');
+      if (!j.notes.some((n) => n.text.key === 'note_carousels_one' && n.text.args[0] === String(sample.photos.length))) fail('popup-done: the carousel note is missing');
       if (!j.notes.some((n) => n.text.key === 'note_files_one')) fail('popup-done: the linked file note is missing');
       await shot(popup, 'popup-done.png');
       for (let k = 0; k < 50 && !zipPath; k++) {
@@ -249,25 +177,36 @@ async function shots(lang, outDir) {
       const { tab, popup } = await capture('archive');
       await popup.waitForFunction(() => !document.getElementById('ok').disabled, null, { timeout: 60000 });
       const j = await job();
-      if (j.phase !== 'done' || j.failures.length !== 1 || !j.failures[0].url.includes('banner-missing')) fail(`popup-failed: expected one missing image, got ${JSON.stringify(j.failures)}`);
+      if (j.phase !== 'done' || j.failures.length !== 1 || !j.failures[0].url.includes('archive-lost')) fail(`popup-failed: expected one missing photo, got ${JSON.stringify(j.failures)}`);
       await popup.click('#failed-summary');
       if (!(await popup.isVisible('#failed li'))) fail('popup-failed: the list of failed files is not open');
       await shot(popup, 'popup-failed.png');
       await dismiss(popup, tab);
     }
 
-    // 5. The saved page, opened offline from the ZIP, on the carousel's second item.
+    // 5. The saved page, opened offline from the ZIP: its gallery, tabs and live box are tried, then
+    //    the top of the page is photographed.
     {
       execFileSync('unzip', ['-q', '-o', zipPath, '-d', unzipDir]);
       const offline = await context.newPage();
-      await offline.setViewportSize({ width: 760, height: 560 });
+      await offline.setViewportSize({ width: 1280, height: 800 });
       const online = [];
       offline.on('request', (r) => { if (!r.url().startsWith('file:')) online.push(r.url()); });
       await offline.goto(`file://${path.join(unzipDir, 'index.html')}`);
+      // The gallery, the tabs and the live box still work offline; every picture is there.
       await offline.click('[aria-label="Next item"]');
-      if ((await offline.textContent('figcaption strong')) !== sample.items[1]) fail('snapshot-offline: Next did not show the second item');
-      if (!(await offline.$eval('figure img', (i) => i.complete && i.naturalWidth > 0))) fail('snapshot-offline: the item image did not load');
+      if (!(await offline.textContent('.shot figcaption')).startsWith(sample.photos[1])) fail('snapshot-offline: Next did not show the gallery\'s second photo');
+      await offline.click('#b2');
+      if (!(await offline.isVisible('#t2')) || (await offline.isVisible('#t1'))) fail('snapshot-offline: the Most read tab did not open');
+      await offline.click('#b1');
+      await offline.click('#live-btn');
+      if (!(await offline.isVisible('#live-list'))) fail('snapshot-offline: the live box did not open');
+      await offline.click('#live-btn');
+      const broken = await offline.$$eval('img', (list) => list.filter((i) => !i.complete || !i.naturalWidth).map((i) => i.getAttribute('src')));
+      if (broken.length) fail(`snapshot-offline: pictures missing: ${broken}`);
+      if (await offline.$('link[rel="compression-dictionary"], link[rel="preconnect"], [ping]')) fail('snapshot-offline: an ad link or ping was kept');
       if (online.length) fail(`snapshot-offline: the saved page went online: ${online}`);
+      await offline.evaluate(() => window.scrollTo(0, 0));
       await offline.mouse.move(1, 1);
       await offline.screenshot({ path: path.join(outDir, 'snapshot-offline.png') });
       console.log(`wrote ${path.relative(process.cwd(), path.join(outDir, 'snapshot-offline.png'))}`);

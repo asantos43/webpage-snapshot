@@ -31,7 +31,7 @@ The screenshots are real, made by `tests/screenshots.mjs`.
 
 Unzip it and open `index.html`. You can turn off the network to check that it is self-contained.
 
-<img src="images/screenshots/en/snapshot-offline.png" width="600" alt="The saved example page opened offline, on the carousel's second item">
+<img src="images/screenshots/en/snapshot-offline.png" width="600" alt="An example news site saved by PageKeep, opened offline">
 
 ## Languages
 
