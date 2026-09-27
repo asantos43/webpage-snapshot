@@ -74,6 +74,7 @@ Links (`<a href>`) are made absolute, so clicking one opens the real site when y
 Opening `index.html` makes no network requests, so it is private and does not "phone home" (LinkedIn, for example, embeds hidden ad-verification and telemetry frames):
 
 - The page's scripts are removed, and so are `ping` attributes.
+- `<link>` elements are kept only when the browser never downloads them by itself (canonical, alternate, author, next/prev and the like); stylesheets and icons are saved locally, and every other type is removed (preload, prefetch, manifest, `compression-dictionary`, which ad scripts use, and any type browsers add later).
 - Cross-origin iframes cannot be captured. Invisible ones are removed; visible ones stay as an empty box with their original address kept in a `data-snapshot-src` attribute.
 - Any image, font, stylesheet or other file that could not be saved has its reference removed (or replaced with an empty `data:` URL in CSS) instead of pointing at the live site. Links you click (`<a href>`) still go to the real site.
 

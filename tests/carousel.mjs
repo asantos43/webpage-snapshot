@@ -41,6 +41,8 @@ const otherOrigin = `http://localhost:${other.address().port}`;
 // A carousel that renders only its current item (a heading and an image), swapped in a little
 // after each click, like a real one waiting for its transition.
 const page = `<!doctype html><title>Carousel test</title><link rel="stylesheet" href="/style.css">
+<link rel="canonical" href="${otherOrigin}/canonical"><link rel="compression-dictionary" href="${otherOrigin}/dict">
+<link rel="preload" as="image" href="${otherOrigin}/logo.svg"><link rel="some-future-type" href="${otherOrigin}/future">
 <img id="logo" src="${otherOrigin}/logo.svg"><a id="notes" download href="${otherOrigin}/notes.txt">notes</a>
 <div class="card"><div id="item"><h2>Item 1</h2><img src="/img/1.svg"></div>
 <div id="nav"><button aria-label="Previous item" id="p" disabled>&lt;</button><button aria-label="Next item" id="n">&gt;</button></div></div>
@@ -176,6 +178,8 @@ try {
   const listed = JSON.parse(fs.readFileSync(path.join(unzipDir, 'snapshot.json'), 'utf8'));
   check('nothing failed', listed.failed.length === 0, JSON.stringify(listed.failed));
   check('no network requests', online.length === 0, online.join(' '));
+  const links = await snap.$$eval('link', (ls) => ls.map((l) => l.rel));
+  check('<link>s that download by themselves are removed, canonical kept', !links.some((r) => /dictionary|preload|future/.test(r)) && links.includes('canonical'), links.join(', '));
   await snap.close();
 
   console.log('3. OK');
