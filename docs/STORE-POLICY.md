@@ -17,7 +17,7 @@ image in it, and nothing to credit.
 | **Single purpose** | One purpose: save the page in the current tab as a ZIP that opens offline as it looked. Everything else (stepping through carousels, reading code editors, the progress popup) serves that one capture. | review |
 | **Minimum permissions** | No host permissions at all: `activeTab` gives access only to the tab the user opens the popup on, and the page's files from other sites are downloaded by that tab itself through the debugger. Each permission below is used; none is broader than needed (see "Permissions: what was reduced"). | `tests/store-policy.mjs` (exact permission list, no host access, each one justified here) |
 | **No remotely hosted code** | Every script is in the package; the extension pages' CSP is `script-src 'self'; object-src 'self'`; no `eval`, `new Function` or remote `<script>`/`import`. The small script embedded in each saved snapshot (`lib/interactions.js`) is packaged, written into the saved file, and never loads anything. | `tests/store-policy.mjs` |
-| **User data** | The page is read only on the tab the user asked to capture, only while that capture runs, and the result goes only into the ZIP in the user's Downloads folder. Nothing is sent to the developer or anyone else: there is no server, no analytics, no account. See [PRIVACY.md](../PRIVACY.md) (step 5). | review; `tests/store-policy.mjs` (no network host in the code) |
+| **User data** | The page is read only on the tab the user asked to capture, only while that capture runs, and the result goes only into the ZIP in the user's Downloads folder. Nothing is sent to the developer or anyone else: there is no server, no analytics, no account. See [PRIVACY.md](../PRIVACY.md). | review; `tests/store-policy.mjs` (no network host in the code) |
 | **Intellectual property** | Own code, texts and icon, made for this project (the icon: a camera outline on a blue square, drawn for this extension; the PNGs carry no third-party metadata). | `tests/store-policy.mjs` (icons) |
 | **Impersonation / metadata** | Own name ("PageKeep: Offline Page Saver", see "Name"), a description that states what it does (no keyword lists, no other product's name, no links), screenshots of the real popup and of a page it saved. Name, descriptions and pictures in English and Brazilian Portuguese (`store/`). | `tests/store-policy.mjs` (name ≤ 75, summary ≤ 132 characters, in each language; store pictures' sizes; descriptions without other products' names or links) |
 | **Account security** | 2-Step Verification on the publishing Google account. | developer |
@@ -106,8 +106,9 @@ than needed carries no risk while declaring less does.
 Certify all three: not sold to third parties; not used or transferred for purposes unrelated to
 the single purpose; not used or transferred to determine creditworthiness or for lending.
 
-Privacy policy URL: to be added in step 5 (a public gist with `PRIVACY.md`, since this repository
-is private).
+Privacy policy URL: https://gist.github.com/asantos43/a0566af48d0894dc44b72bee43b22da8 (a public gist with [PRIVACY.md](../PRIVACY.md), since this repository
+is private; keep it in step with the file: after changing `PRIVACY.md`, run
+`gh gist edit a0566af48d0894dc44b72bee43b22da8 --filename PRIVACY.md PRIVACY.md`).
 
 ## Name
 

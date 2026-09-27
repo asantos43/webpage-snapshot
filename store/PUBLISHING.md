@@ -13,7 +13,7 @@ checklist de `STORE-POLICY.md` antes de enviar (`npm run smoke`, `npm run carous
 Links que você vai usar:
 
 - Painel de desenvolvedor: https://chrome.google.com/webstore/devconsole
-- Política de privacidade: o gist público do próximo passo (o link entra aqui e em `README.md`)
+- Política de privacidade (gist público): https://gist.github.com/asantos43/a0566af48d0894dc44b72bee43b22da8
 - Zip da versão atual: página [Releases](https://github.com/asantos43/webpage-snapshot/releases)
   do repositório (`pagekeep-<versão>.zip`)
 
@@ -50,7 +50,7 @@ Copie de [`../docs/STORE-POLICY.md`](../docs/STORE-POLICY.md):
   vende, não usa para outro fim, não usa para crédito). Nada sai do computador, mas a extensão lê
   o conteúdo e o endereço da página capturada; declarar a mais não gera problema, declarar a
   menos, sim.
-- **Privacy policy URL**: o link do gist (próximo passo).
+- **Privacy policy URL**: https://gist.github.com/asantos43/a0566af48d0894dc44b72bee43b22da8
 
 A permissão `debugger` costuma levar a uma revisão mais demorada. A justificativa está pronta em
 `STORE-POLICY.md`: ela é usada só na aba escolhida, só durante a captura, com a barra do navegador
@@ -96,3 +96,11 @@ A partir daí, cada pull request aceito gera o release no GitHub **e** envia o m
 para revisão. Pré-lançamentos (opção "prerelease" da execução manual) e pull requests com o rótulo
 `no-release` não vão para a loja. Se a loja recusar o pacote, o passo falha e aparece em vermelho
 no Actions; o release no GitHub continua publicado.
+
+## Quando o `PRIVACY.md` mudar
+
+Atualize o gist, para a loja mostrar o mesmo texto:
+
+```
+gh gist edit a0566af48d0894dc44b72bee43b22da8 --filename PRIVACY.md PRIVACY.md
+```

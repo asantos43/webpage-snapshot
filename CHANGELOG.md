@@ -8,6 +8,7 @@ publishes it as the release's notes.
 
 - Fixed: a saved page could contact an ad server when opened, through a `<link rel="compression-dictionary">`
   (found on a real news site). Now only `<link>` types that never download anything are kept.
+- Privacy policy (`PRIVACY.md`, English and Portuguese), also published for the store listing.
 
 ## [1.2.2] - 2026-09-27
 
