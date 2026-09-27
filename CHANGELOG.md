@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.2.4] - 2026-09-27
+
 - Fixed: accented letters and symbols in stylesheets served without a charset (common on real
   sites) came out garbled in the saved copy ("●" as "â—").
 - Fixed: a file linked inside a carousel was counted once per carousel item in the popup's totals.
