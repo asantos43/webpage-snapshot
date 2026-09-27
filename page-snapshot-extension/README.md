@@ -21,13 +21,21 @@ Click the toolbar button, or press **Alt+Shift+S**. The extension's popup opens 
 - **Cancel** stops a capture in progress: carousels are put back to their first item and nothing is saved.
 - One capture runs at a time. Opening the popup on another tab while one runs shows that capture.
 
-The page you capture stays the visible tab while the popup is open over it, so the browser does not slow it down while carousels are stepped through; just keep the browser window from being minimized until the capture ends. The popup's **Help** section explains all this in short.
+The page you capture stays the visible tab while the popup is open over it, so the browser does not slow it down while carousels are stepped through; just keep the browser window from being minimized until the capture ends. The popup's **Help** section explains all this in short, and links to the full help page, with pictures (`help.html`, or `help.pt_BR.html` in Portuguese), which is part of the extension and works offline.
+
+| While it runs | Finished | What could not be saved |
+| --- | --- | --- |
+| <img src="images/screenshots/en/popup-running.png" width="260" alt="The popup recording item 3 of a carousel"> | <img src="images/screenshots/en/popup-done.png" width="260" alt="The popup with the finished capture, every step done and the OK button"> | <img src="images/screenshots/en/popup-failed.png" width="260" alt="The popup listing an image the site had lost"> |
+
+The screenshots are real, made by `tests/screenshots.mjs`.
 
 Unzip it and open `index.html`. You can turn off the network to check that it is self-contained.
 
+<img src="images/screenshots/en/snapshot-offline.png" width="600" alt="The saved example page opened offline, on the carousel's second item">
+
 ## Languages
 
-The popup, its Help, and the name and description shown by the browser and the store are in English (the default) and Brazilian Portuguese; the browser picks one by its own language. The texts are in `_locales/en` and `_locales/pt_BR`, with the same keys. The popup translates everything, including the steps the capture reports: the offscreen page has no `chrome.i18n`, so it sends message keys with their values, and `popup.js` turns them into text.
+The popup, its Help, the help page, and the name and description shown by the browser and the store are in English (the default) and Brazilian Portuguese; the browser picks one by its own language. The texts are in `_locales/en` and `_locales/pt_BR`, with the same keys. The popup translates everything, including the steps the capture reports: the offscreen page has no `chrome.i18n`, so it sends message keys with their values, and `popup.js` turns them into text.
 
 ## ZIP layout
 
@@ -103,6 +111,8 @@ The extension only touches a tab when you click the button, and nothing is sent 
 | `background.js` | Service worker: starts a capture when the popup opens, keeps its progress, and makes the tab, debugger and download calls for the offscreen page |
 | `popup.html/.css/.js` | The popup under the icon: progress, OK, Cancel, Download again, Help |
 | `_locales/en`, `_locales/pt_BR` | Every text of the popup, its Help and the manifest |
+| `help.html`, `help.pt_BR.html`, `help.css` | The full help page, in English and Portuguese; the popup links to the one in its language (`help_page` message) |
+| `images/screenshots/en`, `images/screenshots/pt_BR` | Screenshots for the help pages and READMEs, made by `tests/screenshots.mjs` |
 | `offscreen.html/.js` | Hidden page that does the capture: downloads assets, rewrites URLs, builds the ZIP |
 | `inpage.js` | Runs inside the tab; snapshots the live DOM and its state |
 | `lib/helpers.js` | Pure helpers: CSS/`srcset` rewriting, file naming |

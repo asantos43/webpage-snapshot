@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PageKeep: Help</title>
+  <link rel="icon" href="icons/icon48.png">
+  <link rel="stylesheet" href="help.css">
+</head>
+<body>
+  <header class="page-header">
+    <img src="icons/icon128.png" width="56" height="56" alt="">
+    <div>
+      <h1>PageKeep</h1>
+      <p class="lead">Saves the page you are looking at as a ZIP that opens offline exactly as you saw it: its
+        styles, images and fonts, what scripts put on the screen, what you typed in forms, and every item of its
+        carousels. This help page works offline; the <a href="help.pt_BR.html" lang="pt-BR">versão em português</a> too.</p>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="Contents">
+    <a href="#start">Quick start</a>
+    <a href="#running">While it runs</a>
+    <a href="#result">The result</a>
+    <a href="#saved">What is saved</a>
+    <a href="#not-saved">What is not saved</a>
+    <a href="#zip">Opening the ZIP</a>
+    <a href="#troubleshooting">Troubleshooting</a>
+    <a href="#privacy">Privacy</a>
+  </nav>
+
+  <main>
+    <section id="start">
+      <h2>Quick start</h2>
+      <div class="pair">
+        <div>
+          <ol>
+            <li>Open the page you want to keep, and leave it the way you want it saved: scrolled, sections
+              opened, a form filled in.</li>
+            <li>Click the PageKeep icon in the toolbar, or press <strong>Alt+Shift+S</strong>. The popup opens under
+              the icon and the capture starts at once.</li>
+            <li>Watch it go: one line per step, with a spinner that turns into a check mark. On a page with a
+              carousel you see each item being recorded.</li>
+            <li>At the end the ZIP goes to your Downloads folder, named after the page's title with the date
+              and time, for example <code>Weekend-baking-20260927-1015.zip</code>.</li>
+          </ol>
+        </div>
+        <div>
+          <figure>
+            <img src="images/screenshots/en/popup-running.png" width="440" alt="The popup while it captures: Found the tab, and Carousel 1 of 1: recording item 3; Cancel is available, OK is not yet">
+            <figcaption>A capture in progress, stepping through a carousel.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="running">
+      <h2>While it runs</h2>
+      <ul>
+        <li><strong>You can close the popup</strong>, or click on the page: the capture carries on in the background.
+          Click the icon again to see how it is going.</li>
+        <li>The icon's badge shows <strong>…</strong> while it runs, <strong>✓</strong> when it is done and
+          <strong>!</strong> if it failed, so you know without opening the popup.</li>
+        <li><strong>Cancel</strong> stops the capture: carousels go back to their first item and nothing is saved.</li>
+        <li>The browser shows a bar saying the extension started debugging it. PageKeep uses the browser's debugger to
+          read the files the page already loaded, the exact bytes you saw, and to download the few it had not;
+          the bar goes away when the capture ends.</li>
+        <li>One capture runs at a time. If you open the popup on another tab while one runs, it shows that capture.</li>
+        <li>Keep the browser window open (not minimized) until the end: a page in a minimized window is slowed down
+          by the browser, and carousels then take much longer.</li>
+      </ul>
+    </section>
+
+    <section id="result">
+      <h2>The result</h2>
+      <div class="pair">
+        <div>
+          <p>When the capture ends, the popup keeps the result until you press <strong>OK</strong>:</p>
+          <ul>
+            <li>the file name, its size, and how many files it holds (how many were read from the page and how
+              many downloaded);</li>
+            <li>notes on what needed special care: carousels saved with all their items, code editors saved as
+              text, files offered for download saved next to the page;</li>
+            <li><strong>Download again</strong> saves the same ZIP once more;</li>
+            <li><strong>OK</strong> clears the result, so the next click on the icon captures the page again.</li>
+          </ul>
+          <p>The popup's <strong>Help</strong> section sums this up, with a link to this page.</p>
+        </div>
+        <div>
+          <figure>
+            <img src="images/screenshots/en/popup-done.png" width="440" alt="The finished capture: the saved file name and size, every step with a check mark, notes about the carousel and the linked file, and the Download again, Cancel and OK buttons">
+            <figcaption>The finished capture, waiting for OK.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="saved">
+      <h2>What is saved</h2>
+      <ul>
+        <li><strong>The page as it is on screen now</strong>, not as the server first sent it: content that scripts
+          added, sections you opened, the current values of forms (password fields are always left empty),
+          and canvases, saved as pictures.</li>
+        <li><strong>Its files</strong>: stylesheets (and what they import), images in every size the page offers, fonts,
+          icons, video posters and small audio or video files.</li>
+        <li><strong>Carousels</strong> with "Next" and "Previous" buttons: PageKeep steps through every item, puts the
+          page back on the first one, and the saved copy's buttons still work.</li>
+        <li><strong>Collapsible sections, tabs and "Expand all" buttons</strong> keep working in the saved copy, through a
+          small script packed into it that never goes online.</li>
+        <li><strong>Code editors</strong> (like the one in VS Code) become ordinary text you can scroll and select, with the
+          complete file when the page links to it.</li>
+        <li><strong>Files offered for download</strong> (attachments, PDFs, archives from the same site), up to 25, saved
+          next to the page so their links work offline.</li>
+        <li>Text cut short with "…more" appears in full.</li>
+      </ul>
+    </section>
+
+    <section id="not-saved">
+      <h2>What is not saved</h2>
+      <div class="pair">
+        <div>
+          <ul>
+            <li>Frames from other sites (ads, embedded players): an invisible one is removed, a visible one stays as
+              an empty box.</li>
+            <li>Files over 30 MB, and anything past 800 MB in total.</li>
+            <li>Browser pages such as <code>chrome://</code> ones and the extension store: the browser does not let
+              extensions read them.</li>
+          </ul>
+          <p>Whatever could not be saved is listed in the popup, and its reference is removed from the saved copy
+            instead of pointing at the live site, so the copy never goes online. If a file failed only for a
+            passing reason (it timed out), capture the page again.</p>
+        </div>
+        <div>
+          <figure>
+            <img src="images/screenshots/en/popup-failed.png" width="440" alt="A finished capture with a warning: one resource could not be saved; the open list shows the missing image's address and HTTP 404">
+            <figcaption>One image was missing on the site: it is listed, and left out of the copy.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="zip">
+      <h2>Opening the ZIP</h2>
+      <p>Unzip it anywhere and open <code>index.html</code> in the browser, with or without an internet connection:</p>
+      <pre>index.html      the page, pointing at the files in assets/
+assets/         styles, images, fonts, icons and saved downloads
+snapshot.json   the page's address and title, the date, each file saved and each one that failed</pre>
+      <p>Opening it makes no request at all. Links still lead to the real site when you click them while online.</p>
+      <figure class="wide">
+        <img src="images/screenshots/en/snapshot-offline.png" width="1000" alt="The saved recipes page opened from the ZIP, offline, on the carousel's second item">
+        <figcaption>The saved page, opened offline; its carousel still steps through every item.</figcaption>
+      </figure>
+    </section>
+
+    <section id="troubleshooting">
+      <h2>Troubleshooting</h2>
+      <ul>
+        <li><strong>"The browser does not allow reading this page"</strong>: it is a browser page (<code>chrome://</code>,
+          the extension store, another extension's page). Those cannot be saved.</li>
+        <li><strong>"Could not read the page's loaded files"</strong>: the browser's debugger could not attach to the tab.
+          The capture carries on, but only files from the page's own site can be saved; close developer tools
+          or other debugging extensions on that tab and try again.</li>
+        <li><strong>The popup shows another page's capture</strong>: one capture runs at a time. Wait for it, or press
+          Cancel, then click the icon on your tab.</li>
+        <li><strong>A carousel was not recorded</strong>: PageKeep recognises carousels by buttons labelled "Next item" /
+          "Previous item" (or slide, image, photo, card); others are saved on the item that was showing.</li>
+      </ul>
+    </section>
+
+    <section id="privacy">
+      <h2>Privacy</h2>
+      <p>PageKeep reads a page only when you click its icon on that tab, and only while the capture runs. What it
+        reads goes only into the ZIP saved on your computer. Nothing is sent to the developer or anyone else: there
+        is no account, no server and no analytics. The only requests it makes are for the page's own files, to the
+        servers that page already uses.</p>
+    </section>
+  </main>
+
+  <footer>PageKeep. This page is part of the extension and works offline.</footer>
+</body>
+</html>

@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PageKeep: Ajuda</title>
+  <link rel="icon" href="icons/icon48.png">
+  <link rel="stylesheet" href="help.css">
+</head>
+<body>
+  <header class="page-header">
+    <img src="icons/icon128.png" width="56" height="56" alt="">
+    <div>
+      <h1>PageKeep</h1>
+      <p class="lead">Salva a página que você está vendo num ZIP que abre offline exatamente como você a viu: estilos,
+        imagens e fontes, o que os scripts colocaram na tela, o que você digitou em formulários e todos os itens dos
+        carrosséis. Esta ajuda funciona offline; a <a href="help.html" lang="en">English version</a> também.</p>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="Conteúdo">
+    <a href="#start">Começo rápido</a>
+    <a href="#running">Durante a captura</a>
+    <a href="#result">O resultado</a>
+    <a href="#saved">O que é salvo</a>
+    <a href="#not-saved">O que não é salvo</a>
+    <a href="#zip">Abrindo o ZIP</a>
+    <a href="#troubleshooting">Problemas</a>
+    <a href="#privacy">Privacidade</a>
+  </nav>
+
+  <main>
+    <section id="start">
+      <h2>Começo rápido</h2>
+      <div class="pair">
+        <div>
+          <ol>
+            <li>Abra a página que você quer guardar e deixe-a como quer que ela seja salva: rolada, com as seções
+              abertas, com um formulário preenchido.</li>
+            <li>Clique no ícone do PageKeep na barra de ferramentas ou aperte <strong>Alt+Shift+S</strong>. O popup abre
+              embaixo do ícone e a captura começa na hora.</li>
+            <li>Acompanhe: uma linha por etapa, com um indicador girando que vira um sinal de ✓. Numa página com
+              carrossel, você vê cada item sendo gravado.</li>
+            <li>No fim, o ZIP vai para a sua pasta de Downloads, com o título da página, a data e a hora no nome,
+              por exemplo <code>Receitas-de-fim-de-semana-20260927-1015.zip</code>.</li>
+          </ol>
+        </div>
+        <div>
+          <figure>
+            <img src="images/screenshots/pt_BR/popup-running.png" width="440" alt="O popup durante a captura: Aba encontrada e Carrossel 1 de 1: gravando o item 3; Cancelar disponível, OK ainda não">
+            <figcaption>Uma captura em andamento, percorrendo um carrossel.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="running">
+      <h2>Durante a captura</h2>
+      <ul>
+        <li><strong>Você pode fechar o popup</strong> ou clicar na página: a captura continua em segundo plano. Clique no
+          ícone de novo para ver como está.</li>
+        <li>O selo do ícone mostra <strong>…</strong> enquanto roda, <strong>✓</strong> quando termina e
+          <strong>!</strong> se falhou, para você saber sem abrir o popup.</li>
+        <li><strong>Cancelar</strong> interrompe a captura: os carrosséis voltam ao primeiro item e nada é salvo.</li>
+        <li>O navegador mostra uma barra dizendo que a extensão começou a depurá-lo. O PageKeep usa o depurador do
+          navegador para ler os arquivos que a página já carregou, exatamente os que você viu, e para baixar os
+          poucos que ela não tinha carregado; a barra some quando a captura termina.</li>
+        <li>Uma captura por vez. Se você abrir o popup em outra aba enquanto uma captura roda, ele mostra essa captura.</li>
+        <li>Deixe a janela do navegador aberta (não minimizada) até o fim: o navegador deixa lenta a página de uma
+          janela minimizada, e os carrosséis passam a demorar muito mais.</li>
+      </ul>
+    </section>
+
+    <section id="result">
+      <h2>O resultado</h2>
+      <div class="pair">
+        <div>
+          <p>Quando a captura termina, o popup guarda o resultado até você apertar <strong>OK</strong>:</p>
+          <ul>
+            <li>o nome do arquivo, o tamanho e quantos arquivos ele tem (quantos foram lidos da página e quantos
+              foram baixados);</li>
+            <li>observações sobre o que precisou de cuidado especial: carrosséis salvos com todos os itens, editores
+              de código salvos como texto, arquivos para download salvos junto da página;</li>
+            <li><strong>Baixar de novo</strong> baixa o mesmo ZIP mais uma vez;</li>
+            <li><strong>OK</strong> limpa o resultado, e o próximo clique no ícone captura a página de novo.</li>
+          </ul>
+          <p>A seção <strong>Ajuda</strong> do popup resume isso, com um link para esta página.</p>
+        </div>
+        <div>
+          <figure>
+            <img src="images/screenshots/pt_BR/popup-done.png" width="440" alt="A captura terminada: o nome e o tamanho do arquivo salvo, cada etapa com um sinal de ✓, observações sobre o carrossel e o arquivo do link, e os botões Baixar de novo, Cancelar e OK">
+            <figcaption>A captura terminada, esperando o OK.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="saved">
+      <h2>O que é salvo</h2>
+      <ul>
+        <li><strong>A página como está na tela agora</strong>, e não como o servidor a enviou: o conteúdo que os scripts
+          acrescentaram, as seções que você abriu, os valores atuais dos formulários (campos de senha ficam sempre
+          vazios) e os canvases, salvos como imagens.</li>
+        <li><strong>Os arquivos dela</strong>: folhas de estilo (e o que elas importam), imagens em todos os tamanhos que a
+          página oferece, fontes, ícones, capas de vídeo e arquivos pequenos de áudio ou vídeo.</li>
+        <li><strong>Carrosséis</strong> com botões "Próximo" e "Anterior": o PageKeep percorre cada item, devolve a página ao
+          primeiro e, na cópia salva, os botões continuam funcionando.</li>
+        <li><strong>Seções recolhíveis, abas e botões "Expandir tudo"</strong> continuam funcionando na cópia salva, graças a
+          um pequeno script guardado nela que nunca acessa a internet.</li>
+        <li><strong>Editores de código</strong> (como o do VS Code) viram texto comum, que dá para rolar e selecionar, com o
+          arquivo completo quando a página tem um link para ele.</li>
+        <li><strong>Arquivos oferecidos para download</strong> (anexos, PDFs, arquivos compactados do mesmo site), até 25,
+          salvos junto da página para que os links funcionem offline.</li>
+        <li>Textos cortados com "…mais" aparecem inteiros.</li>
+      </ul>
+    </section>
+
+    <section id="not-saved">
+      <h2>O que não é salvo</h2>
+      <div class="pair">
+        <div>
+          <ul>
+            <li>Quadros (iframes) de outros sites, como anúncios e players incorporados: um invisível é removido, um
+              visível fica como uma caixa vazia.</li>
+            <li>Arquivos acima de 30 MB, e o que passar de 800 MB no total.</li>
+            <li>Páginas do navegador, como as <code>chrome://</code>, e a loja de extensões: o navegador não deixa
+              extensões lerem essas páginas.</li>
+          </ul>
+          <p>O que não pôde ser salvo aparece listado no popup, e a referência a ele é removida da cópia em vez de
+            apontar para o site ao vivo, para que a cópia nunca acesse a internet. Se um arquivo falhou só por um
+            motivo passageiro (tempo esgotado), capture a página de novo.</p>
+        </div>
+        <div>
+          <figure>
+            <img src="images/screenshots/pt_BR/popup-failed.png" width="440" alt="Uma captura terminada com um aviso: 1 recurso não pôde ser salvo; a lista aberta mostra o endereço da imagem que faltava e HTTP 404">
+            <figcaption>Faltava uma imagem no site: ela aparece na lista e fica fora da cópia.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="zip">
+      <h2>Abrindo o ZIP</h2>
+      <p>Descompacte onde quiser e abra o <code>index.html</code> no navegador, com ou sem internet:</p>
+      <pre>index.html      a página, apontando para os arquivos em assets/
+assets/         estilos, imagens, fontes, ícones e downloads salvos
+snapshot.json   endereço e título da página, a data, cada arquivo salvo e cada um que falhou</pre>
+      <p>Abrir a cópia não faz nenhuma requisição. Os links continuam levando ao site real quando você clica neles
+        com internet.</p>
+      <figure class="wide">
+        <img src="images/screenshots/pt_BR/snapshot-offline.png" width="1000" alt="A página de receitas salva, aberta a partir do ZIP, offline, no segundo item do carrossel">
+        <figcaption>A página salva, aberta offline; o carrossel continua mostrando todos os itens.</figcaption>
+      </figure>
+    </section>
+
+    <section id="troubleshooting">
+      <h2>Problemas</h2>
+      <ul>
+        <li><strong>"O navegador não permite ler esta página"</strong>: é uma página do navegador (<code>chrome://</code>, a
+          loja de extensões, a página de outra extensão). Essas não podem ser salvas.</li>
+        <li><strong>"Não foi possível ler os arquivos carregados pela página"</strong>: o depurador do navegador não conseguiu
+          se conectar à aba. A captura continua, mas só os arquivos do próprio site da página podem ser salvos; feche
+          as ferramentas de desenvolvedor ou outras extensões de depuração nessa aba e tente de novo.</li>
+        <li><strong>O popup mostra a captura de outra página</strong>: é uma captura por vez. Espere terminar ou aperte
+          Cancelar, e depois clique no ícone na sua aba.</li>
+        <li><strong>Um carrossel não foi gravado</strong>: o PageKeep reconhece carrosséis pelos botões com o rótulo
+          "Next item" / "Previous item" (ou slide, image, photo, card) no código da página; os outros são salvos no
+          item que estava aparecendo.</li>
+      </ul>
+    </section>
+
+    <section id="privacy">
+      <h2>Privacidade</h2>
+      <p>O PageKeep lê uma página só quando você clica no ícone dele naquela aba, e só enquanto a captura roda. O que
+        ele lê vai apenas para o ZIP salvo no seu computador. Nada é enviado ao desenvolvedor nem a ninguém: não há
+        conta, servidor nem estatísticas de uso. As únicas requisições que ele faz são para os arquivos da própria
+        página, aos servidores que essa página já usa.</p>
+    </section>
+  </main>
+
+  <footer>PageKeep. Esta página faz parte da extensão e funciona offline.</footer>
+</body>
+</html>
