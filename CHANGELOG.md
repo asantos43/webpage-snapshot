@@ -6,6 +6,11 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- Carousels labelled in Portuguese and Spanish are recorded too ("Próximo", "Anterior", "Siguiente",
+  "Próxima imagem", "Imagen anterior"…), and so are English ones labelled just "Next" / "Previous".
+  Labels are compared without accents or capitals. A button that would submit a form (a sign-up
+  wizard's "Next") is never pressed.
+
 ## [1.2.4] - 2026-09-27
 
 - Fixed: accented letters and symbols in stylesheets served without a charset (common on real

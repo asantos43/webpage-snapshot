@@ -7,8 +7,9 @@
 //     by aria-controls or the hidden element right after the button; plus "Expand all" /
 //     "Collapse all" buttons;
 //   - tabs: role="tab" elements with aria-controls pointing at role="tabpanel" elements;
-//   - carousels: offscreen.js recorded every item of a "Next item" / "Previous item" carousel
-//     (the page itself only keeps the current one in the DOM); Next/Previous swap them in;
+//   - carousels: offscreen.js recorded every item of a "Next" / "Previous" carousel, labelled in
+//     English, Portuguese or Spanish (the page itself only keeps the current one in the DOM);
+//     Next/Previous swap them in;
 //   - code/text editors that were replaced by a plain <pre data-snap-editor>: "Copy file"
 //     buttons copy its text and "word wrap" buttons toggle wrapping.
 //
@@ -90,8 +91,15 @@ export function interactionsRuntime() {
 
   // ---- carousels
 
-  const NEXT_RE = /^next\s+(item|slide|image|photo|picture|card)$/i;
-  const PREV_RE = /^(previous|prev)\s+(item|slide|image|photo|picture|card)$/i;
+  // Carousel arrows, by their aria-label, in English, Portuguese and Spanish: the word alone
+  // ("Next", "Próximo", "Siguiente") or with what it moves ("Next slide", "Próxima imagem",
+  // "Imagen anterior"). Labels are compared without accents, in lower case (plain()), so the
+  // patterns are written that way. Keep these three lines identical in inpage.js and
+  // lib/interactions.js (tests/carousel.mjs checks it).
+  const NEXT_RE = /^(?:(?:next|proxim[oa]|seguinte|siguiente)(?: (?:item|slide|image|photo|picture|card|imagem|foto|cartao|elemento|diapositiva|imagen|tarjeta))?|(?:item|slide|imagem|foto|cartao|elemento|diapositiva|imagen|tarjeta) (?:seguinte|siguiente|proxim[oa]))$/;
+  const PREV_RE = /^(?:(?:previous|prev|anterior)(?: (?:item|slide|image|photo|picture|card|imagem|foto|cartao|elemento|diapositiva|imagen|tarjeta))?|(?:item|slide|imagem|foto|cartao|elemento|diapositiva|imagen|tarjeta) anterior)$/;
+  // A label as the patterns expect it: no accents ("Próximo" → "proximo"), lower case, single spaces.
+  const plain = (label) => (label || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
   let recorded = null;
   const pagesFor = (region) => {
     if (recorded === null) {
@@ -132,7 +140,7 @@ export function interactionsRuntime() {
     const region = event.target.closest('[data-snap-pager]');
     if (region) {
       const arrow = event.target.closest('[aria-label]');
-      const label = arrow ? arrow.getAttribute('aria-label') || '' : '';
+      const label = plain(arrow ? arrow.getAttribute('aria-label') : '');
       const step = NEXT_RE.test(label) ? 1 : PREV_RE.test(label) ? -1 : 0;
       const pages = pagesFor(region);
       if (step && pages.length) {
