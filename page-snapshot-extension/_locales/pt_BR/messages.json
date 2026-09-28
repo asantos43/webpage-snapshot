@@ -28,7 +28,7 @@
     "description": "Title of the collapsible help section."
   },
   "help_intro": {
-    "message": "Este popup salva a página que você está vendo num ZIP que abre offline. Ele lê a página, percorre cada carrossel, reaproveita os arquivos que a página já carregou e baixa o resto; depois o ZIP vai para a sua pasta de Downloads.",
+    "message": "Este popup salva a página que você está vendo num ZIP que abre offline. Capturar lê a página, percorre cada carrossel, reaproveita os arquivos que a página já carregou e baixa o resto; depois, Baixar salva o ZIP na sua pasta de Downloads.",
     "description": "First paragraph of the help."
   },
   "help_close_label": {
@@ -36,20 +36,16 @@
     "description": "Bold start of a help item."
   },
   "help_close": {
-    "message": "(ou clicar na página): a captura continua. Clique de novo no ícone da extensão para ver como está. O selo do ícone mostra … enquanto roda, ✓ quando termina e ! se falhou.",
+    "message": "(ou clicar na página) enquanto a captura roda: ela continua. Clique de novo no ícone da extensão para ver como está; o ZIP pronto espera lá por Baixar. O selo do ícone mostra … enquanto roda, ✓ quando termina e ! se falhou.",
     "description": "Rest of the help item after help_close_label."
   },
   "help_cancel": {
-    "message": "interrompe a captura: os carrosséis voltam ao primeiro item e nada é salvo.",
+    "message": "interrompe uma captura em andamento (os carrosséis voltam ao item em que estavam) e fecha o popup; numa captura terminada, descarta o resultado sem salvar.",
     "description": "Help item after the Cancel button's name."
   },
-  "help_ok": {
-    "message": "fica disponível quando a captura termina; limpa o resultado, e o próximo clique no ícone captura a página de novo.",
-    "description": "Help item after the OK button's name."
-  },
   "help_download": {
-    "message": "baixa o mesmo ZIP de novo.",
-    "description": "Help item after the Download again button's name."
+    "message": "salva o ZIP pronto na sua pasta de Downloads e deixa o popup pronto para a próxima captura. Nada é salvo antes disso.",
+    "description": "Help item after the Download button's name."
   },
   "help_one": {
     "message": "Uma captura por vez. Enquanto a captura roda, o navegador mostra na página uma barra dizendo que a extensão está depurando o navegador; ela serve para ler os arquivos que a página já carregou e some no fim.",
@@ -67,17 +63,9 @@
     "message": "help.pt_BR.html",
     "description": "File name of the help page in this language (not shown)."
   },
-  "download_again": {
-    "message": "Baixar de novo",
-    "description": "Button: save the same ZIP again."
-  },
   "cancel": {
     "message": "Cancelar",
     "description": "Button: stop the capture."
-  },
-  "ok": {
-    "message": "OK",
-    "description": "Button: dismiss the finished capture."
   },
   "steps_label": {
     "message": "O que a extensão está fazendo",
@@ -223,24 +211,12 @@
     "message": "ZIP pronto ($1 arquivos, $2 MB)",
     "description": "Step done."
   },
-  "step_save_saving": {
-    "message": "Salvando na sua pasta de Downloads…",
-    "description": "Step."
-  },
-  "step_save_done": {
-    "message": "Enviado para a sua pasta de Downloads",
-    "description": "Step done."
-  },
-  "step_save_failed": {
-    "message": "Não foi possível começar o download ($1); use Baixar de novo",
-    "description": "$1 = technical reason."
-  },
   "status_saved_one": {
-    "message": "$1 salvo ($2 MB, 1 recurso; $3).",
+    "message": "$1 está pronto ($2 MB, 1 recurso; $3). Aperte Baixar para salvá-lo.",
     "description": "Final status; $1 = file name, $3 = origin_debugger or origin_no_debugger."
   },
   "status_saved_other": {
-    "message": "$2 salvo ($3 MB, $1 recursos; $4).",
+    "message": "$2 está pronto ($3 MB, $1 recursos; $4). Aperte Baixar para salvá-lo.",
     "description": "Final status; $1 = number of resources, $2 = file name, $4 = origin_debugger or origin_no_debugger."
   },
   "origin_debugger": {
@@ -311,10 +287,6 @@
     "message": "Carregar a página inteira antes: rolar até o fim e apertar “Carregar mais”, para salvar tudo",
     "description": "Popup option (checkbox)."
   },
-  "option_reveal_hint": {
-    "message": "Vale a partir da próxima captura.",
-    "description": "Under the option: the capture in progress already started."
-  },
   "step_reveal": {
     "message": "Rolando a página para carregar tudo…",
     "description": "Step."
@@ -336,7 +308,7 @@
     "description": "Bold start of a help item (the option's name)."
   },
   "help_reveal": {
-    "message": "(ligado, a menos que você desligue): antes de salvar, o PageKeep rola a página até o fim e aperta os botões “Carregar mais”, para salvar também as imagens e listas que só aparecem assim; depois volta para onde você estava. Vale a partir da próxima captura.",
+    "message": "(ligada, a menos que você desligue): antes de salvar, o PageKeep rola a página até o fim e aperta os botões “Carregar mais”, para salvar também as imagens e listas que só aparecem assim; depois volta para onde você estava.",
     "description": "Help item after help_reveal_label."
   },
   "note_frame_pictures_one": {
@@ -354,5 +326,25 @@
   "note_gallery_other": {
     "message": "$1 fotos de galeria salvas em tamanho grande; elas abrem sobre a página como no site.",
     "description": "Result note; $1 = number of pictures."
+  },
+  "snapshot": {
+    "message": "Capturar",
+    "description": "Button: start the snapshot of the page."
+  },
+  "download": {
+    "message": "Baixar",
+    "description": "Button: save the finished ZIP and get the popup ready for the next snapshot."
+  },
+  "status_idle": {
+    "message": "Pronto para salvar esta página. Aperte Capturar.",
+    "description": "Status before any capture."
+  },
+  "status_downloading": {
+    "message": "Salvando o ZIP na sua pasta de Downloads…",
+    "description": "Status after Download is pressed."
+  },
+  "help_snapshot": {
+    "message": "começa a salvar esta página (a opção abaixo decide se a página inteira é carregada antes).",
+    "description": "Help item after the Snapshot button's name."
   }
 }

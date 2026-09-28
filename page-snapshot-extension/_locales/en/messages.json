@@ -28,7 +28,7 @@
     "description": "Title of the collapsible help section."
   },
   "help_intro": {
-    "message": "This popup saves the page you are looking at as a ZIP that opens offline. It reads the page, steps through each carousel, reuses the files the page already loaded and downloads the rest; then the ZIP goes to your Downloads folder.",
+    "message": "This popup saves the page you are looking at as a ZIP that opens offline. Snapshot reads the page, steps through each carousel, reuses the files the page already loaded and downloads the rest; Download then saves the ZIP to your Downloads folder.",
     "description": "First paragraph of the help."
   },
   "help_close_label": {
@@ -36,20 +36,16 @@
     "description": "Bold start of a help item."
   },
   "help_close": {
-    "message": "(or click on the page): the capture carries on. Click the extension's icon again to see how it is going. The icon's badge shows … while it runs, ✓ when it is done and ! if it failed.",
+    "message": "(or click on the page) while a snapshot runs: it carries on. Click the extension's icon again to see how it is going; the finished ZIP waits there for Download. The icon's badge shows … while it runs, ✓ when it is done and ! if it failed.",
     "description": "Rest of the help item after help_close_label."
   },
   "help_cancel": {
-    "message": "stops the capture: carousels go back to their first item and nothing is saved.",
+    "message": "stops a snapshot in progress (carousels go back to their item) and closes the popup; on a finished snapshot, it discards it without saving.",
     "description": "Help item after the Cancel button's name."
   },
-  "help_ok": {
-    "message": "becomes available when the capture ends; it clears the result, so the next click on the icon captures the page again.",
-    "description": "Help item after the OK button's name."
-  },
   "help_download": {
-    "message": "saves the same ZIP once more.",
-    "description": "Help item after the Download again button's name."
+    "message": "saves the finished ZIP to your Downloads folder and gets the popup ready for the next snapshot. Nothing is saved until you press it.",
+    "description": "Help item after the Download button's name."
   },
   "help_one": {
     "message": "One capture runs at a time. While the capture runs, the browser shows an \"Extension started debugging this browser\" bar on the page; it is used to read the files the page already loaded and goes away at the end.",
@@ -67,17 +63,9 @@
     "message": "help.html",
     "description": "File name of the help page in this language (not shown)."
   },
-  "download_again": {
-    "message": "Download again",
-    "description": "Button: save the same ZIP again."
-  },
   "cancel": {
     "message": "Cancel",
     "description": "Button: stop the capture."
-  },
-  "ok": {
-    "message": "OK",
-    "description": "Button: dismiss the finished capture."
   },
   "steps_label": {
     "message": "What the extension is doing",
@@ -223,24 +211,12 @@
     "message": "Packed the ZIP ($1 files, $2 MB)",
     "description": "Step done."
   },
-  "step_save_saving": {
-    "message": "Saving it to your Downloads folder…",
-    "description": "Step."
-  },
-  "step_save_done": {
-    "message": "Sent to your Downloads folder",
-    "description": "Step done."
-  },
-  "step_save_failed": {
-    "message": "Could not start the download ($1); use Download again",
-    "description": "$1 = technical reason."
-  },
   "status_saved_one": {
-    "message": "Saved $1 ($2 MB, 1 resource; $3).",
+    "message": "$1 is ready ($2 MB, 1 resource; $3). Press Download to save it.",
     "description": "Final status; $1 = file name, $3 = origin_debugger or origin_no_debugger."
   },
   "status_saved_other": {
-    "message": "Saved $2 ($3 MB, $1 resources; $4).",
+    "message": "$2 is ready ($3 MB, $1 resources; $4). Press Download to save it.",
     "description": "Final status; $1 = number of resources, $2 = file name, $4 = origin_debugger or origin_no_debugger."
   },
   "origin_debugger": {
@@ -311,10 +287,6 @@
     "message": "Load the whole page first: scroll to the end and press “Load more”, so everything is saved",
     "description": "Popup option (checkbox)."
   },
-  "option_reveal_hint": {
-    "message": "Applies from the next capture.",
-    "description": "Under the option: the capture in progress already started."
-  },
   "step_reveal": {
     "message": "Scrolling through the page so everything loads…",
     "description": "Step."
@@ -336,7 +308,7 @@
     "description": "Bold start of a help item (the option's name)."
   },
   "help_reveal": {
-    "message": "(on unless you turn it off): before saving, PageKeep scrolls through the page and presses its “Load more” buttons, so images and lists that only appear then are saved too; it then goes back to where you were. It applies from the next capture.",
+    "message": "(on unless you turn it off): before saving, PageKeep scrolls through the page and presses its “Load more” buttons, so images and lists that only appear then are saved too; it then goes back to where you were.",
     "description": "Help item after help_reveal_label."
   },
   "note_frame_pictures_one": {
@@ -354,5 +326,25 @@
   "note_gallery_other": {
     "message": "$1 gallery pictures saved in full size; they open over the page as on the site.",
     "description": "Result note; $1 = number of pictures."
+  },
+  "snapshot": {
+    "message": "Snapshot",
+    "description": "Button: start the snapshot of the page."
+  },
+  "download": {
+    "message": "Download",
+    "description": "Button: save the finished ZIP and get the popup ready for the next snapshot."
+  },
+  "status_idle": {
+    "message": "Ready to save this page. Press Snapshot.",
+    "description": "Status before any capture."
+  },
+  "status_downloading": {
+    "message": "Saving the ZIP to your Downloads folder…",
+    "description": "Status after Download is pressed."
+  },
+  "help_snapshot": {
+    "message": "starts saving this page (the option below it decides whether the whole page is loaded first).",
+    "description": "Help item after the Snapshot button's name."
   }
 }

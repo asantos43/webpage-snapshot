@@ -77,7 +77,7 @@ Other permissions considered and kept:
 | `scripting` | Runs the packaged script that copies the page's current content (DOM, form values, canvases, code editors) and steps through its carousels, on the tab the user chose. |
 | `debugger` | Reads the files the page has already loaded (images, styles, fonts) so the saved copy has exactly what the user saw, including files from other sites; downloads the few files the page had not loaded, in the page's own context, so the extension needs no permission for any website; and takes a picture of each visible frame from another site (an ad, an embedded player), which cannot be read, so the copy shows how it looked. Attached only to the chosen tab and only while the capture runs; the browser shows its "debugging" bar during that time. |
 | `offscreen` | A hidden extension page rebuilds the saved page and packs the ZIP, so the capture continues when the popup closes (a service worker has no DOM parser). |
-| `downloads` | Saves the finished ZIP to the user's Downloads folder, also when the popup has already been closed, and again when the user presses "Download again". |
+| `downloads` | Saves the finished ZIP to the user's Downloads folder when the user presses the popup's Download button. |
 | `storage` | Keeps the progress of the current capture in session storage so the popup can show it when reopened (cleared when the capture is dismissed or the browser closes), and the extension's one setting, the popup's "Load the whole page first" option, in local storage. |
 
 Host permissions: **none**. Remote code: **No**.

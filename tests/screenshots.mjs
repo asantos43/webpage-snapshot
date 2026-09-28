@@ -11,6 +11,7 @@
 //   --lang: only this browser interface language (en or pt-BR), so the popup uses its translation.
 //   --out:  another folder for that language's shots (store-images.mjs uses this).
 // Shots, each checked before it is written:
+//   popup-idle.png       the popup as it opens: Snapshot and the option
 //   popup-running.png    a capture stepping through the carousel
 //   popup-done.png       the finished capture: status, steps, notes, OK
 //   popup-failed.png     a page with a missing image: the list of what could not be saved
@@ -86,7 +87,7 @@ async function shots(lang, outDir) {
   const job = () => worker.evaluate(() => chrome.storage.session.get('job').then((r) => r.job || null));
 
   // The example page in its own tab, and the popup as a page that takes it for the active tab.
-  async function capture(query = '') {
+  async function capture(query = '', start = true) {
     const tab = await context.newPage();
     await tab.setViewportSize({ width: 1000, height: 700 });
     await tab.goto(`${site.origin}/${query}`);
@@ -103,6 +104,7 @@ async function shots(lang, outDir) {
       changed.addListener = (fn) => add((...args) => { if (!window.frozen) fn(...args); });
     }, info);
     await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+    if (start) await popup.click('#snapshot'); // a capture starts only with Snapshot
     return { tab, popup };
   }
 
@@ -130,6 +132,16 @@ async function shots(lang, outDir) {
   };
 
   try {
+    // 0. The popup as it opens: nothing started, only Snapshot and the option.
+    {
+      const { tab, popup } = await capture('', false);
+      if ((await popup.isDisabled('#snapshot')) || !(await popup.isDisabled('#cancel')) || !(await popup.isDisabled('#download'))) fail('popup-idle: only Snapshot should be enabled');
+      if (await job()) fail('popup-idle: opening the popup started a capture');
+      await shot(popup, 'popup-idle.png');
+      await popup.close();
+      await tab.close();
+    }
+
     // 1. Stepping through the carousel: frozen on item 3 or 4 of 5.
     {
       const { tab, popup } = await capture();
@@ -140,7 +152,7 @@ async function shots(lang, outDir) {
         window.frozen = true;
         return true;
       }, null, { timeout: 30000, polling: 'raf' });
-      if (!(await popup.isDisabled('#ok')) || (await popup.isDisabled('#cancel'))) fail('popup-running: OK should be disabled and Cancel enabled');
+      if (!(await popup.isDisabled('#download')) || !(await popup.isDisabled('#snapshot')) || (await popup.isDisabled('#cancel'))) fail('popup-running: only Cancel should be enabled');
       await shot(popup, 'popup-running.png');
       await dismiss(popup, tab);
     }
@@ -150,32 +162,35 @@ async function shots(lang, outDir) {
     {
       const before = (await worker.evaluate(() => chrome.downloads.search({}))).length;
       const { tab, popup } = await capture();
-      await popup.waitForFunction(() => !document.getElementById('ok').disabled, null, { timeout: 60000 });
+      await popup.waitForFunction(() => !document.getElementById('download').disabled, null, { timeout: 60000 });
       const j = await job();
       if (j.phase !== 'done') fail(`popup-done: the capture ended in "${j.phase}"`);
       if (j.failures.length) fail(`popup-done: ${j.failures.length} files failed: ${j.failures.map((f) => f.url)}`);
       if (!j.notes.some((n) => n.text.key === 'note_carousels_one' && n.text.args[0] === String(sample.photos.length))) fail('popup-done: the carousel note is missing');
       if (!j.notes.some((n) => n.text.key === 'note_files_one')) fail('popup-done: the linked file note is missing');
       await shot(popup, 'popup-done.png');
-      for (let k = 0; k < 50 && !zipPath; k++) {
-        const list = await worker.evaluate(() => chrome.downloads.search({ orderBy: ['-startTime'] }));
-        if (list.length > before && list[0].state === 'complete') zipPath = list[0].filename;
-        else await popup.waitForTimeout(200);
-      }
-      if (!zipPath) fail('popup-done: the ZIP was not saved');
 
       // 3. Help open, over the same finished capture.
       await popup.setViewportSize({ width: 440, height: 900 });
       await popup.click('#help summary');
       if (!(await popup.isVisible('#help-page'))) fail('popup-help: the link to the help page is missing');
       await shot(popup, 'popup-help.png');
+
+      // Download saves the ZIP (for the offline shot below).
+      await popup.click('#download');
+      for (let k = 0; k < 100 && !zipPath; k++) {
+        const list = await worker.evaluate(() => chrome.downloads.search({ orderBy: ['-startTime'] }));
+        if (list.length > before && list[0].state === 'complete') zipPath = list[0].filename;
+        else await popup.waitForTimeout(200);
+      }
+      if (!zipPath) fail('popup-done: Download did not save the ZIP');
       await dismiss(popup, tab);
     }
 
     // 4. A page with a missing image: what could not be saved.
     {
       const { tab, popup } = await capture('archive');
-      await popup.waitForFunction(() => !document.getElementById('ok').disabled, null, { timeout: 60000 });
+      await popup.waitForFunction(() => !document.getElementById('download').disabled, null, { timeout: 60000 });
       const j = await job();
       if (j.phase !== 'done' || j.failures.length !== 1 || !j.failures[0].url.includes('archive-lost')) fail(`popup-failed: expected one missing photo, got ${JSON.stringify(j.failures)}`);
       await popup.click('#failed-summary');

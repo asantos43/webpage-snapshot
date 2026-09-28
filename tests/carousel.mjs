@@ -1,12 +1,11 @@
 // End-to-end test: capture a local page with a carousel through the extension's popup, then open
 // the saved ZIP and step through the carousel offline. Also checks files from another site (which
-// the extension has no permission for), OK, closing the popup in the middle of a capture, and
-// Cancel. Exit code 1 if any check fails.
+// the extension has no permission for), the popup's flow (Snapshot, Download, Cancel), closing the
+// popup in the middle of a capture, and Cancel. Exit code 1 if any check fails.
 // Usage: node carousel.mjs [path-to-extension]   (default: ../page-snapshot-extension)
 //
-// The real popup is opened with chrome.action.openPopup(), which starts the capture, but
-// Playwright cannot reach its page; popup.html opened in its own window runs the same code and
-// shows the same capture, so its buttons are clicked there.
+// Playwright cannot reach the real popup's page, so popup.html is opened in its own window, taking
+// the test page for the active tab (popup.mjs); its buttons are clicked there.
 //
 // The extension asks for activeTab, which Chrome grants only after a real click on its icon, and
 // automation cannot click it. So, as in the Auto Refresh & Clicker tests, the test loads a copy
@@ -19,6 +18,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
+import { controls, openPopupWindow, popupTargets } from './popup.mjs';
 
 const extensionPath = path.resolve(process.argv[2] || '../page-snapshot-extension');
 const ITEMS = 12;
@@ -167,14 +167,9 @@ try {
     await chrome.tabs.update(t.id, { active: true });
     await chrome.action.openPopup({ windowId: t.windowId });
   }, url);
-  const popupWindow = async () => {
-    const opened = context.waitForEvent('page');
-    await worker.evaluate((id) => chrome.windows.create({ url: `chrome-extension://${id}/popup.html`, focused: false, width: 460, height: 600 }), extensionId);
-    const popup = await opened;
-    popup.on('pageerror', (e) => errors.push(`popup: ${e.message}`));
-    await popup.waitForLoadState();
-    return popup;
-  };
+  await popupTargets(context, url);
+  const popupWindow = () => openPopupWindow(context, worker, extensionId, (message) => errors.push(`popup: ${message}`));
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   // Job texts are messages of _locales, { key, args } (see offscreen.js).
   const recording = (from) => (j) => j?.steps?.some((s) => s.text?.key === 'carousel_recording' && Number(s.text.args[2]) >= from);
   // Five carousels: recorded item by item, the English one, then the Portuguese and the Spanish
@@ -183,9 +178,15 @@ try {
 
   check('carousel labels are the same in inpage.js and lib/offline/pager.js', !!labelLines('inpage.js') && labelLines('inpage.js') === labelLines('lib/offline/pager.js'));
 
-  console.log('1. Capture');
+  console.log('1. Capture: Snapshot, then Download');
   await openPopup();
+  await pause(1000);
+  check('opening the popup starts nothing', (await job()) === null);
   let popup = await popupWindow();
+  check('idle: only Snapshot and the option are enabled', same(await controls(popup), { snapshot: true, cancel: false, download: false, option: true }), JSON.stringify(await controls(popup)));
+  await popup.click('#snapshot');
+  await waitJob(recording(2));
+  check('running: only Cancel is enabled', same(await controls(popup), { snapshot: false, cancel: true, download: false, option: false }), JSON.stringify(await controls(popup)));
   const seen = [];
   const started = Date.now();
   let j = await waitJob((x) => {
@@ -206,17 +207,17 @@ try {
   check('the page is back at the top, where it was', (await tab.evaluate(() => scrollY)) === 0);
   check('icon badge shows ✓', (await badge()) === '✓');
   await pause(300);
-  check('popup: OK enabled, Cancel disabled, Download again shown', await popup.evaluate(() =>
-    !document.getElementById('ok').disabled && document.getElementById('cancel').disabled && !document.getElementById('download').hidden));
+  check('done: only Download and Cancel are enabled', same(await controls(popup), { snapshot: false, cancel: true, download: true, option: false }), JSON.stringify(await controls(popup)));
   const shownText = await popup.evaluate(() => document.body.innerText);
   check('popup: every text translated (no message key or $1 left)', !/\b(step|note|status|carousel|assets|origin|reason|error|help)_[a-z_]+\b|\$\d/.test(shownText), shownText.slice(0, 200));
-  check('popup: the final status names the ZIP', /^Saved .+\.zip \(/.test(await popup.textContent('#status')), await popup.textContent('#status'));
-  let zip;
-  for (let k = 0; k < 50 && zip?.state !== 'complete'; k++, await pause(200)) [zip] = await downloads();
-  check('ZIP saved to Downloads', zip?.state === 'complete');
+  check('popup: the final status names the ZIP, ready to download', /^.+\.zip is ready \(/.test(await popup.textContent('#status')), await popup.textContent('#status'));
+  check('nothing is saved before Download', (await downloads()).length === 0);
   await popup.click('#download');
-  await pause(1500);
-  check('Download again saves a second copy', (await downloads()).filter((d) => d.state === 'complete').length === 2);
+  await waitJob((x) => x === null, 20000);
+  const [zip] = await downloads();
+  check('Download saves the ZIP to Downloads', zip?.state === 'complete' && (await downloads()).length === 1, zip?.filename);
+  check('and the popup is ready for the next snapshot (idle)', same(await controls(popup), { snapshot: true, cancel: false, download: false, option: true }));
+  check('the badge is cleared', (await badge()) === '');
 
   console.log('2. The saved snapshot, offline');
   execFileSync('unzip', ['-q', zip.filename, '-d', unzipDir]);
@@ -286,40 +287,38 @@ try {
   check('<link>s that download by themselves are removed, canonical kept', !links.some((r) => /dictionary|preload|future/.test(r)) && links.includes('canonical'), links.join(', '));
   await snap.close();
 
-  console.log('3. OK, and the option switched off');
+  console.log('3. The option switched off');
   check('the option "Load the whole page first" starts on', await popup.isChecked('#opt-reveal'));
   await popup.uncheck('#opt-reveal');
   await pause(300);
   check('switching it off is saved', (await worker.evaluate(() => chrome.storage.local.get('settings'))).settings?.reveal === false);
-  await popup.click('#ok');
-  await pause(500);
-  check('OK clears the capture and the badge', (await job()) === null && (await badge()) === '');
   await popup.close().catch(() => {});
 
-  console.log('4. Popup closed in the middle of a capture');
-  await openPopup();
+  console.log('4. Popup closed in the middle of a capture; Cancel on a finished one');
   popup = await popupWindow();
+  await popup.click('#snapshot');
   await waitJob(recording(3));
   await popup.close();
   j = await waitJob((x) => x && x.phase !== 'running');
   check('the capture carries on and finishes', j.phase === 'done' && carouselNote(j), JSON.stringify(j.error || j.status));
   check('with the option off, the page was not scrolled through', !j.steps.some((st) => st.id === 'reveal'));
   await worker.evaluate(() => chrome.storage.local.set({ settings: { reveal: true } }));
-  await openPopup();
-  await pause(1000);
-  const again = await job();
-  check('opening the popup again shows that result', again?.jobId === j.jobId && again.phase === 'done');
-  popup = await popupWindow(); // counts as another tab: it replaces the finished capture with its own
-  await pause(1000);
-  await popup.click('#ok').catch(() => {});
+  const saved = (await downloads()).length;
+  popup = await popupWindow();
+  check('opening the popup again shows that result, with Download and Cancel', (await job())?.jobId === j.jobId && same(await controls(popup), { snapshot: false, cancel: true, download: true, option: false }));
+  await popup.click('#cancel');
+  await waitJob((x) => x === null, 5000);
+  check('Cancel on a finished capture discards it: nothing saved, the popup idle again', (await downloads()).length === saved && same(await controls(popup), { snapshot: true, cancel: false, download: false, option: true }));
   await popup.close().catch(() => {});
 
   console.log('5. Cancel');
   const before = (await downloads()).length;
-  await openPopup();
   popup = await popupWindow();
+  await popup.click('#snapshot');
   await waitJob(recording(4));
+  const closed = popup.waitForEvent('close', { timeout: 5000 }).then(() => true, () => false);
   await popup.click('#cancel');
+  check('Cancel during a capture closes the popup', await closed);
   await pause(4000);
   check('Cancel clears the capture', (await job()) === null);
   check('the carousel is put back on item 1', (await tab.textContent('#item h2')) === 'Item 1' && await tab.$eval('#p', (b) => b.disabled));

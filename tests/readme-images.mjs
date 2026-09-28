@@ -68,7 +68,9 @@ try {
   const popup = await opened;
   await popup.waitForLoadState();
   await popup.setViewportSize({ width: 440, height: 900 });
-  await popup.waitForFunction(() => !document.getElementById('ok').disabled, null, { timeout: 180000 });
+  await popup.waitForFunction(() => document.getElementById('status').textContent.length > 0);
+  await popup.click('#snapshot'); // a capture starts only with Snapshot
+  await popup.waitForFunction(() => !document.getElementById('download').disabled || !document.getElementById('error').hidden, null, { timeout: 180000 });
   const job = await worker.evaluate(() => chrome.storage.session.get('job').then((r) => r.job));
   if (job.phase !== 'done') fail(`the capture ended in "${job.phase}": ${JSON.stringify(job.error)}`);
   if ((await popup.textContent('#cancel')) !== CANCEL[lang]) fail(`the popup is not in ${lang}`);
@@ -81,7 +83,8 @@ try {
   await popup.screenshot({ path: path.join(outDir, 'popup-done.png'), animations: 'disabled' });
   console.log(`wrote ${path.relative(process.cwd(), path.join(outDir, 'popup-done.png'))}`);
 
-  // The saved copy, opened offline, next to how the live page looked.
+  // Download saves it; then the saved copy is opened offline.
+  await popup.click('#download');
   let zip;
   for (let k = 0; k < 100 && zip?.state !== 'complete'; k++) {
     [zip] = await worker.evaluate(() => chrome.downloads.search({ orderBy: ['-startTime'], limit: 1 }));

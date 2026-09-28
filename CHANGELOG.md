@@ -6,6 +6,13 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- New popup flow: the popup opens without starting anything and offers **Snapshot**, **Cancel** and
+  **Download**. Snapshot starts the capture; when the ZIP is ready, Download saves it (nothing is
+  saved automatically any more) and gets the popup ready for the next snapshot; Cancel stops a
+  capture in progress (and closes the popup) or discards a finished one. OK and "Download again"
+  are gone. The "Load the whole page first" option now applies to the capture you start, and a
+  finished capture is kept until you download or cancel it, even from another tab.
+
 ## [1.3.3] - 2026-09-28
 
 - Fixed: a carousel that was not on its first item when you saved the page was recorded only
