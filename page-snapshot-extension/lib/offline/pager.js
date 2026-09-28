@@ -1,6 +1,7 @@
 // Carousels that keep only the current item in the page: the capture pressed Next through every
 // item and recorded the item area at each step (the element marked data-snap-pager, with the
-// pages in <script id="snap-pagers">). Next / Previous swap the recorded pages in.
+// pages in <script id="snap-pagers">, and `start`, the item the saved page shows: the one the
+// user was on). Next / Previous swap the recorded pages in.
 export function pager() {
   // Carousel arrows, by their aria-label, in English, Portuguese and Spanish: the word alone
   // ("Next", "Próximo", "Siguiente") or with what it moves ("Next slide", "Próxima imagem",
@@ -13,11 +14,12 @@ export function pager() {
   const plain = (label) => (label || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
 
   let recorded = null;
-  const pagesFor = (region) => {
+  const recordFor = (region) => {
     if (recorded === null) {
       try { recorded = JSON.parse(document.getElementById('snap-pagers').textContent); } catch { recorded = {}; }
     }
-    return recorded[region.getAttribute('data-snap-pager')] || [];
+    const entry = recorded[region.getAttribute('data-snap-pager')] || {};
+    return Array.isArray(entry) ? { pages: entry, start: 0 } : { pages: entry.pages || [], start: entry.start || 0 };
   };
 
   document.addEventListener('click', (event) => {
@@ -26,11 +28,11 @@ export function pager() {
     const arrow = event.target.closest('[aria-label]');
     const label = plain(arrow ? arrow.getAttribute('aria-label') : '');
     const step = NEXT_RE.test(label) ? 1 : PREV_RE.test(label) ? -1 : 0;
-    const pages = pagesFor(region);
+    const { pages, start } = recordFor(region);
     if (step && pages.length) {
       event.preventDefault();
       event.stopImmediatePropagation(); // the arrow is not a disclosure or a tab
-      const index = Math.max(0, Math.min(pages.length - 1, (region.__snapshotPage || 0) + step));
+      const index = Math.max(0, Math.min(pages.length - 1, (region.__snapshotPage ?? start) + step));
       region.__snapshotPage = index;
       region.innerHTML = pages[index];
     }

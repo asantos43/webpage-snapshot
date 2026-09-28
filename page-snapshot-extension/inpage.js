@@ -312,9 +312,77 @@ export async function extractPage(editorTexts = {}, options = {}) {
       let nav = next.parentElement;
       const findPrev = (root) => Array.from(root.querySelectorAll('[aria-label]')).find((b) => PREV_RE.test(labelOf(b)) && !submitsForm(b));
       for (let up = 0; nav && !findPrev(nav) && up < 5; up++) nav = nav.parentElement;
-      if (!nav || !findPrev(nav) || nav === document.body || isDisabled(next)) continue;
+      if (!nav || !findPrev(nav) || nav === document.body) continue;
+      const nextIn = (root) => Array.from(root.querySelectorAll('[aria-label]')).find((b) => NEXT_RE.test(labelOf(b)) && !submitsForm(b));
+      if (isDisabled(next) && isDisabled(findPrev(nav))) continue;
 
       report({ ...base, phase: 'carousel-probe' });
+
+      // The carousel may not be on its first item (the user moved it, or the page opened it
+      // elsewhere): go back to the first one, so every item is recorded, and count how far, to
+      // come back to it at the end (`offset`). Its look is what is on screen around the arrows:
+      // where each element sits and its text. That changes when a strip moves or scrolls, when
+      // another item is shown (by content or by class), but not when a script merely writes
+      // the same style again (Swiper does, on Previous at the first slide).
+      let around = nav;
+      for (let k = 0; k < 3 && around.parentElement && around.parentElement !== document.body; k++) around = around.parentElement;
+      const look = () => Array.from(around.querySelectorAll('*')).slice(0, 600).map((el) => {
+        const box = el.getBoundingClientRect();
+        return `${Math.round(box.left)},${Math.round(box.top)},${Math.round(box.width)},${Math.round(box.height)}`;
+      }).join(';') + '|' + around.textContent;
+      const lookSettled = async () => {
+        let last = look();
+        for (let waited = 0; waited < 1500; waited += 100) {
+          await sleep(100);
+          const now = look();
+          if (now === last && waited >= 200) return now;
+          last = now;
+        }
+        return last;
+      };
+      // Presses an arrow; true when the carousel changed (with time and one more try, as Glide
+      // ignores clicks while it animates).
+      const moves = async (button) => {
+        const was = look();
+        button.click();
+        let now = await lookSettled();
+        if (now === was) {
+          await sleep(400);
+          now = await lookSettled();
+        }
+        if (now === was) {
+          button.click();
+          now = await lookSettled();
+        }
+        return now !== was;
+      };
+      let offset = 0;
+      let pressedPrev = false;
+      const seen = [look()];
+      while (offset < MAX_PAGER_ITEMS && !cancelled) {
+        const prevButton = findPrev(nav);
+        if (!prevButton || isDisabled(prevButton)) break;
+        pressedPrev = true;
+        if (!(await moves(prevButton))) break;
+        const now = look();
+        const again = seen.indexOf(now);
+        if (again >= 0) { // it wraps around: it has no first item, so the one it was on counts as first
+          offset = again;
+          break;
+        }
+        seen.push(now);
+        offset++;
+      }
+      // A press that moved nothing still keeps some libraries busy for a moment (Glide ignores
+      // clicks until its animation time has passed): let it settle before recording.
+      if (pressedPrev) await sleep(900);
+      // Back to the item the user was on, once the carousel is recorded (or given up on).
+      const backToStart = async () => {
+        for (let k = 0; k < offset && !cancelled; k++) {
+          const nextButton = nextIn(nav);
+          if (!nextButton || isDisabled(nextButton) || !(await moves(nextButton))) break;
+        }
+      };
 
       // Remember what sits beside the nav on each level so we can find the item area. Compare
       // text and element count, not raw HTML: sibling controls (move up/down, counters) flip
@@ -337,20 +405,35 @@ export async function extractPage(editorTexts = {}, options = {}) {
       // arrows themselves are left out (they may animate when pressed), but not the rest of the
       // nav: in many carousels (Glide) the element holding both arrows also holds the strip.
       const area = levels[Math.min(2, levels.length - 1)]?.holder || nav.parentElement;
-      const arrowsNow = [next, findPrev(nav)];
+      const arrowsNow = [nextIn(nav), findPrev(nav)];
       const movers = [area, ...area.querySelectorAll('*')].slice(0, 3000).filter((el) => !arrowsNow.some((a) => a && a.contains(el)));
       const placesBefore = movers.map(placeOf);
       const partsBefore = movers.map(partOf);
       const arrowsBefore = [arrowState(currentPrev()), arrowState(currentNext())];
+      if (!currentNext() || isDisabled(currentNext())) { // a single item, or nothing to step through
+        await backToStart();
+        report({ ...base, phase: 'carousel-skip' });
+        continue;
+      }
       currentNext().click();
       await sleep(250);
 
       // The item area is the lowest level where a sibling of the nav changed in content.
-      const changed = levels.find(({ holder, before }) => {
+      const changedLevel = () => levels.find(({ holder, before }) => {
         const now = Array.from(holder.children);
         if (now.length !== before.length) return true;
         return before.some((was, i) => was !== null && (now[i].textContent !== was.text || now[i].getElementsByTagName('*').length !== was.count || formState(now[i]) !== was.form));
       });
+      // Nothing at all happened? The library may still be busy: wait and press once more.
+      const anythingMoved = () => movers.some((el, k) => !samePlace(placeOf(el), placesBefore[k]) || !sameValues(partOf(el), partsBefore[k]));
+      if (!changedLevel() && !anythingMoved() && currentNext() && !isDisabled(currentNext())) {
+        await sleep(700);
+        if (!changedLevel() && !anythingMoved()) {
+          currentNext().click();
+          await sleep(250);
+        }
+      }
+      const changed = changedLevel();
       if (!changed) { // nothing was swapped in: all items already exist, or the click did nothing
         // A carousel whose items are all in the page: record each step as where the strip sits
         // (if one moves) and the state of every part that changes (the "active" item, the dots,
@@ -435,12 +518,15 @@ export async function extractPage(editorTexts = {}, options = {}) {
               arrows,
               attrs: PART_ATTRS,
               parts: steps.map((p) => partIndexes.map((k) => p.diff[k] || partsBefore[k])),
+              start: Math.min(offset, steps.length - 1), // the step the saved page shows
             };
           }
+          await backToStart();
           continue;
         }
         if (!isDisabled(currentPrev())) currentPrev().click();
         await sleep(150);
+        await backToStart();
         report({ ...base, phase: 'carousel-skip' });
         continue;
       }
@@ -466,11 +552,12 @@ export async function extractPage(editorTexts = {}, options = {}) {
         await settle(region);
       }
 
+      await backToStart();
       report({ ...base, phase: pages.length > 1 ? 'carousel-done' : 'carousel-skip', items: pages.length });
       if (pages.length > 1) {
         const id = String(Object.keys(pagers).length + 1);
         region.setAttribute('data-snap-pager', id);
-        pagers[id] = pages;
+        pagers[id] = { pages, start: Math.min(offset, pages.length - 1) }; // start: the item the saved page shows
       }
     }
     return { pagers, sliders };

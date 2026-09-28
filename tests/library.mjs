@@ -40,6 +40,9 @@ body{font:16px sans-serif;margin:20px}
 </div>
 <div class="swiper-pagination">${[1, 2, 3, 4].map((k) => `<span class="swiper-pagination-bullet${k === 1 ? ' swiper-pagination-bullet-active' : ''}" aria-label="Go to slide ${k}"></span>`).join('')}</div>
 <button aria-label="Previous slide" id="sw-p">‹</button><button aria-label="Next slide" id="sw-n">›</button></section>
+<section><div id="late"><p id="late-item">Receita 3</p><nav><button aria-label="Anterior" id="late-p">‹</button><button aria-label="Próximo" id="late-n">›</button></nav></div></section>
+<section><div class="swiper" id="sw2"><div class="swiper-wrapper" id="sw2-strip" style="transform:translate3d(-600px,0,0)">${[1, 2, 3, 4].map((k) => `<div class="swiper-slide">Last ${k}</div>`).join('')}</div></div>
+<button aria-label="Previous slide" id="sw2-p">‹</button><button aria-label="Next slide" id="sw2-n" disabled>›</button></section>
 <section id="gallery">
   <a href="/photos/big-1.svg" data-fancybox="trip" data-caption="Harbour at dawn"><img src="/photos/thumb-1.svg" alt="thumb 1"></a>
   <a href="/photos/big-2.svg" data-fancybox="trip" data-caption="Old lighthouse"><img src="/photos/thumb-2.svg" alt="thumb 2"></a>
@@ -78,6 +81,20 @@ body{font:16px sans-serif;margin:20px}
   const go = (n) => { k = Math.max(0, Math.min(3, n)); strip.style.transform = 'translate3d(' + (-200 * k) + 'px,0,0)'; bullets.forEach((b, i) => b.classList.toggle('swiper-pagination-bullet-active', i === k)); };
   document.getElementById('sw-n').onclick = () => go(k + 1);
   document.getElementById('sw-p').onclick = () => go(k - 1);
+}
+// Two carousels that are not on their first item when the page is captured: one showing item 3
+// of 5 (content swapped in), one on its last slide with Next disabled.
+{
+  let k = 3;
+  const box = document.getElementById('late-item'), prev = document.getElementById('late-p'), next = document.getElementById('late-n');
+  const show = () => { prev.disabled = k === 1; next.disabled = k === 5; setTimeout(() => { box.textContent = 'Receita ' + k; }, 120); };
+  next.onclick = () => { k++; show(); }; prev.onclick = () => { k--; show(); };
+}
+{
+  const strip = document.getElementById('sw2-strip'), prev = document.getElementById('sw2-p'), next = document.getElementById('sw2-n');
+  let k = 3;
+  const go = (n) => { k = Math.max(0, Math.min(3, n)); strip.style.transform = 'translate3d(' + (-200 * k) + 'px,0,0)'; prev.disabled = k === 0; next.disabled = k === 3; };
+  next.onclick = () => go(k + 1); prev.onclick = () => go(k - 1);
 }
 </script></body></html>`;
 
@@ -130,9 +147,13 @@ try {
     job = await worker.evaluate(() => chrome.storage.session.get('job').then((r) => r.job || null));
   }
   check('capture finished', job?.phase === 'done', JSON.stringify(job?.error || job?.status));
-  check('both carousels recorded (3 and 4 steps)', job.notes.some((n) => n.text.key === 'note_carousels_other' && n.text.args[1] === '3, 4'), JSON.stringify(job.notes));
+  // Recorded item by item first (the one opened on item 3), then the others in page order.
+  check('all four carousels recorded with every item, also those not on their first one (5; 3, 4, 4)', job.notes.some((n) => n.text.key === 'note_carousels_other' && n.text.args[1] === '5, 3, 4, 4'), JSON.stringify(job.notes));
   check('the popup reports the 2 gallery pictures', job.notes.some((n) => n.text.key === 'note_gallery_other' && n.text.args[0] === '2'));
-  check('the live carousels are back on their first item', await tab.evaluate(() => document.querySelector('#bs .carousel-item.active').textContent === 'Bootstrap A' && getComputedStyle(document.getElementById('sw-strip')).transform === 'matrix(1, 0, 0, 1, 0, 0)'));
+  const liveState = await tab.evaluate(() => [document.querySelector('#bs .carousel-item.active').textContent, getComputedStyle(document.getElementById('sw-strip')).transform]);
+  check('the live carousels are back on their first item', liveState[0] === 'Bootstrap A' && liveState[1] === 'matrix(1, 0, 0, 1, 0, 0)', liveState.join(' / '));
+  const lateState = await tab.evaluate(() => [document.getElementById('late-item').textContent, new DOMMatrix(getComputedStyle(document.getElementById('sw2-strip')).transform).m41]);
+  check('the carousels that were elsewhere are back where they were (item 3, last slide)', lateState[0] === 'Receita 3' && lateState[1] === -600, lateState.join(' / '));
 
   let zip;
   for (let k = 0; k < 50 && zip?.state !== 'complete'; k++, await pause(200)) {
@@ -167,6 +188,23 @@ try {
   await snap.click('#sw-n');
   await pause(500);
   check('Next continues from there', (await at()) === -600);
+
+  console.log('Carousels that were not on their first item');
+  check('the saved page shows item 3, where it was', (await snap.textContent('#late-item')) === 'Receita 3');
+  await snap.click('#late-p');
+  await snap.click('#late-p');
+  check('Previous reaches the items before it (item 1)', (await snap.textContent('#late-item')) === 'Receita 1');
+  for (let k = 0; k < 4; k++) await snap.click('#late-n');
+  check('Next reaches the last one (item 5)', (await snap.textContent('#late-item')) === 'Receita 5');
+  const at2 = () => snap.$eval('#sw2-strip', (el) => new DOMMatrix(getComputedStyle(el).transform).m41);
+  check('the strip saved on its last slide shows it', (await at2()) === -600);
+  await snap.click('#sw2-p');
+  await pause(500);
+  check('its Previous works', (await at2()) === -400);
+  await snap.click('#sw2-p');
+  await snap.click('#sw2-p');
+  await pause(500);
+  check('down to the first slide', (await at2()) === 0);
 
   console.log('Photo gallery');
   const galleryHref = await snap.$eval('#gallery a', (a) => a.getAttribute('href'));
