@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-09-28
+
 - The popup's Snapshot button is green and Cancel is red.
 
 ## [1.4.0] - 2026-09-28
