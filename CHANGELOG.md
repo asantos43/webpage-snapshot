@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-09-28
+
 - New popup flow: the popup opens without starting anything and offers **Snapshot**, **Cancel** and
   **Download**. Snapshot starts the capture; when the ZIP is ready, Download saves it (nothing is
   saved automatically any more) and gets the popup ready for the next snapshot; Cancel stops a
