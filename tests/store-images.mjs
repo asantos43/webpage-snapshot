@@ -26,7 +26,7 @@ const SLIDES = {
       ]],
       ['popup-running.png', 'Every item of every carousel', [
         'Steps through each carousel, item by item',
-        'Puts your page back on the first item',
+        'Puts your page back where it was',
         'Next and Previous still work in the saved copy',
       ]],
       ['snapshot-offline.png', 'Opens offline, as it looked', [
@@ -57,7 +57,7 @@ const SLIDES = {
       ]],
       ['popup-running.png', 'Todos os itens de cada carrossel', [
         'Percorre cada carrossel, item por item',
-        'Devolve a página ao primeiro item',
+        'Devolve a página ao item em que estava',
         'Próximo e Anterior funcionam na cópia salva',
       ]],
       ['snapshot-offline.png', 'Abre offline, como era', [
