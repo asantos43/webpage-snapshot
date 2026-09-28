@@ -639,7 +639,8 @@ async function processDocument(data, page, depth = 0) {
     const recorded = {};
     for (const region of doc.querySelectorAll('[data-snap-pager]')) {
       const id = region.getAttribute('data-snap-pager');
-      recorded[id] = await Promise.all((page.pagers?.[id] || []).map((html) => processFragment(html, data.base, page, depth)));
+      const { pages = [], start = 0 } = page.pagers?.[id] || {};
+      recorded[id] = { pages: await Promise.all(pages.map((html) => processFragment(html, data.base, page, depth))), start };
     }
     const store = doc.createElement('script');
     store.setAttribute('type', 'application/json');
@@ -757,7 +758,7 @@ async function main() {
     tool: `PageKeep ${version}`,
     debugger: attached.ok ? 'used' : `unavailable: ${attached.error}`,
     editors: Object.fromEntries(editorReport),
-    carousels: Object.fromEntries(Object.entries(page.pagers || {}).map(([id, pages]) => [id, { items: pages.length, avg_item_chars: Math.round(pages.reduce((n, h) => n + h.length, 0) / pages.length) }])),
+    carousels: Object.fromEntries(Object.entries(page.pagers || {}).map(([id, { pages, start }]) => [id, { items: pages.length, saved_on_item: start + 1, avg_item_chars: Math.round(pages.reduce((n, h) => n + h.length, 0) / pages.length) }])),
     sliding_carousels: Object.fromEntries(Object.entries(page.sliders || {}).map(([id, s]) => [id, { steps: (s.parts || s.positions).length }])),
     resources,
     failed: failures.map(({ url, reason }) => ({ url, reason })),
@@ -799,7 +800,7 @@ async function main() {
     if (partial) notes.push({ warn: true, text: plural(partial, 'note_editors_partial') });
   }
   // Both kinds of carousel: those recorded item by item first, then the sliding ones.
-  const carousels = [...Object.values(page.pagers || {}).map((p) => p.length), ...Object.values(page.sliders || {}).map((s) => (s.parts || s.positions).length)];
+  const carousels = [...Object.values(page.pagers || {}).map((p) => p.pages.length), ...Object.values(page.sliders || {}).map((s) => (s.parts || s.positions).length)];
   if (carousels.length) notes.push({ text: plural(carousels.length, 'note_carousels', carousels.join(', ')) });
   if (linkedFiles.size) notes.push({ text: plural(linkedFiles.size, 'note_files') });
   if (framePictures) notes.push({ text: plural(framePictures, 'note_frame_pictures') });

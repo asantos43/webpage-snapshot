@@ -6,6 +6,11 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- Fixed: a carousel that was not on its first item when you saved the page was recorded only
+  from that item on, or not at all when it was on its last one. The capture now goes back to the
+  first item, records them all, and returns to the one you were on; the saved copy opens on it,
+  with every item reachable in both directions.
+
 ## [1.3.2] - 2026-09-27
 
 - More of the page keeps working offline: photo galleries (the large pictures are saved; a

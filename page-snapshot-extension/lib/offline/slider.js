@@ -13,7 +13,7 @@ export function slider() {
     }
     return recorded;
   };
-  const current = {}; // carousel id -> the step on screen
+  const current = {}; // carousel id -> the step on screen (at first the one saved, `start`)
   const marked = (name, value) => Array.from(document.querySelectorAll(`[${name}]`)).find((el) => el.getAttribute(name) === value);
   const apply = (el, attrs, values) => attrs.forEach((name, i) => {
     if (name === 'disabled' && 'disabled' in el) el.disabled = values[i] !== null;
@@ -61,7 +61,7 @@ export function slider() {
     if (arrow) {
       const forward = arrow.hasAttribute('data-snap-slider-next');
       id = arrow.getAttribute(forward ? 'data-snap-slider-next' : 'data-snap-slider-prev');
-      at = Math.max(0, Math.min(stepsOf(data()[id]) - 1, (current[id] || 0) + (forward ? 1 : -1)));
+      at = Math.max(0, Math.min(stepsOf(data()[id]) - 1, (current[id] ?? data()[id]?.start ?? 0) + (forward ? 1 : -1)));
     } else if (dot) {
       const [dotId, step] = dot.getAttribute('data-snap-slider-dot').split(':');
       id = dotId;
