@@ -17,19 +17,18 @@
       <p data-i18n="help_intro"></p>
       <ul>
         <li><strong data-i18n="help_close_label"></strong> <span data-i18n="help_close"></span></li>
-        <li><strong data-i18n="cancel"></strong> <span data-i18n="help_cancel"></span></li>
+        <li><strong data-i18n="snapshot"></strong> <span data-i18n="help_snapshot"></span></li>
         <li><strong data-i18n="help_reveal_label"></strong> <span data-i18n="help_reveal"></span></li>
-        <li><strong data-i18n="ok"></strong> <span data-i18n="help_ok"></span></li>
-        <li><strong data-i18n="download_again"></strong> <span data-i18n="help_download"></span></li>
+        <li><strong data-i18n="download"></strong> <span data-i18n="help_download"></span></li>
+        <li><strong data-i18n="cancel"></strong> <span data-i18n="help_cancel"></span></li>
         <li data-i18n="help_one"></li>
         <li data-i18n="help_unzip"></li>
       </ul>
       <p><a id="help-page" href="help.html" target="_blank" data-i18n="help_full"></a></p>
     </details>
     <label class="option"><input type="checkbox" id="opt-reveal"> <span data-i18n="option_reveal"></span></label>
-    <p class="option-hint" data-i18n="option_reveal_hint"></p>
     <progress id="bar"></progress>
-    <p id="status" role="status" data-i18n="status_starting"></p>
+    <p id="status" role="status" data-i18n="status_idle"></p>
     <p id="now" class="muted"></p>
     <ol id="steps" data-i18n-label="steps_label"></ol>
     <p id="error" class="error" role="alert" hidden></p>
@@ -40,9 +39,9 @@
     </details>
   </main>
   <footer id="buttons">
-    <button id="download" type="button" hidden data-i18n="download_again"></button>
-    <button id="cancel" type="button" data-i18n="cancel"></button>
-    <button id="ok" type="button" class="primary" disabled data-i18n="ok"></button>
+    <button id="snapshot" type="button" class="primary" data-i18n="snapshot"></button>
+    <button id="cancel" type="button" disabled data-i18n="cancel"></button>
+    <button id="download" type="button" class="primary" disabled data-i18n="download"></button>
   </footer>
   <script type="module" src="popup.js"></script>
 </body>

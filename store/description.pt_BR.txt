@@ -26,10 +26,10 @@ Muitas páginas só carregam imagens e listas quando você rola, ou atrás de um
 
 FUNCIONA EM SEGUNDO PLANO
 
-• Clique no ícone na barra de ferramentas ou aperte Alt+Shift+S: o popup abre embaixo do ícone e a captura começa.
+• Clique no ícone na barra de ferramentas ou aperte Alt+Shift+S: o popup abre embaixo do ícone. Aperte Capturar para começar.
 • Acompanhe cada etapa ou feche o popup e continue trabalhando: o selo do ícone mostra … enquanto roda, ✓ quando termina e ! se falhou. Clique no ícone de novo para ver o resultado.
 • Cancelar interrompe a captura a qualquer momento: os carrosséis voltam ao primeiro item e nada é salvo.
-• O ZIP vai para a sua pasta de Downloads, com o título da página, a data e a hora no nome. Baixar de novo salva o arquivo mais uma vez; OK limpa o resultado.
+• Quando o ZIP está pronto, Baixar o salva na sua pasta de Downloads, com o título da página, a data e a hora no nome; Cancelar o descarta. Nada é salvo antes de você escolher.
 
 COMO ELE LÊ OS ARQUIVOS
 

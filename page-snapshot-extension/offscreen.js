@@ -777,13 +777,7 @@ async function main() {
   const name = `${slugify(page.title, 60) || slugify(host) || 'page'}-${stamp(capturedAt)}.zip`;
   const blobUrl = URL.createObjectURL(zip);
   step('zip', msg('step_zip_packed', resources.length + 2, (zip.size / (1024 * 1024)).toFixed(1)), 'done');
-  step('save', msg('step_save_saving'));
-  try {
-    await call('download', { url: blobUrl, name });
-    step('save', msg('step_save_done'), 'done');
-  } catch (err) {
-    step('save', msg('step_save_failed', err.message), 'warn');
-  }
+  // Not saved yet: the popup's Download button saves it (background.js), Cancel discards it.
 
   state.bar = { max: 1, value: 1 };
   const mb = (zip.size / (1024 * 1024)).toFixed(1);

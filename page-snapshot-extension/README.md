@@ -14,12 +14,19 @@ There is no build step and no dependencies.
 
 ## Use
 
-Click the toolbar button, or press **Alt+Shift+S**. The extension's popup opens under its icon and shows what it is doing as it happens: a list with one line per phase (reading editors, stepping through each carousel item by item, copying the page, listing the files the page already loaded, downloading resources with running counts and the file being fetched right now, saving linked files, packing the ZIP), each with a spinner that turns into a check mark when done. It then downloads `<page-title>-<YYYYMMDD-HHmm>.zip`.
+Click the toolbar button, or press **Alt+Shift+S**. The extension's popup opens under its icon with three buttons, **Snapshot**, **Cancel** and **Download**; nothing starts until you press Snapshot (or Enter). The popup then shows what it is doing as it happens: a list with one line per phase (reading editors, stepping through each carousel item by item, copying the page, listing the files the page already loaded, downloading resources with running counts and the file being fetched right now, saving linked files, packing the ZIP), each with a spinner that turns into a check mark when done. When the ZIP is ready, **Download** saves it as `<page-title>-<YYYYMMDD-HHmm>.zip` and gets the popup ready for the next snapshot; nothing is saved before that.
 
-- **Load the whole page first** (an option in the popup, on unless you turn it off): before copying, the extension scrolls through the page screen by screen, so images and blocks that only load as you scroll are there too, presses its "Load more" / "Carregar mais" / "Ver mais" / "Cargar más" buttons (up to 5; never a link to another page or a form button), then goes back to where you were. Endless feeds stop after 40 screens or 20 seconds. The option is a setting for the next captures, since a capture starts as soon as the popup opens.
+| State | Enabled |
+| --- | --- |
+| The popup opens (idle) | Snapshot, and the option below |
+| A snapshot runs | Cancel: stops it, puts carousels back and closes the popup |
+| The ZIP is ready | Download (saves it, then back to idle) and Cancel (discards it, then back to idle) |
+| It failed | Cancel (back to idle) |
+
+- **Load the whole page first** (an option in the popup, on unless you turn it off): before copying, the extension scrolls through the page screen by screen, so images and blocks that only load as you scroll are there too, presses its "Load more" / "Carregar mais" / "Ver mais" / "Cargar más" buttons (up to 5; never a link to another page or a form button), then goes back to where you were. Endless feeds stop after 40 screens or 20 seconds. Set it before pressing Snapshot; it is remembered.
 - You can close the popup, or click on the page: the capture carries on in the background. Click the icon again to see how it is going. The icon's badge shows **…** while it runs, **✓** when it is done and **!** if it failed.
-- When it is done, read the results and press **OK**, which clears them so the next click captures the page again. **Download again** saves the ZIP once more.
-- **Cancel** stops a capture in progress: carousels are put back to their first item and nothing is saved.
+- A finished capture waits for Download or Cancel, even if you close the popup or open it on another tab.
+- **Cancel** during a capture stops it: carousels are put back to the item they were on and nothing is saved.
 - One capture runs at a time. Opening the popup on another tab while one runs shows that capture.
 
 The page you capture stays the visible tab while the popup is open over it, so the browser does not slow it down while carousels are stepped through; just keep the browser window from being minimized until the capture ends. The popup's **Help** section explains all this in short, and links to the full help page, with pictures (`help.html`, or `help.pt_BR.html` in Portuguese), which is part of the extension and works offline.
@@ -113,7 +120,7 @@ The extension only touches a tab when you click the button, and nothing is sent 
 | --- | --- |
 | `manifest.json` | Manifest V3 config |
 | `background.js` | Service worker: starts a capture when the popup opens, keeps its progress, and makes the tab, debugger and download calls for the offscreen page |
-| `popup.html/.css/.js` | The popup under the icon: progress, OK, Cancel, Download again, Help |
+| `popup.html/.css/.js` | The popup under the icon: Snapshot, Cancel, Download, the option, progress, Help |
 | `_locales/en`, `_locales/pt_BR` | Every text of the popup, its Help and the manifest |
 | `help.html`, `help.pt_BR.html`, `help.css` | The full help page, in English and Portuguese; the popup links to the one in its language (`help_page` message) |
 | `images/screenshots/en`, `images/screenshots/pt_BR` | Screenshots for the help pages and READMEs, made by `tests/screenshots.mjs` |

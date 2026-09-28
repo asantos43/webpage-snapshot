@@ -26,10 +26,10 @@ Many pages load images and lists only as you scroll, or behind a "Load more" but
 
 WORKS IN THE BACKGROUND
 
-• Click the toolbar icon or press Alt+Shift+S: the popup opens under the icon and the capture starts.
+• Click the toolbar icon or press Alt+Shift+S: the popup opens under the icon. Press Snapshot to start.
 • Watch each step as it happens, or close the popup and keep working: the icon's badge shows … while it runs, ✓ when it is done and ! if it failed. Click the icon again to see the result.
 • Cancel stops a capture at any time: carousels go back to their first item and nothing is saved.
-• The ZIP goes to your Downloads folder, named after the page's title with the date and time. Download again saves it once more; OK clears the result.
+• When the ZIP is ready, Download saves it to your Downloads folder, named after the page's title with the date and time; Cancel discards it. Nothing is saved until you choose.
 
 HOW IT READS THE FILES
 

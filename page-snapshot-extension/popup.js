@@ -1,5 +1,7 @@
-// The popup under the toolbar icon only shows the capture (kept by background.js in
-// storage.session) and sends it OK / Cancel / Download again. Closing it stops nothing.
+// The popup under the toolbar icon: Snapshot starts a capture of the active tab, Cancel stops it
+// (or discards a finished one), Download saves the finished ZIP. The capture itself is kept by
+// background.js in storage.session and shown here as it progresses; closing the popup stops
+// nothing.
 const $ = (id) => document.getElementById(id);
 let activeTabId;
 
@@ -35,47 +37,77 @@ function fill(list, items, make) {
   }));
 }
 
+// What the popup shows: no capture (idle: only Snapshot and the option), one running (Cancel),
+// one finished (Download or Cancel), or one that failed (Cancel).
+let shown = null;
+let activeUrl = '';
+
 function render(job) {
-  if (!job) return;
-  const running = job.phase === 'running';
-  $('source').textContent = job.source || '';
-  $('other').hidden = job.tabId === activeTabId;
-  $('bar').hidden = job.phase === 'error';
-  if (job.bar) {
+  shown = job || null;
+  const phase = job?.phase || 'idle';
+  const running = phase === 'running';
+  $('source').textContent = job ? job.source || '' : activeUrl;
+  $('other').hidden = !job || job.tabId === activeTabId;
+  $('bar').hidden = phase === 'idle' || phase === 'error';
+  if (job?.bar) {
     $('bar').max = job.bar.max;
     $('bar').value = job.bar.value;
   } else {
     $('bar').removeAttribute('value'); // indeterminate
   }
-  $('status').hidden = job.phase === 'error';
-  $('status').textContent = t(job.status);
+  $('status').hidden = phase === 'error';
+  $('status').textContent = job ? t(job.status) : chrome.i18n.getMessage('status_idle');
   $('now').textContent = running ? job.now || '' : '';
-  fill($('steps'), job.steps || [], (li, s) => { li.className = s.state; li.textContent = t(s.text); });
-  $('error').hidden = !job.error;
-  $('error').textContent = t(job.error);
-  $('notes').hidden = !job.notes?.length;
-  fill($('notes'), job.notes || [], (li, n) => { li.textContent = t(n.text); if (n.warn) li.className = 'warn'; });
-  const failures = job.failures || [];
+  fill($('steps'), job?.steps || [], (li, s) => { li.className = s.state; li.textContent = t(s.text); });
+  $('error').hidden = !job?.error;
+  $('error').textContent = t(job?.error);
+  $('notes').hidden = !job?.notes?.length;
+  fill($('notes'), job?.notes || [], (li, n) => { li.textContent = t(n.text); if (n.warn) li.className = 'warn'; });
+  const failures = job?.failures || [];
   $('failed-box').hidden = !failures.length;
   $('failed-summary').textContent = plural(failures.length, 'failed_summary');
   fill($('failed'), failures, (li, f) => { li.textContent = `${f.url} — ${f.text ? t(f.text) : f.reason}`; });
-  $('download').hidden = !job.download;
-  $('cancel').disabled = !running;
-  const wasDisabled = $('ok').disabled;
-  $('ok').disabled = running;
-  if (wasDisabled && !running) $('ok').focus();
+  $('opt-reveal').disabled = phase !== 'idle';
+  $('snapshot').disabled = phase !== 'idle';
+  $('cancel').disabled = phase === 'idle';
+  $('download').disabled = !(phase === 'done' && job.download);
+  // Enter presses the button that comes next (after Alt+Shift+S: Snapshot).
+  const next = phase === 'idle' ? 'snapshot' : phase === 'done' ? 'download' : 'cancel';
+  if (document.activeElement !== $(next)) $(next).focus();
 }
 
-$('ok').onclick = async () => { await send('popup-ok'); window.close(); };
+$('snapshot').onclick = async () => {
+  $('snapshot').disabled = true;
+  try {
+    await send('popup-start', { tabId: activeTabId });
+  } catch (err) {
+    render({ phase: 'error', steps: [], error: { key: 'error_start', args: [err.message] } });
+  }
+};
 $('cancel').onclick = async () => {
   $('cancel').disabled = true;
-  $('status').textContent = chrome.i18n.getMessage('status_cancelling');
-  await send('popup-cancel');
-  window.close();
+  if (shown?.phase === 'running') { // stop it, and close: the page is put back as it was
+    $('status').textContent = chrome.i18n.getMessage('status_cancelling');
+    await send('popup-cancel');
+    window.close();
+  } else { // discard the finished (or failed) capture: back to Snapshot
+    if (shown) await send('popup-reset');
+    render(null);
+  }
 };
-$('download').onclick = () => send('popup-download');
+$('download').onclick = async () => {
+  $('download').disabled = true;
+  $('cancel').disabled = true;
+  $('status').textContent = chrome.i18n.getMessage('status_downloading');
+  try {
+    await send('popup-download'); // resolves once the file is saved; the capture is then cleared
+    render(null);
+  } catch (err) {
+    render({ ...shown, error: { key: 'error_failed', args: [err.message] } });
+  }
+};
 
-// "Load the whole page first": a setting for the next captures (this one has already started).
+// "Load the whole page first": remembered, and applied by the next Snapshot.
 chrome.storage.local.get('settings').then(({ settings }) => { $('opt-reveal').checked = settings?.reveal !== false; });
 $('opt-reveal').onchange = async () => {
   const { settings } = await chrome.storage.local.get('settings');
@@ -89,8 +121,9 @@ chrome.storage.session.onChanged.addListener((changes) => {
 (async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   activeTabId = tab?.id;
+  activeUrl = tab?.url || '';
   try {
-    render(await send('popup-open', { tabId: activeTabId }));
+    render(await send('popup-open'));
   } catch (err) {
     render({ phase: 'error', steps: [], error: { key: 'error_start', args: [err.message] } });
   }

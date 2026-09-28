@@ -56,12 +56,19 @@ Cada versão é publicada em **Releases** no GitHub como `pagekeep-<versão>.zip
 
 ## Usar
 
-Clique no botão da barra de ferramentas ou aperte **Alt+Shift+S**. O popup da extensão abre embaixo do ícone, mostra o progresso e, no fim, baixa `<título-da-página>-<AAAAMMDD-HHmm>.zip`.
+Clique no botão da barra de ferramentas ou aperte **Alt+Shift+S**. O popup da extensão abre embaixo do ícone com três botões, **Capturar**, **Cancelar** e **Baixar**; nada começa até você apertar Capturar (ou Enter). O popup mostra o progresso e, quando o ZIP está pronto, **Baixar** o salva como `<título-da-página>-<AAAAMMDD-HHmm>.zip` e deixa o popup pronto para a próxima captura.
 
-- **Carregar a página inteira antes** (opção no popup, ligada a menos que você desligue): antes de copiar, a extensão rola a página até o fim, para que imagens e blocos que só carregam ao rolar entrem na cópia, e aperta os botões "Carregar mais" / "Ver mais" / "Load more" (até 5; nunca um link para outra página nem um botão de formulário), depois volta para onde você estava. Feeds infinitos param em 40 telas ou 20 segundos. A opção vale a partir da próxima captura, já que a captura começa quando o popup abre.
+| Situação | Botões ativos |
+| --- | --- |
+| O popup abre | Capturar, e a opção abaixo |
+| A captura roda | Cancelar: interrompe, devolve os carrosséis e fecha o popup |
+| O ZIP está pronto | Baixar (salva e volta ao início) e Cancelar (descarta e volta ao início) |
+| Deu erro | Cancelar (volta ao início) |
+
+- **Carregar a página inteira antes** (opção no popup, ligada a menos que você desligue): antes de copiar, a extensão rola a página até o fim, para que imagens e blocos que só carregam ao rolar entrem na cópia, e aperta os botões "Carregar mais" / "Ver mais" / "Load more" (até 5; nunca um link para outra página nem um botão de formulário), depois volta para onde você estava. Feeds infinitos param em 40 telas ou 20 segundos. Ajuste antes de apertar Capturar; a escolha fica guardada.
 - Você pode fechar o popup ou clicar na página: a captura continua em segundo plano. Clique no ícone de novo para ver como está. O selo do ícone mostra **…** enquanto roda, **✓** quando termina e **!** se falhou.
-- **OK** fica disponível quando a captura termina: limpa o resultado, e o próximo clique no ícone captura a página de novo. **Baixar de novo** (*Download again*) baixa o mesmo ZIP de novo.
-- **Cancelar** (*Cancel*) interrompe a captura: os carrosséis voltam ao primeiro item e nada é salvo.
+- Uma captura terminada espera por Baixar ou Cancelar, mesmo se você fechar o popup ou abri-lo em outra aba.
+- **Cancelar** durante a captura a interrompe: os carrosséis voltam ao item em que estavam e nada é salvo.
 - Uma captura por vez. Abrir o popup em outra aba enquanto uma captura roda mostra essa captura.
 - **Ajuda** (*Help*) resume esses pontos no próprio popup, com um link para a página de ajuda completa, com imagens (`help.pt_BR.html` em português, `help.html` em inglês), que faz parte da extensão e funciona offline.
 
@@ -75,7 +82,7 @@ A página salva, aberta offline a partir do ZIP, com o carrossel funcionando:
 
 ### Um site real: TudoGostoso
 
-A página inicial de https://www.tudogostoso.com.br salva pelo PageKeep, com a opção "Carregar a página inteira antes": a página foi percorrida até o fim (13 telas), são 156 arquivos em 4,7 MB, os dois carrosséis deslizantes (4 e 10 posições) continuam deslizando na cópia, e os 5 anúncios, que vêm em quadros de outros sites, aparecem como imagens de como estavam; aberta offline, ela não faz nenhuma requisição. O único arquivo que faltou era um endereço de estatísticas de anúncios, e a referência a ele foi removida. 
+A página inicial de https://www.tudogostoso.com.br salva pelo PageKeep, com a opção "Carregar a página inteira antes": a página foi percorrida até o fim (13 telas), são 163 arquivos em 4,7 MB, os dois carrosséis deslizantes (4 e 10 posições) continuam deslizando na cópia, e os 5 anúncios, que vêm em quadros de outros sites, aparecem como imagens de como estavam; aberta offline, ela não faz nenhuma requisição. O único arquivo que faltou era um endereço de estatísticas de anúncios, e a referência a ele foi removida. 
 
 | O popup depois da captura | A cópia aberta offline |
 | --- | --- |

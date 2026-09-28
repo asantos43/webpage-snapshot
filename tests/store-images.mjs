@@ -22,7 +22,7 @@ const SLIDES = {
       ['popup-done.png', 'Saves the page exactly as you see it', [
         'What scripts put on the screen, what you typed in forms',
         'Its styles, images and fonts, in one ZIP',
-        'Straight to your Downloads folder',
+        'Saved when you press Download',
       ]],
       ['popup-running.png', 'Every item of every carousel', [
         'Steps through each carousel, item by item',
@@ -53,7 +53,7 @@ const SLIDES = {
       ['popup-done.png', 'Salva a página do jeito que você vê', [
         'O que os scripts mostram e o que você digitou',
         'Estilos, imagens e fontes, num único ZIP',
-        'Direto na sua pasta de Downloads',
+        'Salvo quando você aperta Baixar',
       ]],
       ['popup-running.png', 'Todos os itens de cada carrossel', [
         'Percorre cada carrossel, item por item',

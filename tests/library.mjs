@@ -9,13 +9,15 @@
 // Usage: node library.mjs [path-to-extension]   (default: ../page-snapshot-extension)
 //
 // Like carousel.mjs, it loads a copy of the extension with the test site as a host permission
-// (activeTab cannot be granted under automation) and opens popup.html in its own window.
+// (activeTab cannot be granted under automation) and drives popup.html in its own window
+// (popup.mjs): Snapshot, then Download.
 import { chromium } from 'playwright';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
+import { openPopupWindow, popupTargets } from './popup.mjs';
 
 const extensionPath = path.resolve(process.argv[2] || '../page-snapshot-extension');
 
@@ -136,12 +138,11 @@ try {
   const tab = context.pages()[0] || await context.newPage();
   await tab.goto(url);
 
-  // Capture through the real popup, as carousel.mjs does.
-  await worker.evaluate(async (u) => {
-    const [t] = await chrome.tabs.query({ url: u });
-    await chrome.windows.update(t.windowId, { focused: true });
-    await chrome.action.openPopup({ windowId: t.windowId });
-  }, url);
+  // Capture through the popup: Snapshot, then (below) Download.
+  await popupTargets(context, url);
+  const extensionId = new URL(worker.url()).host;
+  const popup = await openPopupWindow(context, worker, extensionId);
+  await popup.click('#snapshot');
   let job;
   for (let k = 0; k < 300 && job?.phase !== 'done' && job?.phase !== 'error'; k++, await pause(200)) {
     job = await worker.evaluate(() => chrome.storage.session.get('job').then((r) => r.job || null));
@@ -155,8 +156,9 @@ try {
   const lateState = await tab.evaluate(() => [document.getElementById('late-item').textContent, new DOMMatrix(getComputedStyle(document.getElementById('sw2-strip')).transform).m41]);
   check('the carousels that were elsewhere are back where they were (item 3, last slide)', lateState[0] === 'Receita 3' && lateState[1] === -600, lateState.join(' / '));
 
+  await popup.click('#download');
   let zip;
-  for (let k = 0; k < 50 && zip?.state !== 'complete'; k++, await pause(200)) {
+  for (let k = 0; k < 100 && zip?.state !== 'complete'; k++, await pause(200)) {
     [zip] = await worker.evaluate(() => chrome.downloads.search({ orderBy: ['-startTime'], limit: 1 }));
   }
   execFileSync('unzip', ['-q', zip.filename, '-d', unzipDir]);

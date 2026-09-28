@@ -38,16 +38,21 @@
             <li>Open the page you want to keep, and leave it the way you want it saved: scrolled, sections
               opened, a form filled in.</li>
             <li>Click the PageKeep icon in the toolbar, or press <strong>Alt+Shift+S</strong>. The popup opens under
-              the icon and the capture starts at once.</li>
+              the icon; nothing starts yet. Press <strong>Snapshot</strong> (or Enter).</li>
             <li>Watch it go: one line per step, with a spinner that turns into a check mark. On a page with a
               carousel you see each item being recorded.</li>
-            <li>At the end the ZIP goes to your Downloads folder, named after the page's title with the date
-              and time, for example <code>The-Harbor-Times-20260927-1015.zip</code>.</li>
+            <li>When it is ready, press <strong>Download</strong>: the ZIP goes to your Downloads folder, named after
+              the page's title with the date and time, for example <code>The-Harbor-Times-20260927-1015.zip</code>, and
+              the popup is ready for the next snapshot. <strong>Cancel</strong> discards it instead.</li>
           </ol>
         </div>
         <div>
           <figure>
-            <img src="images/screenshots/en/popup-running.png" width="440" alt="The popup while it captures: Found the tab, and Carousel 1 of 1: recording item 3; Cancel is available, OK is not yet">
+            <img src="images/screenshots/en/popup-idle.png" width="440" alt="The popup as it opens: the option Load the whole page first, the text Ready to save this page, and the Snapshot button; Cancel and Download are greyed out">
+            <figcaption>The popup as it opens: only Snapshot and the option.</figcaption>
+          </figure>
+          <figure>
+            <img src="images/screenshots/en/popup-running.png" width="440" alt="The popup while it captures: Found the tab, Scrolled through the page, and Carousel 1 of 1: recording item 3; only Cancel is available">
             <figcaption>A capture in progress, stepping through a carousel.</figcaption>
           </figure>
         </div>
@@ -60,8 +65,7 @@
         <li><strong>Load the whole page first</strong> (an option in the popup, on unless you turn it off): before
           saving, PageKeep scrolls through the page and presses its "Load more" buttons, so pictures and lists that only
           appear then are saved too, and goes back to where you were. It never follows a link to another page or sends a
-          form. Endless feeds stop after 40 screens or 20 seconds. The option applies from the next capture, since a
-          capture starts as soon as the popup opens.</li>
+          form. Endless feeds stop after 40 screens or 20 seconds. Set it before pressing Snapshot; it is remembered.</li>
         <li><strong>You can close the popup</strong>, or click on the page: the capture carries on in the background.
           Click the icon again to see how it is going.</li>
         <li>The icon's badge shows <strong>…</strong> while it runs, <strong>✓</strong> when it is done and
@@ -80,20 +84,22 @@
       <h2>The result</h2>
       <div class="pair">
         <div>
-          <p>When the capture ends, the popup keeps the result until you press <strong>OK</strong>:</p>
+          <p>When the capture ends, nothing has been saved yet: the popup keeps the result until you press
+            <strong>Download</strong> or <strong>Cancel</strong>, even if you close it or open it on another tab:</p>
           <ul>
             <li>the file name, its size, and how many files it holds (how many were read from the page and how
               many downloaded);</li>
             <li>notes on what needed special care: carousels saved with all their items, code editors saved as
               text, files offered for download saved next to the page;</li>
-            <li><strong>Download again</strong> saves the same ZIP once more;</li>
-            <li><strong>OK</strong> clears the result, so the next click on the icon captures the page again.</li>
+            <li><strong>Download</strong> saves the ZIP to your Downloads folder and gets the popup ready for the next
+              snapshot;</li>
+            <li><strong>Cancel</strong> discards the result without saving anything.</li>
           </ul>
           <p>The popup's <strong>Help</strong> section sums this up, with a link to this page.</p>
         </div>
         <div>
           <figure>
-            <img src="images/screenshots/en/popup-done.png" width="440" alt="The finished capture: the saved file name and size, every step with a check mark, notes about the carousel and the linked file, and the Download again, Cancel and OK buttons">
+            <img src="images/screenshots/en/popup-done.png" width="440" alt="The finished capture: the saved file name and size, every step with a check mark, notes about the carousel and the linked file, and the buttons: Snapshot greyed out, Cancel and Download available">
             <figcaption>The finished capture, waiting for OK.</figcaption>
           </figure>
         </div>

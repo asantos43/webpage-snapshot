@@ -1,5 +1,6 @@
 // The toolbar button (or Alt+Shift+S) opens popup.html, the extension's own popup under the
-// icon. The popup only shows progress: Chrome closes it as soon as you click elsewhere, so
+// icon. A capture starts only with its Snapshot button, and the finished ZIP is saved only with
+// its Download button (Cancel stops a capture or discards its result). The popup only shows progress: Chrome closes it as soon as you click elsewhere, so
 // the work runs in an offscreen document (offscreen.js), which has the DOM APIs a capture
 // needs and lives on while the popup is closed. The captured tab stays the visible tab, so
 // Chrome does not throttle it while carousels are stepped through.
@@ -79,13 +80,40 @@ async function startCapture(tabId) {
   return job;
 }
 
-// The popup opened on `tabId`: show the capture in progress, or this tab's finished one;
-// otherwise start capturing this tab.
-async function popupOpened(tabId) {
+// The popup's Snapshot button: capture `tabId`. A finished capture not yet downloaded makes way
+// for it (the popup only offers Snapshot when there is none); a running one is never replaced.
+async function snapshot(tabId) {
   const job = await getJob();
-  if (job && (job.phase === 'running' || job.tabId === tabId)) return job;
-  if (job) await clearJob(job); // a finished capture of another tab
+  if (job?.phase === 'running') throw new Error('a capture is already running');
+  if (job) await clearJob(job);
   return startCapture(tabId);
+}
+
+// Resolves once download `id` has finished (or failed, or after two minutes), so the ZIP's blob
+// is not dropped, with its offscreen document, while the browser is still writing it.
+function downloadFinished(id) {
+  return new Promise((resolve) => {
+    let timer;
+    const done = () => {
+      chrome.downloads.onChanged.removeListener(changed);
+      clearTimeout(timer);
+      resolve();
+    };
+    const changed = (delta) => { if (delta.id === id && delta.state && delta.state.current !== 'in_progress') done(); };
+    chrome.downloads.onChanged.addListener(changed);
+    timer = setTimeout(done, 120_000);
+    chrome.downloads.search({ id }).then(([item]) => { if (item && item.state !== 'in_progress') done(); });
+  });
+}
+
+// The popup's Download button: save the finished ZIP, then forget the capture (the popup is
+// ready for the next snapshot).
+async function download() {
+  const job = await getJob();
+  if (!job?.download) return;
+  const id = await chrome.downloads.download({ url: job.download.url, filename: job.download.name });
+  await downloadFinished(id);
+  await clearJob(job);
 }
 
 async function cancel() {
@@ -170,7 +198,6 @@ const rpc = {
   command: ({ tabId, method, params }) => chrome.debugger.sendCommand({ tabId }, method, params),
   loadResource,
   detach: ({ tabId }) => chrome.debugger.detach({ tabId }).catch(() => {}),
-  download: ({ url, name }) => chrome.downloads.download({ url, filename: name }),
   ping: () => true, // keeps this worker awake during long steps
 };
 
@@ -186,13 +213,11 @@ function updateJob(state) {
 }
 
 const handlers = {
-  'popup-open': (msg) => serial(() => popupOpened(msg.tabId)),
-  'popup-cancel': () => serial(cancel),
-  'popup-ok': () => serial(async () => clearJob(await getJob())),
-  'popup-download': async () => {
-    const job = await getJob();
-    if (job?.download) await chrome.downloads.download({ url: job.download.url, filename: job.download.name });
-  },
+  'popup-open': () => getJob(), // what the popup shows: a capture, or none (then it offers Snapshot)
+  'popup-start': (msg) => serial(() => snapshot(msg.tabId)),
+  'popup-cancel': () => serial(cancel), // stop a running capture
+  'popup-reset': () => serial(async () => clearJob(await getJob())), // discard a finished (or failed) one
+  'popup-download': () => serial(download),
   'job-state': (msg) => updateJob(msg.state),
   rpc: (msg) => rpc[msg.op](msg.args || {}),
 };
@@ -205,9 +230,3 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     .then((value) => sendResponse({ value }), (err) => sendResponse({ error: err?.message || String(err) }));
   return true;
 });
-
-// A captured tab that closes takes its finished capture with it.
-chrome.tabs.onRemoved.addListener((tabId) => serial(async () => {
-  const job = await getJob();
-  if (job && job.tabId === tabId && job.phase !== 'running') await clearJob(job);
-}));
