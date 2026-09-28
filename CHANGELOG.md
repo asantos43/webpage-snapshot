@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-09-28
+
 - Fixed: a carousel that was not on its first item when you saved the page was recorded only
   from that item on, or not at all when it was on its last one. The capture now goes back to the
   first item, records them all, and returns to the one you were on; the saved copy opens on it,
