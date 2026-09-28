@@ -1,9 +1,10 @@
 :root {
   color-scheme: light dark;
   --bg: #fafafa; --fg: #1d1d1f; --muted: #6b6b70; --accent: #2563eb; --error: #b91c1c; --line: #d8d8dc; --ok: #15803d; --warn: #b45309;
+  --go: #16a34a; --stop: #dc2626; /* Snapshot and Cancel */
 }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #17171a; --fg: #ececf0; --muted: #9a9aa2; --accent: #6ea0ff; --error: #ff8080; --line: #34343a; --ok: #4ade80; --warn: #fbbf24; }
+  :root { --bg: #17171a; --fg: #ececf0; --muted: #9a9aa2; --accent: #6ea0ff; --error: #ff8080; --line: #34343a; --ok: #4ade80; --warn: #fbbf24; --go: #15803d; --stop: #b91c1c; }
 }
 body { margin: 0; width: 440px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
 main { margin: 12px 0; padding: 0 16px; }
@@ -17,6 +18,11 @@ button:hover:not(:disabled) { border-color: var(--accent); }
 button:disabled { opacity: .5; cursor: default; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
 #snapshot { margin-right: auto; }
+/* Snapshot in green and Cancel in red, like Download in blue: filled, with white text. */
+#snapshot, #cancel { color: #fff; font-weight: 600; }
+#snapshot { background: var(--go); border-color: var(--go); }
+#cancel { background: var(--stop); border-color: var(--stop); }
+#snapshot:hover:not(:disabled), #cancel:hover:not(:disabled) { filter: brightness(1.1); }
 details { margin-top: 12px; }
 #help { margin: 0 0 8px; font-size: 13px; }
 #help summary { cursor: pointer; color: var(--accent); }

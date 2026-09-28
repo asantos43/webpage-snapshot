@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- The popup's Snapshot button is green and Cancel is red.
+
 ## [1.4.0] - 2026-09-28
 
 - New popup flow: the popup opens without starting anything and offers **Snapshot**, **Cancel** and
