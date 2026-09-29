@@ -5,6 +5,10 @@ screen, every file it needs, and the small local scripts that give its carousels
 their behaviour back. Like `.docx` or `.epub`, it is a ZIP archive with a fixed structure. PageKeep
 writes it (popup → **Save as** → `.wsnp`), and the PageKeep viewer, a separate application, reads it.
 
+A `.wsnpx` file is its sibling for applications: the same container, but it may carry scripts of
+its own that turn the saved pages into an application, run only when the user allows them
+(section 8), as `.xlsm` is to `.xlsx`.
+
 The reference tools are in [`tests/`](../tests/): `wsnp-check.mjs` validates a file against this
 document, and `wsnp-crypt.mjs` implements password protection. Both are plain Node modules with no
 dependency, for readers to reuse.
@@ -22,7 +26,7 @@ The key words **must**, **must not**, **should** and **may** are used as in RFC 
 | Description | `manifest.json` |
 | Entry point | `index.html` |
 | Version | `format_version` `"1.0"` in the manifest |
-| Family | `.wsnpx` is reserved for a web-app profile (section 8) |
+| Family | `.wsnpx` (`application/vnd.wsnp.x+zip`): the profile with an application's scripts (section 8) |
 
 No format was found using `.wsnp` or `.wsnpx` when they were chosen (September 2026); the nearest
 are `.snp`, `.wsn`, `.npx` and `.wspx`, all unrelated.
@@ -192,18 +196,138 @@ elements that never run.
 As `.xlsx` and `.xlsm` share one container and differ in what they may contain (macros), the WSNP
 family has two profiles, told apart by the extension **and** by the `mimetype` entry:
 
-| | `.wsnp` (this document) | `.wsnpx` (reserved) |
+| | `.wsnp` | `.wsnpx` |
 | --- | --- | --- |
-| Purpose | the "photo" of one page, to read offline | the web-app scenario: snapshots meant to be opened, served and extended by a web app |
+| Purpose | the "photo" of one page, to read offline | an application: one or more pages **with scripts of their own** that give them features (notes, highlights, quizzes, calculators, dashboards over saved data…) |
 | Media type | `application/vnd.wsnp+zip` | `application/vnd.wsnp.x+zip` |
-| Scripts | only the writer's offline scripts in `_wsnp/`, each listed in the manifest with its SHA-256 | may carry more (several pages, the app's own features, data…), to be specified |
+| `format` in the manifest | `"wsnp"` | `"wsnpx"` |
+| Scripts | only the writer's offline scripts in `_wsnp/`, which restore the page's behaviour | any scripts in `app/`, under the rules of section 8.2 |
+| Pages | exactly one | one or more |
+| Opening | scripts run at once (they are the writer's own, known and small) | scripts run only after the user allows them (section 8.3) |
 | Readers | any WSNP reader | a `.wsnpx`-aware reader only |
 
-This version specifies `.wsnp` in full and only reserves `.wsnpx`: its extension, its media type,
-and this rule: a reader that only knows `.wsnp` **must** refuse a `.wsnpx` and say that it is a
-web-app snapshot it cannot open (as office programs warn about macros), never "broken file".
-`.wsnpx` follows the rules of sections 2 to 7 and 9 to 11 unless its own specification says
-otherwise.
+A reader that only knows `.wsnp` **must** refuse a `.wsnpx` and say that it is a snapshot with an
+application it cannot open (as office programs warn about macros), never "broken file".
+
+Everything in sections 2 to 7 and 9 to 11 applies to `.wsnpx` too, except what this section
+changes.
+
+### 8.1 Layout and manifest of a `.wsnpx`
+
+```
+mimetype              application/vnd.wsnp.x+zip (first, stored)
+manifest.json         as in section 6, with "format": "wsnpx" and the "app" object below
+index.html            the first page (other pages: any .html file listed in "pages")
+assets/               the pages' files, as in a .wsnp
+app/                  the application: its scripts (classic or modules), styles, pictures, fonts
+data/                 data the application reads and writes (JSON, text, CSV…)
+_wsnp/                the format's own files, as in a .wsnp
+```
+
+The manifest adds:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `app` | object | required: the application the file carries |
+| `app.name` | string | its name, shown to the user before its scripts run |
+| `app.version` | string | its version |
+| `app.description` | string | what it does, in one or two sentences, shown with the name |
+| `app.entry` | string | the page opened first (default: `pages[0].entry`) |
+| `app.permissions` | array | what it asks for beyond running offline (section 8.4); `[]` when nothing |
+| `app.origins` | array of strings | with the `network` permission only: the origins it may contact (`https://api.example.com`) |
+
+`pages` may list several pages, each `{ entry, title, description, source }`; `source` is optional
+for pages the application made itself.
+
+### 8.2 Scripts
+
+- Scripts **must** be files of the archive, in `app/` (or `_wsnp/`), listed in `files` with their
+  SHA-256 and `text/javascript`. Loading code from the network is forbidden, even with the
+  `network` permission: every line that runs is in the file and covered by its hashes.
+- Pages load them with `<script src>` or `<script type="module" src>`, and modules import each
+  other by relative paths. Inline scripts and inline event handlers stay forbidden, so readers can
+  keep `script-src 'self'`.
+- Code **must not** build code from strings (`eval`, `new Function`, `setTimeout("…")`): readers
+  do not allow `'unsafe-eval'`. WebAssembly modules in `app/` **may** be used; readers that allow
+  them add `'wasm-unsafe-eval'`.
+- The application talks to the reader only through the reader API of section 8.5; it sees nothing
+  of the reader, of other snapshots or of the user's computer.
+- A writer **should not** copy a site's own scripts into `app/`: they expect their server and
+  would fail offline. `.wsnpx` scripts are written for the snapshot.
+
+### 8.3 Opening: the user decides
+
+- A reader **must** open a `.wsnpx` with its scripts off, showing its pages as they are, and a bar
+  naming the application (`app.name`, `app.version`, `app.description`) and what it asks for
+  (`app.permissions`, `app.origins`), with a button to enable it.
+- Scripts run only after the user enables them. The reader **may** remember the choice for that
+  exact application: the SHA-256 of every file in `app/` and of the manifest's `app` object. If any
+  of them changes, it asks again.
+- A file whose hashes do not match its manifest **must** never run its scripts.
+- The user can turn the application off again at any time.
+
+### 8.4 Permissions
+
+An application with no permission runs offline, in memory, and forgets everything when closed. It
+can ask for:
+
+| Permission | What the reader grants |
+| --- | --- |
+| `storage` | keep data between openings, through the reader API (`storage.*`), in a store of its own tied to `app.name` and the file |
+| `save` | write its data back into the file: the reader saves a new `.wsnpx` with the changed files of `data/` (and new hashes), after the user confirms |
+| `download` | offer files to the user (`download`), who chooses where to save them |
+| `clipboard` | write text to the clipboard, only in answer to a click |
+| `network` | contact the origins in `app.origins`, and only those (`connect-src`); never to load code |
+
+A reader grants only the permissions it knows and the user accepted; the others are refused, and
+the application must cope without them. Unknown permissions are shown to the user as such.
+
+### 8.5 The reader API
+
+The application runs in a sandboxed frame without `allow-same-origin`, so it has no storage of its
+own. It asks the reader with `window.parent.postMessage`, and the reader answers the same way:
+
+```js
+// request                                   // answer
+{ wsnpx: 1, id: 7, call: 'storage.get',      { wsnpx: 1, id: 7, result: { … } }
+  args: { key: 'notes' } }                   { wsnpx: 1, id: 7, error: 'not allowed' }
+```
+
+| Call | Arguments | Permission |
+| --- | --- | --- |
+| `info` | — | none: returns `{ reader, version, permissions }` (what was granted) |
+| `data.read` | `{ path }` (inside `data/`) | none: reads a file of `data/` as it is in the archive, or as `data.write` left it |
+| `data.write` | `{ path, text }` or `{ path, bytes }` | none: changes `data/` in memory; kept only with `save` |
+| `save` | — | `save`: the reader writes the file back (after the user confirms) |
+| `storage.get` / `storage.set` / `storage.remove` | `{ key }` / `{ key, value }` / `{ key }` | `storage` |
+| `download` | `{ name, media_type, text }` or `{ name, media_type, bytes }` | `download` |
+| `clipboard.write` | `{ text }` | `clipboard` |
+
+Values are anything structured clone accepts. Readers **must** check the message's source frame,
+answer only calls from the snapshot they show, and refuse calls that need a permission not granted.
+New calls come in later minor versions; an application calls `info` first and relies only on what
+it lists.
+
+### 8.6 Security policy of a `.wsnpx`
+
+As in section 10, with scripts from the file only, and the network opened only to `app.origins`
+when `network` is granted:
+
+```
+default-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline' data:;
+connect-src 'self' <app.origins, when granted>
+```
+
+(plus `'wasm-unsafe-eval'` in `script-src` for readers that allow WebAssembly). The frame's sandbox
+is `allow-scripts`, plus `allow-downloads` with the `download` permission and `allow-modals` when
+the reader wants to allow `alert` and `confirm`.
+
+### 8.7 From one to the other
+
+A `.wsnp` becomes a `.wsnpx` when a program (the viewer, a web app) adds an application to it:
+`mimetype` and `format` change, `app/`, `data/` and `app` are added, and the page stays as it was.
+Removing `app/`, `data/` and the extra pages turns it back into a `.wsnp`. PageKeep, the
+extension, only writes `.wsnp`.
 
 ## 9. Password protection
 
@@ -285,14 +409,15 @@ An installable web app can register the file types in its web app manifest:
 }]
 ```
 
-(the second line once the `.wsnpx` profile exists).
+(the second line for readers that support `.wsnpx`).
 
 ### Validation
 
 A reader **must** check, and refuse the file if any check fails (saying why):
 
 1. It is a ZIP, and its first entry is `mimetype`, stored, with no extra field.
-2. The media type is `application/vnd.wsnp+zip` (a `.wsnpx` is refused as in section 8; anything
+2. The media type is `application/vnd.wsnp+zip` (a `.wsnpx` is refused as in section 8 by readers
+   that do not support it, and checked as `.wsnpx` by those that do; anything
    else is not a WSNP file).
 3. If `encryption.json` is present: the protected layout of section 9, then, with the password,
    the decrypted file from step 1.
@@ -307,6 +432,17 @@ A reader **must** check, and refuse the file if any check fails (saying why):
 
 A reader **should** also check that no page contains inline script or a reference that would load
 from the network, and treat a file that fails as unsafe to show with scripts.
+
+For a `.wsnpx`, step 4 expects `format` `"wsnpx"`, step 8 checks every page of `pages` and
+`app.entry`, and a reader also checks that:
+
+9. `app` has a `name`, a `version`, a `description` and a `permissions` list, and `app.origins`
+   lists only `https://` (or `http://localhost`) origins, present only with `network`.
+10. Every script the pages load is a file of the archive listed in `files`; no page loads a script
+    from elsewhere, not even with `network`.
+
+`tests/wsnp-check.mjs` checks `.wsnp` files; the `.wsnpx` checks come with the first reader that
+supports them.
 
 ## 11. Versions
 

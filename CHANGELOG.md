@@ -11,7 +11,8 @@ publishes it as the release's notes.
   manifest names the page's address, title and description, lists every file with its type, size
   and SHA-256, and what could not be saved; with a preview picture, and the offline scripts in a
   file of their own so the page works under a strict security policy. Specification in
-  `docs/FORMAT.md` (with password protection and the reserved `.wsnpx` web-app profile), a
+  `docs/FORMAT.md` (with password protection, and `.wsnpx`, the profile whose files carry
+  scripts of their own to work as an application, run only when the user allows them), a
   reference validator (`tests/wsnp-check.mjs`) and the guidelines for the future viewer
   (`docs/VIEWER-GUIDELINES.md`). Rename a `.wsnp` to `.zip` to unzip it.
 - The saved files are sorted into folders: `assets/images/`, `styles/`, `fonts/`, `media/` and

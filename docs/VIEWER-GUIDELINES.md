@@ -15,8 +15,8 @@ and protecting snapshots belongs to the viewer.
 - Show the open snapshots as tabs or a list, each with its preview, title, source address and
   capture date.
 - Validate every file with the checklist of `FORMAT.md` (section 10) before showing it, reusing
-  `tests/wsnp-check.mjs`, and say in plain words why a file is refused. A `.wsnpx` gets its own
-  message (a web-app snapshot), and so does a newer major version ("made by a newer version").
+  `tests/wsnp-check.mjs`, and say in plain words why a file is refused, including a newer major
+  version ("made by a newer version").
 - A `.zip` saved by PageKeep (with `snapshot.json`) may be opened too, as a courtesy.
 
 ## Showing the page
@@ -28,6 +28,22 @@ and protecting snapshots belongs to the viewer.
 - Serve each file with its `media_type` from the manifest.
 - The page must look and behave as it does unzipped: responsive, carousels, tabs, menus and
   galleries working.
+
+## Snapshots with an application (`.wsnpx`)
+
+Supporting `.wsnpx` (`FORMAT.md` section 8) can come after `.wsnp`; until then the viewer says the
+file holds an application it cannot run yet. When it does support them:
+
+- Open a `.wsnpx` with its scripts off and a bar naming the application, what it does and what it
+  asks for (its permissions and the sites it wants to contact), with **Enable** and **Keep off**.
+  Remember the choice only for that exact application (its hashes); ask again when it changes.
+- Never run scripts of a file whose hashes do not match.
+- Grant only the permissions the user accepted, through the reader API of section 8.5, and open
+  the network only to the origins listed, only with `network`.
+- **Save** (with the `save` permission) writes a new `.wsnpx` with the application's data, after
+  the user confirms; protected files stay protected.
+- Offer to turn a `.wsnp` into a `.wsnpx` when the viewer adds an application of its own (notes,
+  highlights…), and to remove an application, turning it back into a `.wsnp`.
 
 ## Information bar
 

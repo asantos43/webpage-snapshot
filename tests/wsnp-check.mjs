@@ -100,7 +100,7 @@ export async function checkWsnp(bytes, { password } = {}) {
   if (entries[0]?.name !== 'mimetype') return fail('the first entry is not "mimetype"');
   if (errors.length) return result;
   const mediaType = text(entries[0].read());
-  if (mediaType === WSNPX_TYPE) return fail('this is a .wsnpx file (web-app profile), which a .wsnp reader does not open');
+  if (mediaType === WSNPX_TYPE) return fail('this is a .wsnpx file (a snapshot with an application of its own), which this reader does not open');
   if (mediaType !== WSNP_TYPE) return fail(`"mimetype" is "${mediaType}", not ${WSNP_TYPE}`);
   if (entries.some((e) => e.flags & 1)) return fail('ZIP-level encryption is not allowed');
 
