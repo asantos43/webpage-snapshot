@@ -39,15 +39,28 @@ token=$(curl -sS --fail-with-body "$token_uri" \
 echo "::add-mask::$token"
 auth=(-H "Authorization: Bearer $token")
 
+# A call to the store API: prints the store's answer, and on an HTTP error shows it as the error
+# (`set -e` would otherwise end the script before the answer is printed).
+call() {
+  local what=$1 body
+  shift
+  if ! body=$(curl -sS --fail-with-body "${auth[@]}" "$@"); then
+    echo "$body" >&2
+    echo "::error::The Chrome Web Store refused the $what: $(jq -r '.error.message // empty' <<<"$body" 2>/dev/null || true)" >&2
+    exit 1
+  fi
+  printf '%s' "$body"
+}
+
 # ---- upload the package, and wait while the store is still processing it
 echo "Uploading $zip to $item"
-upload=$(curl -sS --fail-with-body "${auth[@]}" -X POST -T "$zip" "$api/upload/v2/$item:upload")
+upload=$(call upload -X POST -T "$zip" "$api/upload/v2/$item:upload")
 echo "$upload"
 state=$(jq -r .uploadState <<<"$upload")
 for _ in $(seq 1 30); do
   [ "$state" = IN_PROGRESS ] || [ "$state" = UPLOAD_IN_PROGRESS ] || break
   sleep 10
-  status=$(curl -sS --fail-with-body "${auth[@]}" "$api/v2/$item:fetchStatus")
+  status=$(call "status request" "$api/v2/$item:fetchStatus")
   state=$(jq -r '.lastAsyncUploadState // "IN_PROGRESS"' <<<"$status")
   echo "upload state: $state"
 done
@@ -58,6 +71,6 @@ fi
 
 # ---- submit it for review; once approved it goes live with the item's visibility (for a private
 # item: only its testers)
-publish=$(curl -sS --fail-with-body "${auth[@]}" -X POST "$api/v2/$item:publish")
+publish=$(call "submission for review" -X POST "$api/v2/$item:publish")
 echo "$publish"
 echo "::notice::Submitted to the Chrome Web Store for review (state: $(jq -r .state <<<"$publish"))."

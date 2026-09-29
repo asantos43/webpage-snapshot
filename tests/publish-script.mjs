@@ -5,7 +5,9 @@
 // Cases:
 //   - without the secrets: a notice and exit 0, nothing contacted;
 //   - a normal upload: token, upload of the exact zip, a wait while the store processes it, publish;
-//   - the store rejects the package: exit 1, and nothing is published.
+//   - the store rejects the package: exit 1, and nothing is published;
+//   - the store refuses the upload with an HTTP error (as while another version is in review):
+//     exit 1, with the store's own message in the log.
 // Needs bash, curl, jq and openssl (as on the release workflow's runner).
 // Usage: node publish-script.mjs
 import { execFile } from 'node:child_process';
@@ -53,6 +55,7 @@ const server = http.createServer((req, res) => {
     if (req.headers.authorization !== `Bearer ${TOKEN}`) return reply(401, { error: 'unauthenticated' });
     const item = `/publishers/${PUBLISHER}/items/${ITEM}`;
     if (req.url === `/upload/v2${item}:upload` && req.method === 'POST') {
+      if (mode === 'refuse') return reply(400, { error: { code: 400, message: 'Item is not updatable while it is in review.', status: 'FAILED_PRECONDITION' } });
       uploaded = body;
       return reply(200, { itemId: ITEM, uploadState: 'IN_PROGRESS' });
     }
@@ -108,7 +111,15 @@ try {
   check('rejected: exit 1 with an error', r.code === 1 && /::error::The Chrome Web Store did not accept the package \(upload state: FAILED\)/.test(r.out), r.out);
   check('rejected: nothing published', !seen.some((s) => s.includes(':publish')), seen.join(', '));
 
-  // 4. A key that does not match: the token request fails and so does the script.
+  // 4. The store refuses the upload itself (HTTP 400): its message must reach the log.
+  seen.length = 0;
+  mode = 'refuse';
+  r = await run(secrets);
+  check('refused: exit 1 with the store\'s own message as the error', r.code === 1 && /::error::The Chrome Web Store refused the upload: Item is not updatable while it is in review\./.test(r.out), r.out);
+  check('refused: the store\'s answer is in the log', r.out.includes('FAILED_PRECONDITION'), r.out);
+  check('refused: nothing published', !seen.some((s) => s.includes(':publish')), seen.join(', '));
+
+  // 5. A key that does not match: the token request fails and so does the script.
   seen.length = 0;
   const other = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({ type: 'pkcs8', format: 'pem' });
   r = await run({ ...secrets, CWS_SERVICE_ACCOUNT_KEY: JSON.stringify({ ...JSON.parse(key), private_key: other }) });
