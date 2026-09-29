@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-09-29
+
 - New file format **WSNP** (Web SNaPshot, `.wsnp`): the popup's new **Save as** choice saves the
   snapshot as `.zip` (the default, as before) or `.wsnp`, a ZIP with a fixed structure whose
   manifest names the page's address, title and description, lists every file with its type, size
