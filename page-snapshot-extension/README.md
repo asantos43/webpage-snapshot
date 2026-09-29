@@ -14,16 +14,17 @@ There is no build step and no dependencies.
 
 ## Use
 
-Click the toolbar button, or press **Alt+Shift+S**. The extension's popup opens under its icon with three buttons, **Snapshot**, **Cancel** and **Download**; nothing starts until you press Snapshot (or Enter). The popup then shows what it is doing as it happens: a list with one line per phase (reading editors, stepping through each carousel item by item, copying the page, listing the files the page already loaded, downloading resources with running counts and the file being fetched right now, saving linked files, packing the ZIP), each with a spinner that turns into a check mark when done. When the ZIP is ready, **Download** saves it as `<page-title>-<YYYYMMDD-HHmm>.zip` and gets the popup ready for the next snapshot; nothing is saved before that.
+Click the toolbar button, or press **Alt+Shift+S**. The extension's popup opens under its icon with three buttons, **Snapshot**, **Cancel** and **Download**; nothing starts until you press Snapshot (or Enter). The popup then shows what it is doing as it happens: a list with one line per phase (reading editors, stepping through each carousel item by item, copying the page, listing the files the page already loaded, downloading resources with running counts and the file being fetched right now, saving linked files, packing the ZIP), each with a spinner that turns into a check mark when done. When the snapshot is ready, **Download** saves it as `<page-title>-<YYYYMMDD-HHmm>.zip` (or `.wsnp`, see **Save as** below) and gets the popup ready for the next snapshot; nothing is saved before that.
 
 | State | Enabled |
 | --- | --- |
-| The popup opens (idle) | Snapshot, and the option below |
+| The popup opens (idle) | Snapshot, and the two options below |
 | A snapshot runs | Cancel: stops it, puts carousels back and closes the popup |
 | The ZIP is ready | Download (saves it, then back to idle) and Cancel (discards it, then back to idle) |
 | It failed | Cancel (back to idle) |
 
 - **Load the whole page first** (an option in the popup, on unless you turn it off): before copying, the extension scrolls through the page screen by screen, so images and blocks that only load as you scroll are there too, presses its "Load more" / "Carregar mais" / "Ver mais" / "Cargar más" buttons (up to 5; never a link to another page or a form button), then goes back to where you were. Endless feeds stop after 40 screens or 20 seconds. Set it before pressing Snapshot; it is remembered.
+- **Save as** `.zip` / `.wsnp` (`.zip` unless you choose otherwise; remembered): `.zip` is a plain ZIP; `.wsnp` is the same snapshot as a **Web SNaPshot** file, the format defined in [`docs/FORMAT.md`](../docs/FORMAT.md): a ZIP with a fixed structure whose manifest names the page's address, title and description and lists every file with its type and SHA-256, plus a preview picture. A `.wsnp` is meant for the PageKeep viewer (a separate application, to come); until then, rename it to `.zip` to unzip it.
 - You can close the popup, or click on the page: the capture carries on in the background. Click the icon again to see how it is going. The icon's badge shows **…** while it runs, **✓** when it is done and **!** if it failed.
 - A finished capture waits for Download or Cancel, even if you close the popup or open it on another tab.
 - **Cancel** during a capture stops it: carousels are put back to the item they were on and nothing is saved.
@@ -45,12 +46,31 @@ Unzip it and open `index.html`. You can turn off the network to check that it is
 
 The popup, its Help, the help page, and the name and description shown by the browser and the store are in English (the default) and Brazilian Portuguese; the browser picks one by its own language. The texts are in `_locales/en` and `_locales/pt_BR`, with the same keys. The popup translates everything, including the steps the capture reports: the offscreen page has no `chrome.i18n`, so it sends message keys with their values, and `popup.js` turns them into text.
 
-## ZIP layout
+## Layout
+
+A `.zip`:
 
 ```
 index.html        the page, with every reference pointing into assets/
-assets/           CSS, images, fonts, icons (flat, names like logo-1k3f9a.png)
+assets/           the page's files, sorted by kind (names like logo-1k3f9a.png):
+  images/           pictures, icons, SVG, pictures of frames from other sites
+  styles/           stylesheets
+  fonts/            fonts
+  media/            video, audio, subtitles
+  files/            files the page links to for download (PDF, archives…), and anything else
 snapshot.json     source URL, title, capture time, every resource saved, and every failure
+```
+
+A `.wsnp` (see [`docs/FORMAT.md`](../docs/FORMAT.md)):
+
+```
+mimetype          application/vnd.wsnp+zip (first, not compressed: identifies the file)
+manifest.json     format version, source address, title, description, viewport, every file
+                  with its type, size and SHA-256, and what could not be saved
+index.html        the page (no inline script)
+assets/           as in the .zip
+_wsnp/offline.js  the extension's offline scripts for this page
+_wsnp/preview.jpg a picture of the page as it was on screen
 ```
 
 ## What gets captured
@@ -63,7 +83,7 @@ snapshot.json     source URL, title, capture time, every resource saved, and eve
 - Carousels whose arrow buttons are labelled (`aria-label`) "Next" / "Previous" in English, Portuguese or Spanish: the word alone ("Next", "Próximo", "Siguiente", "Anterior") or with what it moves ("Next slide", "Próxima imagem", "Imagen anterior"). Labels are compared without accents or capitals, so "Proximo" and "PRÓXIMO" count too. A button that would submit a form (a sign-up wizard's "Next") is never pressed. Many only keep the current item in the page, so the extension briefly steps through every item of the live page, starting from the first one even if the carousel was elsewhere (it goes back first and returns it to the item you were on), then embeds all of them; the copy opens on the item you were on. Previous/Next work offline.
   - Carousels that keep **only the current item** in the page: every item is recorded and embedded, and Next / Previous swap them in offline.
   - Carousels that keep **every item in the page** (Glide, Swiper, Slick, Owl, Bootstrap, fading carousels, strips that scroll sideways…): the extension presses Next through every step and records, at each one, where the strip sits (when one moves), the state of every part that changes (the "active" item and dot, `aria-hidden`…) and how the arrows look (greyed out or hidden at the ends), then puts the page back. Offline, the arrows and the dots replay those steps, whatever library the site used.
-- Downloadable files: `<a download>` links (attachments, patches, whose links are often temporary signed URLs), plus links on the same site to archives and documents (`.zip`, `.pdf`, `.csv`, ...), up to 25 files, are saved into `assets/` and the links point to them.
+- Downloadable files: `<a download>` links (attachments, patches, whose links are often temporary signed URLs), plus links on the same site to archives and documents (`.zip`, `.pdf`, `.csv`, ...), up to 25 files, are saved into `assets/files/` and the links point to them.
 - Open shadow DOM (web components) and same-origin iframes.
 - Text that was cut off with "…more" by a multi-line CSS clamp (feed posts, descriptions) is shown in full, and the dead "more" button is removed. Single-line ellipsis (titles, names) is left as you saw it.
 
@@ -74,7 +94,7 @@ Links (`<a href>`) are made absolute, so clicking one opens the real site when y
 - **Only some interactivity survives.** The page's own scripts are removed on purpose, because re-running them offline would re-render or break the page. Instead the extension embeds small scripts of its own, from its offline library (`lib/offline/`, no network access), that restore behaviour whose content is already in the saved page: collapsible sections / accordions, "Expand all" / "Collapse all" buttons, tabs, carousels (both kinds, below, with their arrows and dots), photo galleries (the large pictures are saved; a thumbnail opens its picture over the page), modals and dialogs (Bootstrap, `<dialog>`, `role="dialog"`), Bootstrap drop-down menus, collapses and tabs, and editor buttons. A saved page only gets the scripts it needs. Menus, search boxes, drop-down pickers (such as a carousel's "jump to item" list) and anything else that needs the site's own code will not respond, and content a page only builds when you click, rather than hiding it, was never in the page and cannot be saved.
 - "…more" only works when the full text is already in the page and merely clipped. If a site cuts the text in JavaScript and downloads the rest when you click, the rest was never in the page and cannot be saved.
 - Cross-origin iframes (ads, embedded players, maps) cannot be read: the copy shows a picture of how each looked (below). `blob:`/streamed video and closed shadow roots are not captured.
-- Resources over 30 MB, or past 800 MB total, are skipped. A resource that could not be saved is listed in `snapshot.json` and in the popup, and its reference is removed from the page (see below).
+- Resources over 30 MB, or past 800 MB total, are skipped. A resource that could not be saved is listed in `snapshot.json` (or the `.wsnp` manifest's `failed`) and in the popup, and its reference is removed from the page (see below).
 - If Chrome refuses to attach the debugger, only the files from the page's own site can be saved; the others are listed as failed.
 - Chrome does not let extensions read `chrome://` pages or the Chrome Web Store.
 - To capture `file://` pages, enable **Allow access to file URLs** for the extension on `chrome://extensions`.

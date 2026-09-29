@@ -30,6 +30,7 @@ FUNCIONA EM SEGUNDO PLANO
 • Acompanhe cada etapa ou feche o popup e continue trabalhando: o selo do ícone mostra … enquanto roda, ✓ quando termina e ! se falhou. Clique no ícone de novo para ver o resultado.
 • Cancelar interrompe a captura a qualquer momento: os carrosséis voltam ao primeiro item e nada é salvo.
 • Quando o ZIP está pronto, Baixar o salva na sua pasta de Downloads, com o título da página, a data e a hora no nome; Cancelar o descarta. Nada é salvo antes de você escolher.
+• Salve como .zip (um ZIP comum) ou .wsnp (Web SNaPshot, o formato de arquivo próprio do PageKeep: a mesma cópia com um manifesto que traz o endereço, o título e a descrição da página, e uma prévia).
 
 COMO ELE LÊ OS ARQUIVOS
 

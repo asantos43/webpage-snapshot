@@ -14,7 +14,7 @@ Os detalhes técnicos (o que é capturado, de onde vêm os arquivos, limitaçõe
 - **Interatividade que continua funcionando offline:** seções recolhidas, acordeões, botões "Expandir tudo" / "Recolher tudo", abas, menus suspensos, janelas sobrepostas (modais, diálogos), galerias de fotos que abrem a foto grande e carrosséis com setas e bolinhas (botões "Próximo" / "Anterior" em português, inglês ou espanhol, com ou sem acento), restaurados por pequenos scripts locais (a biblioteca offline) que nunca acessam a rede.
 - **Editores de código (Monaco / VS Code):** viram texto comum, rolável e selecionável, com o arquivo completo quando há link de download; os botões "Copy file" e "word wrap" continuam funcionando.
 - **Carrosséis:** a extensão percorre cada item na página ao vivo (e a devolve ao estado em que estava). Os que mostram um item por vez têm todos os itens gravados; os que deslizam uma faixa com todos os itens (Glide, Swiper, Slick, rolagem lateral) têm as posições gravadas. Nos dois casos as setas funcionam na cópia offline.
-- **Arquivos para download:** links `<a download>` e documentos do mesmo site (`.zip`, `.pdf`, `.csv`…), até 25 arquivos, vão para `assets/`.
+- **Arquivos para download:** links `<a download>` e documentos do mesmo site (`.zip`, `.pdf`, `.csv`…), até 25 arquivos, vão para `assets/files/` (os demais arquivos da página ficam separados em `assets/images/`, `styles/`, `fonts/` e `media/`).
 - **Texto cortado com "…mais"** por clamp de CSS aparece inteiro.
 - **Progresso ao vivo:** o popup da extensão, embaixo do ícone, mostra cada fase com contadores e o arquivo sendo baixado naquele momento, com os botões **OK** e **Cancel** e uma seção **Help**. A captura continua mesmo com o popup fechado.
 
@@ -36,7 +36,7 @@ Abrir o `index.html` não faz nenhuma requisição. Os scripts originais da pág
 | --- | --- |
 | `page-snapshot-extension/` | A extensão (JavaScript puro, sem etapa de build e sem dependências; a pasta mantém o nome antigo) |
 | `tests/` | Smoke test com Playwright num Chromium real |
-| `docs/` | Notas de desenvolvimento: ambiente, navegadores, versões, releases e origem do repo |
+| `docs/` | Notas de desenvolvimento (ambiente, navegadores, versões, releases e origem do repo), a especificação do formato `.wsnp` (`FORMAT.md`) e as diretrizes do visualizador (`VIEWER-GUIDELINES.md`) |
 | `.github/workflows/` | A Action que publica uma release a cada pull request mergeado |
 
 ## Instalar
@@ -60,12 +60,13 @@ Clique no botão da barra de ferramentas ou aperte **Alt+Shift+S**. O popup da e
 
 | Situação | Botões ativos |
 | --- | --- |
-| O popup abre | Capturar, e a opção abaixo |
+| O popup abre | Capturar, e as duas opções abaixo |
 | A captura roda | Cancelar: interrompe, devolve os carrosséis e fecha o popup |
 | O ZIP está pronto | Baixar (salva e volta ao início) e Cancelar (descarta e volta ao início) |
 | Deu erro | Cancelar (volta ao início) |
 
 - **Carregar a página inteira antes** (opção no popup, ligada a menos que você desligue): antes de copiar, a extensão rola a página até o fim, para que imagens e blocos que só carregam ao rolar entrem na cópia, e aperta os botões "Carregar mais" / "Ver mais" / "Load more" (até 5; nunca um link para outra página nem um botão de formulário), depois volta para onde você estava. Feeds infinitos param em 40 telas ou 20 segundos. Ajuste antes de apertar Capturar; a escolha fica guardada.
+- **Salvar como** `.zip` / `.wsnp` (`.zip`, a menos que você escolha o outro; a escolha fica guardada): `.wsnp` (Web SNaPshot) é o formato de arquivo próprio do PageKeep, definido em [`docs/FORMAT.md`](docs/FORMAT.md): um ZIP com estrutura fixa, cujo manifesto traz o endereço, o título e a descrição da página e lista cada arquivo com tipo e SHA-256, mais uma prévia. Ele é feito para o visualizador do PageKeep, um aplicativo em repositório separado ([`docs/VIEWER-GUIDELINES.md`](docs/VIEWER-GUIDELINES.md)); até lá, renomeie para `.zip` para descompactar.
 - Você pode fechar o popup ou clicar na página: a captura continua em segundo plano. Clique no ícone de novo para ver como está. O selo do ícone mostra **…** enquanto roda, **✓** quando termina e **!** se falhou.
 - Uma captura terminada espera por Baixar ou Cancelar, mesmo se você fechar o popup ou abri-lo em outra aba.
 - **Cancelar** durante a captura a interrompe: os carrosséis voltam ao item em que estavam e nada é salvo.
@@ -112,6 +113,8 @@ npm install        # uma vez; o Chromium do Playwright fica em ~/.cache/ms-playw
 npm run smoke      # carrega a extensão e abre as páginas dela
 npm run carousel   # captura uma página com carrossel, de ponta a ponta
 npm run store-policy   # confere as regras da Chrome Web Store (docs/STORE-POLICY.md)
+npm run wsnp           # o validador de .wsnp e a proteção por senha (docs/FORMAT.md)
+node wsnp-check.mjs arquivo.wsnp   # valida um .wsnp
 npm run screenshots    # refaz as capturas do popup nos dois idiomas
 ```
 

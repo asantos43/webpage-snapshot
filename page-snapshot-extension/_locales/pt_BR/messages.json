@@ -44,7 +44,7 @@
     "description": "Help item after the Cancel button's name."
   },
   "help_download": {
-    "message": "salva o ZIP pronto na sua pasta de Downloads e deixa o popup pronto para a próxima captura. Nada é salvo antes disso.",
+    "message": "salva a cópia pronta (.zip ou .wsnp) na sua pasta de Downloads e deixa o popup pronto para a próxima captura. Nada é salvo antes disso.",
     "description": "Help item after the Download button's name."
   },
   "help_one": {
@@ -286,6 +286,14 @@
   "option_reveal": {
     "message": "Carregar a página inteira antes: rolar até o fim e apertar “Carregar mais”, para salvar tudo",
     "description": "Popup option (checkbox)."
+  },
+  "option_format": {
+    "message": "Salvar como",
+    "description": "Popup option: label of the .zip / .wsnp radio buttons."
+  },
+  "help_format": {
+    "message": ".zip (o padrão) é um ZIP comum; .wsnp é a mesma cópia como arquivo Web SNaPshot, com um manifesto que traz o endereço, o título e a descrição da página, e uma prévia. Renomeie um .wsnp para .zip para descompactá-lo.",
+    "description": "Help item after option_format."
   },
   "step_reveal": {
     "message": "Rolando a página para carregar tudo…",

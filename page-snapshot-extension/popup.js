@@ -68,6 +68,7 @@ function render(job) {
   $('failed-summary').textContent = plural(failures.length, 'failed_summary');
   fill($('failed'), failures, (li, f) => { li.textContent = `${f.url} — ${f.text ? t(f.text) : f.reason}`; });
   $('opt-reveal').disabled = phase !== 'idle';
+  for (const radio of formats()) radio.disabled = phase !== 'idle';
   $('snapshot').disabled = phase !== 'idle';
   $('cancel').disabled = phase === 'idle';
   $('download').disabled = !(phase === 'done' && job.download);
@@ -107,12 +108,20 @@ $('download').onclick = async () => {
   }
 };
 
-// "Load the whole page first": remembered, and applied by the next Snapshot.
-chrome.storage.local.get('settings').then(({ settings }) => { $('opt-reveal').checked = settings?.reveal !== false; });
-$('opt-reveal').onchange = async () => {
+// "Load the whole page first" and "Save as" (.zip or .wsnp): remembered, and applied by the
+// next Snapshot.
+function formats() { return document.querySelectorAll('input[name="format"]'); }
+async function saveSetting(change) {
   const { settings } = await chrome.storage.local.get('settings');
-  await chrome.storage.local.set({ settings: { ...settings, reveal: $('opt-reveal').checked } });
-};
+  await chrome.storage.local.set({ settings: { ...settings, ...change } });
+}
+chrome.storage.local.get('settings').then(({ settings }) => {
+  $('opt-reveal').checked = settings?.reveal !== false;
+  const format = settings?.format === 'wsnp' ? 'wsnp' : 'zip';
+  for (const radio of formats()) radio.checked = radio.value === format;
+});
+$('opt-reveal').onchange = () => saveSetting({ reveal: $('opt-reveal').checked });
+for (const radio of formats()) radio.onchange = () => { if (radio.checked) saveSetting({ format: radio.value }); };
 
 chrome.storage.session.onChanged.addListener((changes) => {
   if (changes.job) render(changes.job.newValue);

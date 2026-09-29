@@ -156,6 +156,10 @@ jobs:
         working-directory: tests
         run: npm run publish-script
 
+      - name: WSNP format checks (validator and password protection)
+        working-directory: tests
+        run: npm run wsnp
+
       - name: Commit the new version and changelog
         env:
           VERSION: ${{ steps.version.outputs.version }}

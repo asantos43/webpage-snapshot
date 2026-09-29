@@ -26,7 +26,14 @@ export async function openPopupWindow(context, worker, extensionId, onError = ()
   return popup;
 }
 
-// Which of the popup's controls are enabled: { snapshot, cancel, download, option }.
-export const controls = (popup) => popup.evaluate(() => Object.fromEntries(
-  [['snapshot', 'snapshot'], ['cancel', 'cancel'], ['download', 'download'], ['option', 'opt-reveal']].map(([name, id]) => [name, !document.getElementById(id).disabled]),
-));
+// Which of the popup's controls are enabled: { snapshot, cancel, download, option }. `option`
+// covers both options ("Load the whole page first" and the .zip / .wsnp choice): true or false
+// when they agree, 'mixed' when they do not.
+export const controls = (popup) => popup.evaluate(() => {
+  const on = (el) => !el.disabled;
+  const options = [document.getElementById('opt-reveal'), ...document.querySelectorAll('input[name="format"]')].map(on);
+  return {
+    ...Object.fromEntries(['snapshot', 'cancel', 'download'].map((id) => [id, on(document.getElementById(id))])),
+    option: options.every(Boolean) ? true : options.some(Boolean) ? 'mixed' : false,
+  };
+});

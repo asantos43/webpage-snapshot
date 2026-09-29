@@ -6,6 +6,18 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- New file format **WSNP** (Web SNaPshot, `.wsnp`): the popup's new **Save as** choice saves the
+  snapshot as `.zip` (the default, as before) or `.wsnp`, a ZIP with a fixed structure whose
+  manifest names the page's address, title and description, lists every file with its type, size
+  and SHA-256, and what could not be saved; with a preview picture, and the offline scripts in a
+  file of their own so the page works under a strict security policy. Specification in
+  `docs/FORMAT.md` (with password protection, and `.wsnpx`, the profile whose files carry
+  scripts of their own to work as an application, run only when the user allows them), a
+  reference validator (`tests/wsnp-check.mjs`) and the guidelines for the future viewer
+  (`docs/VIEWER-GUIDELINES.md`). Rename a `.wsnp` to `.zip` to unzip it.
+- The saved files are sorted into folders: `assets/images/`, `styles/`, `fonts/`, `media/` and
+  `files/` (downloads), in both formats. Asset names are plain ASCII.
+
 ## [1.4.2] - 2026-09-29
 
 ## [1.4.1] - 2026-09-28

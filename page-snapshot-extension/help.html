@@ -48,7 +48,7 @@
         </div>
         <div>
           <figure>
-            <img src="images/screenshots/en/popup-idle.png" width="440" alt="The popup as it opens: the option Load the whole page first, the text Ready to save this page, and the Snapshot button; Cancel and Download are greyed out">
+            <img src="images/screenshots/en/popup-idle.png" width="440" alt="The popup as it opens: the option Load the whole page first, the Save as choice between .zip and .wsnp, the text Ready to save this page, and the Snapshot button; Cancel and Download are greyed out">
             <figcaption>The popup as it opens: only Snapshot and the option.</figcaption>
           </figure>
           <figure>
@@ -66,6 +66,12 @@
           saving, PageKeep scrolls through the page and presses its "Load more" buttons, so pictures and lists that only
           appear then are saved too, and goes back to where you were. It never follows a link to another page or sends a
           form. Endless feeds stop after 40 screens or 20 seconds. Set it before pressing Snapshot; it is remembered.</li>
+        <li><strong>Save as</strong> <code>.zip</code> or <code>.wsnp</code> (<code>.zip</code> unless you choose
+          otherwise; remembered): <code>.zip</code> is a plain ZIP. <code>.wsnp</code> (Web SNaPshot) is the same
+          snapshot in PageKeep's own file format, whose manifest names the page's address, title and description, lists
+          every file with its type and checksum, and holds a preview picture. It is meant for the PageKeep viewer, a
+          separate application to come; until then, rename a <code>.wsnp</code> to <code>.zip</code> to open it as
+          below.</li>
         <li><strong>You can close the popup</strong>, or click on the page: the capture carries on in the background.
           Click the icon again to see how it is going.</li>
         <li>The icon's badge shows <strong>…</strong> while it runs, <strong>✓</strong> when it is done and
@@ -160,8 +166,11 @@
       <h2>Opening the ZIP</h2>
       <p>Unzip it anywhere and open <code>index.html</code> in the browser, with or without an internet connection:</p>
       <pre>index.html      the page, pointing at the files in assets/
-assets/         styles, images, fonts, icons and saved downloads
+assets/         the page's files, in images/, styles/, fonts/, media/ and files/ (saved downloads)
 snapshot.json   the page's address and title, the date, each file saved and each one that failed</pre>
+      <p>A <code>.wsnp</code> renamed to <code>.zip</code> unzips the same way, with <code>manifest.json</code> in place
+        of <code>snapshot.json</code>, the offline scripts and a preview picture in <code>_wsnp/</code>, and a first
+        file named <code>mimetype</code> that identifies the format.</p>
       <p>Opening it makes no request at all. Links still lead to the real site when you click them while online.</p>
       <figure class="wide">
         <img src="images/screenshots/en/snapshot-offline.png" width="1280" alt="An example news page saved by PageKeep, opened offline from the ZIP: masthead, section menu, headlines, the lead story's photo, tabs, a live-updates box and an advertisement">

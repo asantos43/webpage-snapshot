@@ -1,7 +1,9 @@
 // End-to-end test: capture a local page with a carousel through the extension's popup, then open
 // the saved ZIP and step through the carousel offline. Also checks files from another site (which
-// the extension has no permission for), the popup's flow (Snapshot, Download, Cancel), closing the
-// popup in the middle of a capture, and Cancel. Exit code 1 if any check fails.
+// the extension has no permission for), the popup's flow (Snapshot, Download, Cancel), the same
+// capture saved as a .wsnp (validated by wsnp-check.mjs, served like a web app would under a
+// strict security policy, and unzipped), closing the popup in the middle of a capture, and
+// Cancel. Exit code 1 if any check fails.
 // Usage: node carousel.mjs [path-to-extension]   (default: ../page-snapshot-extension)
 //
 // Playwright cannot reach the real popup's page, so popup.html is opened in its own window, taking
@@ -19,6 +21,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { controls, openPopupWindow, popupTargets } from './popup.mjs';
+import { checkWsnp, readZip } from './wsnp-check.mjs';
 
 const extensionPath = path.resolve(process.argv[2] || '../page-snapshot-extension');
 const ITEMS = 12;
@@ -44,7 +47,8 @@ const otherOrigin = `http://localhost:${other.address().port}`;
 
 // A carousel that renders only its current item (a heading and an image), swapped in a little
 // after each click, like a real one waiting for its transition.
-const page = `<!doctype html><title>Carousel test</title><link rel="stylesheet" href="/style.css">
+const DESCRIPTION = 'A page to test carousels, lazy pictures and “Load more”.';
+const page = `<!doctype html><html lang="en"><title>Carousel test</title><meta name="description" content="${DESCRIPTION}"><link rel="stylesheet" href="/style.css">
 <link rel="canonical" href="${otherOrigin}/canonical"><link rel="compression-dictionary" href="${otherOrigin}/dict">
 <link rel="preload" as="image" href="${otherOrigin}/logo.svg"><link rel="some-future-type" href="${otherOrigin}/future">
 <img id="logo" src="${otherOrigin}/logo.svg"><a id="notes" download href="${otherOrigin}/notes.txt">notes</a>
@@ -269,6 +273,9 @@ try {
   const notesHref = await snap.$eval('#notes', (a) => a.getAttribute('href'));
   check('file from the other site saved (the page had not loaded it)', notesHref.startsWith('assets/')
     && fs.readFileSync(path.join(unzipDir, notesHref), 'utf8') === 'notes from the other site', notesHref);
+  const logoSrc = await snap.$eval('#logo', (i) => i.getAttribute('src'));
+  const cssHref = await snap.$eval('link[rel="stylesheet"]', (l) => l.getAttribute('href'));
+  check('assets/ is sorted into folders: images/, styles/, files/', logoSrc.startsWith('assets/images/') && cssHref.startsWith('assets/styles/') && notesHref.startsWith('assets/files/'), `${logoSrc} ${cssHref} ${notesHref}`);
   const listed = JSON.parse(fs.readFileSync(path.join(unzipDir, 'snapshot.json'), 'utf8'));
   check('nothing failed', listed.failed.length === 0, JSON.stringify(listed.failed));
   check('no network requests', online.length === 0, online.join(' '));
@@ -287,14 +294,87 @@ try {
   check('<link>s that download by themselves are removed, canonical kept', !links.some((r) => /dictionary|preload|future/.test(r)) && links.includes('canonical'), links.join(', '));
   await snap.close();
 
-  console.log('3. The option switched off');
+  console.log('3. The same capture as a .wsnp');
+  check('"Save as" starts on .zip', await popup.isChecked('input[name="format"][value="zip"]'));
+  await popup.check('input[name="format"][value="wsnp"]');
+  await pause(300);
+  check('choosing .wsnp is saved', (await worker.evaluate(() => chrome.storage.local.get('settings'))).settings?.format === 'wsnp');
+  await popup.close();
+  popup = await popupWindow();
+  check('the choice is remembered when the popup opens again', await popup.isChecked('input[name="format"][value="wsnp"]'));
+  await popup.click('#snapshot');
+  j = await waitJob((x) => x && x.phase !== 'running');
+  check('capture finished', j.phase === 'done', JSON.stringify(j.error || j.status));
+  check('popup: the final status names the .wsnp', /^.+\.wsnp is ready \(/.test(await popup.textContent('#status')), await popup.textContent('#status'));
+  await popup.click('#download');
+  await waitJob((x) => x === null, 20000);
+  // Under automation the saved file gets a random name: the name asked for is the job's.
+  const [wsnpFile] = await worker.evaluate(() => chrome.downloads.search({ orderBy: ['-startTime'], limit: 1 }));
+  check('Download saves a .wsnp', wsnpFile?.state === 'complete' && j.download.name.endsWith('.wsnp') && wsnpFile.mime === 'application/vnd.wsnp+zip', `${j.download.name} ${wsnpFile?.mime}`);
+  const bytes = fs.readFileSync(wsnpFile.filename);
+  const result = await checkWsnp(bytes);
+  check('the .wsnp passes wsnp-check.mjs', result.ok, result.errors.slice(0, 5).join(' | '));
+  const m = result.manifest || {};
+  check('manifest: the source address, title and description of the page', m.source?.url === url && m.title === 'Carousel test' && m.description === DESCRIPTION && m.source?.language === 'en' && m.source?.canonical === `${otherOrigin}/canonical`, JSON.stringify({ source: m.source, title: m.title, description: m.description }));
+  check('manifest: no carousel data, the failed list kept', !('carousels' in m) && Array.isArray(m.failed) && m.failed.length === 0, JSON.stringify(m.failed));
+  check('manifest: a preview of the page', m.preview === '_wsnp/preview.jpg' && m.files.some((f) => f.path === m.preview && f.media_type === 'image/jpeg'));
+  check('manifest: the offline scripts are a file of _wsnp/', m.files.some((f) => f.path === '_wsnp/offline.js' && f.media_type === 'text/javascript'));
+
+  // Served like a web app would: files read straight from the archive by its central directory,
+  // with the manifest's types, under a strict security policy (no inline script, nothing from
+  // outside the server).
+  const CSP = "default-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline' data:";
+  const archive = new Map(readZip(bytes).map((e) => [e.name, e]));
+  const types = new Map(m.files.map((f) => [f.path, f.media_type]));
+  const app = http.createServer((req, res) => {
+    const name = decodeURIComponent(new URL(req.url, 'http://x').pathname.slice(1)) || 'index.html';
+    const entry = archive.get(name);
+    if (!entry || name === 'mimetype') { res.statusCode = 404; return res.end(); }
+    res.setHeader('content-type', types.get(name) || 'application/octet-stream');
+    res.setHeader('content-security-policy', CSP);
+    res.end(Buffer.from(entry.read()));
+  }).listen(0);
+  const appOrigin = `http://127.0.0.1:${app.address().port}`;
+  const served = await context.newPage();
+  const outside = [];
+  const violations = [];
+  served.on('request', (r) => { if (!r.url().startsWith(appOrigin) && !/^(data|about|blob):/.test(r.url())) outside.push(r.url()); });
+  served.on('console', (msg) => { if (/Content Security Policy|Refused to/.test(msg.text())) violations.push(msg.text().slice(0, 160)); });
+  await served.goto(`${appOrigin}/`);
+  await served.waitForTimeout(500);
+  await served.click('[aria-label="Next item"]');
+  await served.click('[aria-label="Next item"]');
+  check('served under a strict security policy: the carousel works', (await served.textContent('h2')) === 'Item 3', await served.textContent('h2'));
+  check('served under a strict security policy: the stylesheet and pictures load', (await served.$eval('h2', (h) => getComputedStyle(h).color)) === 'rgb(0, 128, 128)' && await served.$eval('#logo', (i) => i.complete && i.naturalWidth > 0));
+  check('no security policy violation', violations.length === 0, violations.join(' | '));
+  check('no request outside the server', outside.length === 0, outside.join(' '));
+  await served.close();
+  app.close();
+
+  // Renamed to .zip and unzipped, it opens like the plain ZIP.
+  const wsnpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-wsnp-'));
+  const renamed = path.join(wsnpDir, 'copy.zip');
+  fs.copyFileSync(wsnpFile.filename, renamed);
+  execFileSync('unzip', ['-q', renamed, '-d', wsnpDir]);
+  const opened = await context.newPage();
+  const went = [];
+  opened.on('request', (r) => { if (!r.url().startsWith('file:')) went.push(r.url()); });
+  await opened.goto(`file://${path.join(wsnpDir, 'index.html')}`);
+  await opened.click('[aria-label="Next item"]');
+  check('renamed to .zip and unzipped: the page works offline, no network request', (await opened.textContent('h2')) === 'Item 2' && went.length === 0, went.join(' '));
+  await opened.close();
+  fs.rmSync(wsnpDir, { recursive: true, force: true });
+  await popup.check('input[name="format"][value="zip"]');
+  await pause(300);
+
+  console.log('4. The option switched off');
   check('the option "Load the whole page first" starts on', await popup.isChecked('#opt-reveal'));
   await popup.uncheck('#opt-reveal');
   await pause(300);
   check('switching it off is saved', (await worker.evaluate(() => chrome.storage.local.get('settings'))).settings?.reveal === false);
   await popup.close().catch(() => {});
 
-  console.log('4. Popup closed in the middle of a capture; Cancel on a finished one');
+  console.log('5. Popup closed in the middle of a capture; Cancel on a finished one');
   popup = await popupWindow();
   await popup.click('#snapshot');
   await waitJob(recording(3));
@@ -311,7 +391,7 @@ try {
   check('Cancel on a finished capture discards it: nothing saved, the popup idle again', (await downloads()).length === saved && same(await controls(popup), { snapshot: true, cancel: false, download: false, option: true }));
   await popup.close().catch(() => {});
 
-  console.log('5. Cancel');
+  console.log('6. Cancel');
   const before = (await downloads()).length;
   popup = await popupWindow();
   await popup.click('#snapshot');

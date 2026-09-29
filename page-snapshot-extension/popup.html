@@ -19,6 +19,7 @@
         <li><strong data-i18n="help_close_label"></strong> <span data-i18n="help_close"></span></li>
         <li><strong data-i18n="snapshot"></strong> <span data-i18n="help_snapshot"></span></li>
         <li><strong data-i18n="help_reveal_label"></strong> <span data-i18n="help_reveal"></span></li>
+        <li><strong data-i18n="option_format"></strong> <span data-i18n="help_format"></span></li>
         <li><strong data-i18n="download"></strong> <span data-i18n="help_download"></span></li>
         <li><strong data-i18n="cancel"></strong> <span data-i18n="help_cancel"></span></li>
         <li data-i18n="help_one"></li>
@@ -27,6 +28,11 @@
       <p><a id="help-page" href="help.html" target="_blank" data-i18n="help_full"></a></p>
     </details>
     <label class="option"><input type="checkbox" id="opt-reveal"> <span data-i18n="option_reveal"></span></label>
+    <fieldset class="option" id="opt-format">
+      <legend data-i18n="option_format"></legend>
+      <label><input type="radio" name="format" value="zip"> .zip</label>
+      <label><input type="radio" name="format" value="wsnp"> .wsnp</label>
+    </fieldset>
     <progress id="bar"></progress>
     <p id="status" role="status" data-i18n="status_idle"></p>
     <p id="now" class="muted"></p>
