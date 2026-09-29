@@ -34,6 +34,10 @@ li { overflow-wrap: anywhere; margin: 4px 0; font-size: 13px; }
 .option:has(input:disabled) { opacity: .6; cursor: default; }
 .option { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; margin: 10px 0 0; cursor: pointer; }
 .option input { margin: 2px 0 0; }
+#opt-format { border: 0; padding: 0; margin: 6px 0 0; gap: 14px; align-items: center; cursor: default; }
+#opt-format legend { float: left; padding: 0; }
+#opt-format label { display: flex; gap: 5px; align-items: center; cursor: pointer; font-family: ui-monospace, monospace; }
+#opt-format input { margin: 0; }
 #status { font-weight: 600; margin-bottom: 2px; }
 #now { font-size: 12px; margin: 0 0 8px; min-height: 1.4em; font-family: ui-monospace, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #steps { list-style: none; padding: 0; margin: 12px 0; }

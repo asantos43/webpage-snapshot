@@ -11,7 +11,8 @@
     "store-images": "node store-images.mjs",
     "readme-images": "node readme-images.mjs",
     "publish-script": "node publish-script.mjs",
-    "library": "node library.mjs"
+    "library": "node library.mjs",
+    "wsnp": "node wsnp.mjs"
   },
   "devDependencies": {
     "playwright": "^1.63.0"

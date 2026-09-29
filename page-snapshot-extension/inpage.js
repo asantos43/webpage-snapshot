@@ -15,6 +15,15 @@ export async function extractPage(editorTexts = {}, options = {}) {
   const MAX_SCREENS = 40; // endless feeds stop here…
   const MAX_REVEAL_MS = 20_000; // …or here
   const MAX_LOAD_MORE = 5;
+  // What the page says about itself, read before the capture touches anything (for the .wsnp
+  // manifest): title (else its first heading), description, canonical address and language.
+  const metaContent = (selector) => document.querySelector(selector)?.getAttribute('content')?.trim() || '';
+  const about = {
+    title: document.title.trim() || document.querySelector('h1')?.textContent.trim().replace(/\s+/g, ' ') || '',
+    description: metaContent('meta[name="description" i]') || metaContent('meta[property="og:description" i]'),
+    canonical: document.querySelector('link[rel~="canonical" i]')?.href || '',
+    language: document.documentElement.lang || '',
+  };
   const frames = {};
   let frameCounter = 0;
   // Frames from other sites (ads, embedded players, maps) cannot be read, so the copy shows a
@@ -708,6 +717,7 @@ export async function extractPage(editorTexts = {}, options = {}) {
   return {
     url: location.href,
     title: document.title,
+    about,
     main,
     frames,
     pagers: recorded.pagers,
@@ -715,6 +725,7 @@ export async function extractPage(editorTexts = {}, options = {}) {
     scale: Math.min(2, devicePixelRatio || 1),
     scroll: { x: scrollX, y: scrollY },
     viewport: { width: innerWidth, height: innerHeight },
+    pixelRatio: devicePixelRatio || 1,
     sliders: recorded.sliders,
   };
 }

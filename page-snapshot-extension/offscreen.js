@@ -10,7 +10,8 @@
 import { buildZip } from './lib/zip.js';
 import { offlineScript } from './lib/offline/index.js';
 import {
-  assetFileName, fetchableUrl, parseSrcset, rewriteCss, serializeSrcset, slugify, textBytes,
+  assetFileName, assetFolder, fetchableUrl, isSafePath, mediaTypeOf, parseSrcset, rewriteCss,
+  serializeSrcset, slugify, textBytes,
 } from './lib/helpers.js';
 
 const MAX_RESOURCE_BYTES = 30 * 1024 * 1024;
@@ -45,6 +46,9 @@ const tabId = Number(params.get('tabId'));
 const jobId = params.get('job');
 const version = params.get('version'); // offscreen documents have no chrome.runtime.getManifest
 const reveal = params.get('reveal') === '1'; // the popup's "Load the whole page first" option
+// The popup's "Save as": a .wsnp file (docs/FORMAT.md) or a plain ZIP.
+const wsnp = params.get('format') === 'wsnp';
+const WSNP_TYPE = 'application/vnd.wsnp+zip';
 
 async function call(op, args = {}) {
   const reply = await chrome.runtime.sendMessage({ type: 'rpc', op, args: { tabId, ...args } });
@@ -124,11 +128,11 @@ chrome.runtime.onMessage.addListener((report, sender) => {
 
 // ---------------------------------------------------------------- state
 
-const assets = new Map(); // remote URL -> Promise<local file name | null>
+const assets = new Map(); // remote URL -> Promise<path inside assets/ ("images/logo-1k3f9a.png") | null>
 const entries = []; // ZIP entries for downloaded assets
 const resources = []; // snapshot.json listing
 const failures = [];
-const usedNames = new Set();
+const usedNames = new Set(); // paths inside assets/, lower-cased: unique even ignoring case
 const fileBytes = new Map(); // linked file URL -> bytes, so editors can show the complete file
 const editorReport = new Map(); // editor uri -> { source, chars }
 const linkedFiles = new Set(); // addresses of the linked files saved, each counted once
@@ -332,7 +336,7 @@ async function downloadAsset(url, kind, chain) {
   if (isCss) {
     const text = new TextDecoder().decode(bytes);
     const rewritten = await rewriteCss(text, url, {
-      prefix: '', // CSS lives in assets/ next to everything it references
+      prefix: '../', // CSS lives in assets/styles/, next to the other folders of assets/
       resolve: (u, k) => getAsset(u, k, [...chain, url]),
     });
     bytes = new TextEncoder().encode(rewritten);
@@ -340,11 +344,20 @@ async function downloadAsset(url, kind, chain) {
 
   if (kind === 'file') fileBytes.set(url, bytes);
 
-  let file = assetFileName(url, type, isCss);
-  for (let n = 2; usedNames.has(file); n++) file = assetFileName(url, type, isCss).replace(/(\.[^.]+)$/, `-${n}$1`);
-  usedNames.add(file);
+  const name = assetFileName(url, type, isCss);
+  const file = uniquePath(`${assetFolder(type, name, isCss ? 'css' : kind)}/${name}`);
   entries.push({ name: `assets/${file}`, data: bytes, compress: COMPRESSIBLE.test(file) });
-  resources.push({ url, file: `assets/${file}`, bytes: bytes.length, source });
+  resources.push({ url, file: `assets/${file}`, bytes: bytes.length, source, type: mediaTypeOf(name, isCss ? 'text/css' : type) });
+  return file;
+}
+
+// `path` inside assets/, made unique ignoring case ("-2", "-3"… before the extension) and
+// checked against the .wsnp path rules.
+function uniquePath(path) {
+  let file = path;
+  for (let n = 2; usedNames.has(file.toLowerCase()); n++) file = path.replace(/(\.[^./]+)?$/, (ext) => `-${n}${ext}`);
+  if (!isSafePath(`assets/${file}`)) throw new Error(`unsafe file name ${file}`);
+  usedNames.add(file.toLowerCase());
   return file;
 }
 
@@ -390,11 +403,9 @@ async function takeFramePicture(id, page) {
   try {
     const bytes = base64ToBytes((await run).data);
     admit(bytes.length);
-    let file = `frame-${id}.png`;
-    for (let n = 2; usedNames.has(file); n++) file = `frame-${id}-${n}.png`;
-    usedNames.add(file);
+    const file = uniquePath(`images/frame-${id}.png`);
     entries.push({ name: `assets/${file}`, data: bytes, compress: false });
-    resources.push({ url: `picture of a frame (${Math.round(place.width)}×${Math.round(place.height)})`, file: `assets/${file}`, bytes: bytes.length, source: 'picture' });
+    resources.push({ url: `picture of a frame (${Math.round(place.width)}×${Math.round(place.height)})`, file: `assets/${file}`, bytes: bytes.length, source: 'picture', type: 'image/png' });
     framePictures++;
     return file;
   } catch {
@@ -659,11 +670,14 @@ async function processDocument(data, page, depth = 0) {
   }
 
   // Page scripts are gone, so give collapsible sections, tabs, carousels and editors their
-  // behaviour back with the local scripts of lib/offline/ that this page needs.
+  // behaviour back with the local scripts of lib/offline/ that this page needs. In a .wsnp they
+  // are a file of _wsnp/ (no inline script, so the page works under a strict security policy;
+  // a frame's srcdoc resolves the address against the saved page).
   const offline = offlineScript(doc.documentElement.outerHTML); // with the capture's own marks
   if (offline) {
     const script = doc.createElement('script');
-    script.textContent = offline;
+    if (wsnp) script.setAttribute('src', offlineFile(offline));
+    else script.textContent = offline;
     doc.body.append(script);
   }
 
@@ -672,6 +686,86 @@ async function processDocument(data, page, depth = 0) {
   doc.head.prepend(charset);
 
   return (data.doctype ? data.doctype + '\n' : '') + doc.documentElement.outerHTML;
+}
+
+// The offline scripts of a .wsnp: `_wsnp/offline.js` for the page, and another file only for a
+// frame that needs a different set of modules.
+const offlineFiles = new Map(); // script text -> path
+function offlineFile(text) {
+  if (!offlineFiles.has(text)) offlineFiles.set(text, `_wsnp/offline${offlineFiles.size ? `-${offlineFiles.size + 1}` : ''}.js`);
+  return offlineFiles.get(text);
+}
+
+// ---------------------------------------------------------------- .wsnp
+
+const PREVIEW_WIDTH = 1280;
+
+// The .wsnp preview: the visible part of the page as the user left it, a JPEG at most 1280 px
+// wide. Null without the debugger or on failure (the preview is optional).
+async function takePreview() {
+  if (!mainFrameId) return null;
+  try {
+    const { data } = await call('command', { method: 'Page.captureScreenshot', params: { format: 'jpeg', quality: 85 } });
+    let bytes = base64ToBytes(data);
+    const picture = await createImageBitmap(new Blob([bytes], { type: 'image/jpeg' }));
+    if (picture.width > PREVIEW_WIDTH) {
+      const height = Math.round(picture.height * PREVIEW_WIDTH / picture.width);
+      const canvas = new OffscreenCanvas(PREVIEW_WIDTH, height);
+      canvas.getContext('2d').drawImage(picture, 0, 0, PREVIEW_WIDTH, height);
+      bytes = new Uint8Array(await (await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 })).arrayBuffer());
+    }
+    picture.close();
+    return bytes;
+  } catch {
+    return null;
+  }
+}
+
+const hex = (buffer) => Array.from(new Uint8Array(buffer), (b) => b.toString(16).padStart(2, '0')).join('');
+const asBytes = (data) => (typeof data === 'string' ? new TextEncoder().encode(data) : data);
+
+// The entries of a .wsnp (docs/FORMAT.md): `mimetype` first and stored, then manifest.json, the
+// page, its assets and the format's own files, every one listed in the manifest with its type,
+// size and SHA-256.
+async function wsnpEntries({ page, html, capturedAt, preview }) {
+  const byFile = new Map(resources.map((r) => [r.file, r]));
+  const content = [
+    { name: 'index.html', data: asBytes(html), compress: true, type: 'text/html', source: 'generated' },
+    ...entries.map((e) => ({ ...e, type: byFile.get(e.name).type, source: byFile.get(e.name).source, url: byFile.get(e.name).url })),
+    ...[...offlineFiles].map(([text, name]) => ({ name, data: asBytes(text), compress: true, type: 'text/javascript', source: 'generated' })),
+    ...(preview ? [{ name: '_wsnp/preview.jpg', data: preview, compress: false, type: 'image/jpeg', source: 'generated' }] : []),
+  ];
+  const files = await Promise.all(content.map(async (e) => ({
+    path: e.name,
+    ...(e.source !== 'generated' && e.source !== 'picture' ? { original_url: e.url } : {}),
+    media_type: e.type,
+    bytes: e.data.length,
+    sha256: hex(await crypto.subtle.digest('SHA-256', e.data)),
+    source: e.source,
+  })));
+  const source = { url: page.url, canonical: page.about?.canonical || '', language: page.about?.language || '' };
+  const title = page.about?.title || page.title || page.url;
+  const description = page.about?.description || '';
+  const manifest = {
+    format: 'wsnp',
+    format_version: '1.0',
+    generator: { name: 'PageKeep', version },
+    created: capturedAt.toISOString(),
+    title,
+    description,
+    source,
+    pages: [{ entry: 'index.html', title, description, source }],
+    ...(preview ? { preview: '_wsnp/preview.jpg' } : {}),
+    viewport: { width: page.viewport?.width || 0, height: page.viewport?.height || 0, device_pixel_ratio: page.pixelRatio || 1 },
+    capture: { load_whole_page: reveal },
+    files,
+    failed: failures.map(({ url, reason }) => ({ url, reason })),
+  };
+  return [
+    { name: 'mimetype', data: WSNP_TYPE, compress: false },
+    { name: 'manifest.json', data: JSON.stringify(manifest, null, 2), compress: true },
+    ...content.map(({ name, data, compress }) => ({ name, data, compress })),
+  ];
 }
 
 // ---------------------------------------------------------------- main
@@ -730,7 +824,9 @@ async function main() {
 
   step('assets', msg('step_assets_finding'));
   let html;
+  let preview = null;
   try {
+    if (wsnp) preview = await takePreview(); // before anything scrolls the page
     await pinnedFramePictures(page);
     html = await processDocument(page.main, page);
   } finally {
@@ -763,20 +859,20 @@ async function main() {
     resources,
     failed: failures.map(({ url, reason }) => ({ url, reason })),
   };
-  const zip = await buildZip(
-    [
+  const packed = wsnp
+    ? await wsnpEntries({ page, html, capturedAt, preview })
+    : [
       { name: 'index.html', data: html, compress: true },
       ...entries,
       { name: 'snapshot.json', data: JSON.stringify(manifest, null, 2), compress: true },
-    ],
-    capturedAt,
-  );
+    ];
+  const zip = await buildZip(packed, capturedAt);
 
   let host = '';
   try { host = new URL(page.url).hostname; } catch { /* keep empty */ }
-  const name = `${slugify(page.title, 60) || slugify(host) || 'page'}-${stamp(capturedAt)}.zip`;
-  const blobUrl = URL.createObjectURL(zip);
-  step('zip', msg('step_zip_packed', resources.length + 2, (zip.size / (1024 * 1024)).toFixed(1)), 'done');
+  const name = `${slugify(page.title, 60) || slugify(host) || 'page'}-${stamp(capturedAt)}.${wsnp ? 'wsnp' : 'zip'}`;
+  const blobUrl = URL.createObjectURL(wsnp ? new Blob([zip], { type: WSNP_TYPE }) : zip);
+  step('zip', msg('step_zip_packed', packed.length, (zip.size / (1024 * 1024)).toFixed(1)), 'done');
   // Not saved yet: the popup's Download button saves it (background.js), Cancel discards it.
 
   state.bar = { max: 1, value: 1 };

@@ -51,10 +51,59 @@ export function assetFileName(url, contentType = '', isCss = false) {
   let last = u.pathname.split('/').filter(Boolean).pop() || '';
   try { last = decodeURIComponent(last); } catch { /* keep raw */ }
   const urlExt = (last.match(/\.([a-z0-9]{1,5})$/i) || [])[1]?.toLowerCase() || '';
-  const stem = slugify(last.replace(/\.[a-z0-9]{1,5}$/i, '')) || 'file';
+  // ASCII only (the .wsnp path rule): accents dropped, anything else becomes "-".
+  const stem = slugify(last.replace(/\.[a-z0-9]{1,5}$/i, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9._-]+/g, '-')) || 'file';
   const type = contentType.split(';')[0].trim().toLowerCase();
   const ext = isCss ? 'css' : TYPE_EXT[type] || urlExt || 'bin';
   return `${stem}-${fnv1a(url)}.${ext}`;
+}
+
+const EXT_TYPE = {
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
+  avif: 'image/avif', svg: 'image/svg+xml', bmp: 'image/bmp', ico: 'image/x-icon',
+  woff2: 'font/woff2', woff: 'font/woff', ttf: 'font/ttf', otf: 'font/otf', eot: 'application/vnd.ms-fontobject',
+  mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg', ogg: 'audio/ogg', wav: 'audio/wav',
+  m4a: 'audio/mp4', weba: 'audio/webm', vtt: 'text/vtt', srt: 'application/x-subrip',
+  css: 'text/css', html: 'text/html', js: 'text/javascript', json: 'application/json',
+  txt: 'text/plain', md: 'text/markdown', csv: 'text/csv', tsv: 'text/tab-separated-values',
+  xml: 'application/xml', yaml: 'application/yaml', yml: 'application/yaml', pdf: 'application/pdf',
+  zip: 'application/zip', gz: 'application/gzip', tgz: 'application/gzip', tar: 'application/x-tar',
+  '7z': 'application/x-7z-compressed', rar: 'application/vnd.rar', diff: 'text/x-diff', patch: 'text/x-diff',
+  doc: 'application/msword', xls: 'application/vnd.ms-excel', ppt: 'application/vnd.ms-powerpoint',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+};
+
+/** The media type of a saved file: the one it was served with, else the one of its extension. */
+export function mediaTypeOf(fileName, contentType = '') {
+  const type = contentType.split(';')[0].trim().toLowerCase();
+  if (/^[a-z]+\/[a-z0-9.+-]+$/.test(type) && type !== 'application/octet-stream') return type;
+  return EXT_TYPE[(fileName.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase()] || 'application/octet-stream';
+}
+
+/**
+ * The subfolder of assets/ a file goes to: images, styles, fonts, media, or files (what the page
+ * links to for download, and anything else). `kind` is how the page uses it ('css', 'bin', or
+ * 'file' for a download link, which always goes to files/).
+ */
+export function assetFolder(contentType, fileName, kind = 'bin') {
+  if (kind === 'file') return 'files';
+  const type = mediaTypeOf(fileName, contentType);
+  if (kind === 'css' || type === 'text/css') return 'styles';
+  if (type.startsWith('image/')) return 'images';
+  if (type.startsWith('font/') || /font/.test(type) || /\.(woff2?|ttf|otf|eot)$/i.test(fileName)) return 'fonts';
+  if (type.startsWith('video/') || type.startsWith('audio/') || /^(text\/vtt|application\/x-subrip)$/.test(type)) return 'media';
+  return 'files';
+}
+
+/**
+ * Whether `path` follows the .wsnp path rules: relative, only A-Z a-z 0-9 . _ - and "/", no
+ * empty, "." or ".." segment, at most 255 characters.
+ */
+export function isSafePath(path) {
+  return path.length > 0 && path.length <= 255 && /^[A-Za-z0-9._\/-]+$/.test(path)
+    && path.split('/').every((part) => part && part !== '.' && part !== '..');
 }
 
 /** Parses a srcset attribute the way the HTML spec does (commas inside URLs are kept). */

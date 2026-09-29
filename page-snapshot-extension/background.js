@@ -51,16 +51,16 @@ async function clearJob(job) {
   if (job) await setBadge(job.tabId, '');
 }
 
-// The popup's option "Load the whole page first" (on unless the user turned it off), kept in
-// storage.local, the extension's only setting.
-async function revealOption() {
+// The popup's options, kept in storage.local: "Load the whole page first" (on unless the user
+// turned it off) and "Save as" (.zip unless the user chose .wsnp).
+async function options() {
   const { settings } = await chrome.storage.local.get('settings');
-  return settings?.reveal !== false;
+  return { reveal: settings?.reveal !== false, format: settings?.format === 'wsnp' ? 'wsnp' : 'zip' };
 }
 
 async function startCapture(tabId) {
   const tab = await chrome.tabs.get(tabId);
-  const reveal = await revealOption();
+  const { reveal, format } = await options();
   const job = {
     jobId: crypto.randomUUID(),
     tabId,
@@ -73,7 +73,7 @@ async function startCapture(tabId) {
   await chrome.storage.session.set({ job });
   await setBadge(tabId, 'running');
   await chrome.offscreen.createDocument({
-    url: `${OFFSCREEN}?tabId=${tabId}&job=${job.jobId}&version=${chrome.runtime.getManifest().version}&reveal=${reveal ? 1 : 0}`,
+    url: `${OFFSCREEN}?tabId=${tabId}&job=${job.jobId}&version=${chrome.runtime.getManifest().version}&reveal=${reveal ? 1 : 0}&format=${format}`,
     reasons: ['DOM_PARSER', 'BLOBS'],
     justification: 'Rebuilds the captured page with its files and packs it into a ZIP while the popup may be closed.',
   });

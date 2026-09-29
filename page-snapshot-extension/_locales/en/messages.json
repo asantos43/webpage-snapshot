@@ -44,7 +44,7 @@
     "description": "Help item after the Cancel button's name."
   },
   "help_download": {
-    "message": "saves the finished ZIP to your Downloads folder and gets the popup ready for the next snapshot. Nothing is saved until you press it.",
+    "message": "saves the finished snapshot (.zip or .wsnp) to your Downloads folder and gets the popup ready for the next snapshot. Nothing is saved until you press it.",
     "description": "Help item after the Download button's name."
   },
   "help_one": {
@@ -286,6 +286,14 @@
   "option_reveal": {
     "message": "Load the whole page first: scroll to the end and press “Load more”, so everything is saved",
     "description": "Popup option (checkbox)."
+  },
+  "option_format": {
+    "message": "Save as",
+    "description": "Popup option: label of the .zip / .wsnp radio buttons."
+  },
+  "help_format": {
+    "message": ".zip (the default) is a plain ZIP; .wsnp is the same snapshot as a Web SNaPshot file, with a manifest naming the page’s address, title and description, and a preview. Rename a .wsnp to .zip to unzip it.",
+    "description": "Help item after option_format."
   },
   "step_reveal": {
     "message": "Scrolling through the page so everything loads…",

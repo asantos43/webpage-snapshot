@@ -30,6 +30,7 @@ WORKS IN THE BACKGROUND
 • Watch each step as it happens, or close the popup and keep working: the icon's badge shows … while it runs, ✓ when it is done and ! if it failed. Click the icon again to see the result.
 • Cancel stops a capture at any time: carousels go back to their first item and nothing is saved.
 • When the ZIP is ready, Download saves it to your Downloads folder, named after the page's title with the date and time; Cancel discards it. Nothing is saved until you choose.
+• Save as .zip (a plain ZIP) or .wsnp (Web SNaPshot, PageKeep's own file format: the same copy with a manifest naming the page's address, title and description, and a preview).
 
 HOW IT READS THE FILES
 
