@@ -69,7 +69,7 @@ visível, e evita pedir acesso a todos os sites.
 mais). Depois de aprovada, os testadores instalam pelo link da página do item, com um clique, e
 recebem as atualizações sozinhos.
 
-## 6. Envio automático das próximas versões
+## 6. Envio das próximas versões à loja
 
 A action de release (`.github/workflows/release.yml`) tem o passo **Send to the Chrome Web
 Store**, que roda `.github/scripts/publish-to-chrome-web-store.sh` (o mesmo script da TabWatcher)
@@ -94,10 +94,17 @@ serviço (Google Cloud → IAM & Admin → Service accounts → a conta → Keys
 nos dois repositórios e apague o arquivo em seguida. O `.json` é uma senha: nunca envie para
 ninguém nem coloque no repositório.
 
-A partir daí, cada pull request aceito gera o release no GitHub **e** envia o mesmo zip à loja
-para revisão. Pré-lançamentos (opção "prerelease" da execução manual) e pull requests com o rótulo
-`no-release` não vão para a loja. Se a loja recusar o pacote, o passo falha e aparece em vermelho
-no Actions; o release no GitHub continua publicado.
+Cada pull request aceito gera o release no GitHub, mas **só vai para a loja quando você pedir**:
+
+- **Junto com o release:** coloque o rótulo `store` no pull request antes do merge (ou, na execução
+  manual da action **Release**, marque a opção `store`).
+- **Um release já publicado:** Actions → **Send to the Chrome Web Store** → Run workflow, com a
+  versão (vazio = o último release). Útil para esperar a revisão anterior terminar.
+
+Pré-lançamentos e pull requests com o rótulo `no-release` nunca vão para a loja. Se a loja recusar
+o pacote (por exemplo, enquanto outra versão ainda está em revisão), o passo falha em vermelho no
+Actions, com a mensagem da loja; o release no GitHub continua publicado e pode ser enviado depois
+pela action **Send to the Chrome Web Store**.
 
 ## Quando o `PRIVACY.md` mudar
 

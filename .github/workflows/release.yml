@@ -7,8 +7,10 @@
 # whose "Unreleased" section becomes the version's section. The smoke test must pass, then the
 # extension folder (plus CHANGELOG.md) is zipped and published as the GitHub release v<version>,
 # whose notes are that changelog section. The carousel end-to-end test, the store policy checks and
-# the store upload script's test must pass too. Finally the zip is sent to the Chrome Web Store for
-# review, when the CWS_* secrets are set and it is not a pre-release.
+# the store upload script's test must pass too. The zip goes to the Chrome Web Store for review only
+# when asked: a pull request labelled "store", or a manual run with "store" ticked (never for a
+# pre-release, and only with the CWS_* secrets set). A release already published can be sent later
+# with the "Send to the Chrome Web Store" workflow (store.yml).
 # A pull request labelled "no-release" (documentation, fixes that belong to the release already
 # out) is merged without a new release.
 name: Release
@@ -25,6 +27,10 @@ on:
         default: ''
       prerelease:
         description: 'Mark as pre-release'
+        type: boolean
+        default: false
+      store:
+        description: 'Also send it to the Chrome Web Store for review'
         type: boolean
         default: false
 
@@ -206,11 +212,16 @@ jobs:
             "${flags[@]}"
 
       # Uploads the same zip to the Chrome Web Store and submits it for review
-      # (.github/scripts/publish-to-chrome-web-store.sh, store/PUBLISHING.md step 6). Without the
+      # (.github/scripts/publish-to-chrome-web-store.sh, store/PUBLISHING.md step 6), only when
+      # asked: the pull request has the "store" label, or a manual run ticked "store". Without the
       # three CWS_* secrets it only prints a notice. Never for a pre-release; a pull request labelled
       # "no-release" never gets here.
       - name: Send to the Chrome Web Store
-        if: inputs.prerelease != true
+        if: >-
+          inputs.prerelease != true && (
+            (github.event_name == 'workflow_dispatch' && inputs.store) ||
+            (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'store'))
+          )
         env:
           CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
           CWS_ITEM_ID: ${{ secrets.CWS_ITEM_ID }}
