@@ -125,7 +125,9 @@ item named PageKeep came up in the same search. The name lives in `_locales/*/me
 
 The store listing, field by field, is in [`store/README.md`](../store/README.md); the dashboard
 steps, in Portuguese, in [`store/PUBLISHING.md`](../store/PUBLISHING.md). Once the item exists and
-the `CWS_*` secrets are set, every merged pull request (except `no-release` ones) uploads its
-release zip with the Chrome Web Store API v2 and the publisher's service account
-(`.github/scripts/publish-to-chrome-web-store.sh`) and submits it for review; each new version is
-reviewed again, so every release must still pass this checklist.
+the `CWS_*` secrets are set, a release goes to the store only when asked: a merged pull request
+labelled `store`, a manual release run with `store` ticked, or the **Send to the Chrome Web Store**
+workflow for a release already published. Each uploads the release zip with the Chrome Web Store
+API v2 and the publisher's service account (`.github/scripts/publish-to-chrome-web-store.sh`) and
+submits it for review; each new version is reviewed again, so every release must still pass this
+checklist.

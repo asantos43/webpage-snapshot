@@ -1,0 +1,59 @@
+# Sends a release already published on GitHub to the Chrome Web Store for review (Actions → Send to
+# the Chrome Web Store → Run workflow): the same pagekeep-<version>.zip, through
+# .github/scripts/publish-to-chrome-web-store.sh. Releases go to the store only when asked: with
+# this workflow, or with the "store" label / option of release.yml. Never a pre-release.
+name: Send to the Chrome Web Store
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version already released on GitHub (e.g. 1.5.0). Empty = the latest release'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chrome-web-store
+  cancel-in-progress: false
+
+jobs:
+  store:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Only from main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Run it from main."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - name: Download the release's zip
+        id: zip
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ -z "$VERSION" ]; then
+            tag=$(gh release view --json tagName -q .tagName)
+          else
+            tag="v${VERSION#v}"
+          fi
+          if [ "$(gh release view "$tag" --json isPrerelease -q .isPrerelease)" = true ]; then
+            echo "::error::$tag is a pre-release; pre-releases never go to the store."
+            exit 1
+          fi
+          gh release download "$tag" --pattern 'pagekeep-*.zip'
+          zip=$(ls pagekeep-*.zip)
+          echo "Sending $zip ($tag)"
+          echo "name=$zip" >>"$GITHUB_OUTPUT"
+
+      - name: Send to the Chrome Web Store
+        env:
+          CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          CWS_ITEM_ID: ${{ secrets.CWS_ITEM_ID }}
+          CWS_SERVICE_ACCOUNT_KEY: ${{ secrets.CWS_SERVICE_ACCOUNT_KEY }}
+        run: .github/scripts/publish-to-chrome-web-store.sh "${{ steps.zip.outputs.name }}"

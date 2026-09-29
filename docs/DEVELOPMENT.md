@@ -41,7 +41,7 @@ What a run does:
 1. Runs the smoke test, the carousel and offline-library end-to-end tests (`tests/carousel.mjs`, `tests/library.mjs`) and the store policy checks (`tests/store-policy.mjs`) on Playwright's Chromium, tests the store upload script against a fake store (`tests/publish-script.mjs`), and checks the WSNP validator and password protection (`tests/wsnp.mjs`).
 2. Zips the git-tracked files of `page-snapshot-extension/`, plus `CHANGELOG.md`, as `pagekeep-<version>.zip`.
 3. Publishes it as the GitHub release `v<version>`, titled "PageKeep <version>". The notes are that version's section of `CHANGELOG.md`, followed by the install hints.
-4. Sends the same zip to the Chrome Web Store for review (`.github/scripts/publish-to-chrome-web-store.sh`), when the `CWS_PUBLISHER_ID`, `CWS_ITEM_ID` and `CWS_SERVICE_ACCOUNT_KEY` secrets are set and it is not a pre-release; without them it prints a notice. See `store/PUBLISHING.md`.
+4. Only when asked (the pull request has the `store` label, or a manual run ticked `store`): sends the same zip to the Chrome Web Store for review (`.github/scripts/publish-to-chrome-web-store.sh`), when the `CWS_PUBLISHER_ID`, `CWS_ITEM_ID` and `CWS_SERVICE_ACCOUNT_KEY` secrets are set and it is not a pre-release; without them it prints a notice. A release already published is sent later with the **Send to the Chrome Web Store** workflow (`.github/workflows/store.yml`, Actions → Run workflow, with its version). See `store/PUBLISHING.md`.
 
 How the changelog works:
 - Every pull request adds its user-facing changes as lines under `## [Unreleased]`.
