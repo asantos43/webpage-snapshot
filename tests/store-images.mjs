@@ -16,13 +16,13 @@ const storeDir = path.join(root, 'store');
 
 const SLIDES = {
   en: {
-    tagline: 'Save any page as an offline ZIP',
-    marquee: 'Saves the page you see, carousels included, as a ZIP that opens offline',
+    tagline: 'Save any page as ZIP or .wsnp',
+    marquee: 'Saves the page you see, carousels included, as a ZIP or .wsnp file that opens offline',
     slides: [
       ['popup-done.png', 'Saves the page exactly as you see it', [
         'What scripts put on the screen, what you typed in forms',
-        'Its styles, images and fonts, in one ZIP',
-        'Saved when you press Download',
+        'Its styles, images and fonts, in one file',
+        'Save as .zip, or as a signed .wsnp',
       ]],
       ['popup-running.png', 'Every item of every carousel', [
         'Steps through each carousel, item by item',
@@ -30,7 +30,7 @@ const SLIDES = {
         'Next and Previous still work in the saved copy',
       ]],
       ['snapshot-offline.png', 'Opens offline, as it looked', [
-        'Unzip it and open index.html',
+        'Unzip it and open index.html (a .wsnp: rename it to .zip)',
         'Sections, tabs and carousels keep working',
         'Opening it makes no request at all',
       ]],
@@ -39,21 +39,21 @@ const SLIDES = {
         'Its reference is removed from the copy',
         'So the saved page never contacts a website',
       ]],
-      ['popup-help.png', 'Runs in the background', [
-        'Close the popup: the icon shows … then ✓',
-        'Cancel puts carousels back; help built in',
-        'English and Portuguese; no telemetry',
+      ['popup-help.png', 'Save as .zip or .wsnp', [
+        '.zip: a plain ZIP that any unzip tool opens',
+        '.wsnp: one signed file, every file listed with its SHA-256',
+        'Runs in the background; help built in; no telemetry',
       ]],
     ],
   },
   pt_BR: {
-    tagline: 'Salve qualquer página num ZIP offline',
-    marquee: 'Salva a página que você vê, com carrosséis, num ZIP que abre offline',
+    tagline: 'Salve páginas em ZIP ou .wsnp',
+    marquee: 'Salva a página que você vê, com carrosséis, num ZIP ou .wsnp que abre offline',
     slides: [
       ['popup-done.png', 'Salva a página do jeito que você vê', [
         'O que os scripts mostram e o que você digitou',
-        'Estilos, imagens e fontes, num único ZIP',
-        'Salvo quando você aperta Baixar',
+        'Estilos, imagens e fontes, num único arquivo',
+        'Salve como .zip ou como .wsnp assinado',
       ]],
       ['popup-running.png', 'Todos os itens de cada carrossel', [
         'Percorre cada carrossel, item por item',
@@ -61,7 +61,7 @@ const SLIDES = {
         'Próximo e Anterior funcionam na cópia salva',
       ]],
       ['snapshot-offline.png', 'Abre offline, como era', [
-        'Descompacte e abra o index.html',
+        'Descompacte e abra o index.html (um .wsnp: renomeie para .zip)',
         'Seções, abas e carrosséis continuam funcionando',
         'Abrir a cópia não faz nenhuma requisição',
       ]],
@@ -70,10 +70,10 @@ const SLIDES = {
         'A referência é removida da cópia',
         'A página salva nunca acessa um site',
       ]],
-      ['popup-help.png', 'Roda em segundo plano', [
-        'Feche o popup: o ícone mostra … e depois ✓',
-        'Cancelar devolve os carrosséis; ajuda incluída',
-        'Português e inglês; sem telemetria',
+      ['popup-help.png', 'Salve como .zip ou .wsnp', [
+        '.zip: um ZIP comum que qualquer programa abre',
+        '.wsnp: um arquivo assinado, cada arquivo com seu SHA-256',
+        'Roda em segundo plano; ajuda incluída; sem telemetria',
       ]],
     ],
   },

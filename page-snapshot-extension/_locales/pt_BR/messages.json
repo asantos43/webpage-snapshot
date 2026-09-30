@@ -4,11 +4,11 @@
     "description": "Extension and store name (max 75 characters)."
   },
   "ext_description": {
-    "message": "Salva a página que você está vendo num ZIP com estilos, imagens e fontes, para abri-la offline exatamente como você a viu.",
+    "message": "Salva a página que você vê num arquivo ZIP ou .wsnp com estilos, imagens e fontes, para abri-la offline como você a viu.",
     "description": "Store and browser description: the single purpose (max 132 characters)."
   },
   "action_title": {
-    "message": "Salvar esta página para ver offline (ZIP)",
+    "message": "Salvar esta página para ver offline (ZIP ou .wsnp)",
     "description": "Tooltip of the toolbar icon."
   },
   "command_save": {
@@ -28,7 +28,7 @@
     "description": "Title of the collapsible help section."
   },
   "help_intro": {
-    "message": "Este popup salva a página que você está vendo num ZIP que abre offline. Capturar lê a página, percorre cada carrossel, reaproveita os arquivos que a página já carregou e baixa o resto; depois, Baixar salva o ZIP na sua pasta de Downloads.",
+    "message": "Este popup salva a página que você está vendo num arquivo que abre offline, um ZIP ou um .wsnp. Capturar lê a página, percorre cada carrossel, reaproveita os arquivos que a página já carregou e baixa o resto; depois, Baixar salva o arquivo na sua pasta de Downloads.",
     "description": "First paragraph of the help."
   },
   "help_close_label": {
@@ -36,7 +36,7 @@
     "description": "Bold start of a help item."
   },
   "help_close": {
-    "message": "(ou clicar na página) enquanto a captura roda: ela continua. Clique de novo no ícone da extensão para ver como está; o ZIP pronto espera lá por Baixar. O selo do ícone mostra … enquanto roda, ✓ quando termina e ! se falhou.",
+    "message": "(ou clicar na página) enquanto a captura roda: ela continua. Clique de novo no ícone da extensão para ver como está; o arquivo pronto espera lá por Baixar. O selo do ícone mostra … enquanto roda, ✓ quando termina e ! se falhou.",
     "description": "Rest of the help item after help_close_label."
   },
   "help_cancel": {
@@ -52,7 +52,7 @@
     "description": "Help item about one capture at a time and the debugging bar."
   },
   "help_unzip": {
-    "message": "Descompacte o arquivo e abra o index.html. O que não pôde ser salvo aparece listado abaixo dos resultados e fica fora da cópia, que nunca acessa a internet.",
+    "message": "Descompacte o arquivo (um .wsnp: renomeie-o para .zip antes) e abra o index.html. O que não pôde ser salvo aparece listado abaixo dos resultados e fica fora da cópia, que nunca acessa a internet.",
     "description": "Last help item."
   },
   "help_full": {
@@ -204,11 +204,11 @@
     "description": "Step done."
   },
   "step_zip_packing": {
-    "message": "Juntando tudo num ZIP…",
+    "message": "Juntando tudo num só arquivo…",
     "description": "Step."
   },
   "step_zip_packed": {
-    "message": "ZIP pronto ($1 arquivos, $2 MB)",
+    "message": "Arquivo pronto ($1 arquivos, $2 MB)",
     "description": "Step done."
   },
   "status_saved_one": {
@@ -292,7 +292,7 @@
     "description": "Popup option: label of the .zip / .wsnp radio buttons."
   },
   "help_format": {
-    "message": ".zip (o padrão) é um ZIP comum; .wsnp é a mesma cópia como arquivo Web SNaPshot, com um manifesto que traz o endereço, o título e a descrição da página, e uma prévia. Renomeie um .wsnp para .zip para descompactá-lo.",
+    "message": ".zip (o padrão) é um ZIP comum: qualquer programa de descompactar o abre. .wsnp (Web SNaPshot) é a mesma página num arquivo contêiner: todos os arquivos de que ela precisa, um manifesto que lista cada um com seu SHA-256, os scripts offline e uma prévia. Guarde, envie, abra num visualizador de .wsnp. Ele é assinado, então um visualizador percebe se foi editado depois. Renomeie um .wsnp para .zip para descompactá-lo.",
     "description": "Help item after option_format."
   },
   "step_reveal": {
@@ -348,7 +348,7 @@
     "description": "Status before any capture."
   },
   "status_downloading": {
-    "message": "Salvando o ZIP na sua pasta de Downloads…",
+    "message": "Salvando o arquivo na sua pasta de Downloads…",
     "description": "Status after Download is pressed."
   },
   "help_snapshot": {
@@ -356,7 +356,7 @@
     "description": "Help item after the Snapshot button's name."
   },
   "help_key": {
-    "message": "Chave de assinatura dos arquivos .wsnp que este navegador salva (diga ao visualizador que é sua):",
+    "message": "Chave de assinatura dos arquivos .wsnp que este navegador salva: criada no primeiro uso, fica só neste navegador e nunca é enviada a lugar nenhum. Diga ao visualizador que é sua:",
     "description": "Popup Help line before the fingerprint of the signing key."
   },
   "copy": {
