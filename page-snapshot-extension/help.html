@@ -12,9 +12,9 @@
     <img src="icons/icon128.png" width="56" height="56" alt="">
     <div>
       <h1>PageKeep</h1>
-      <p class="lead">Saves the page you are looking at as a ZIP that opens offline exactly as you saw it: its
-        styles, images and fonts, what scripts put on the screen, what you typed in forms, and every item of its
-        carousels. This help page works offline; the <a href="help.pt_BR.html" lang="pt-BR">versão em português</a> too.</p>
+      <p class="lead">Saves the page you are looking at as a file that opens offline exactly as you saw it, a plain ZIP or
+        a <code>.wsnp</code>: its styles, images and fonts, what scripts put on the screen, what you typed in forms, and
+        every item of its carousels. This help page works offline; the <a href="help.pt_BR.html" lang="pt-BR">versão em português</a> too.</p>
     </div>
   </header>
 
@@ -22,9 +22,10 @@
     <a href="#start">Quick start</a>
     <a href="#running">While it runs</a>
     <a href="#result">The result</a>
+    <a href="#formats">.zip or .wsnp</a>
     <a href="#saved">What is saved</a>
     <a href="#not-saved">What is not saved</a>
-    <a href="#zip">Opening the ZIP</a>
+    <a href="#zip">Opening the file</a>
     <a href="#troubleshooting">Troubleshooting</a>
     <a href="#privacy">Privacy</a>
   </nav>
@@ -41,15 +42,16 @@
               the icon; nothing starts yet. Press <strong>Snapshot</strong> (or Enter).</li>
             <li>Watch it go: one line per step, with a spinner that turns into a check mark. On a page with a
               carousel you see each item being recorded.</li>
-            <li>When it is ready, press <strong>Download</strong>: the ZIP goes to your Downloads folder, named after
-              the page's title with the date and time, for example <code>The-Harbor-Times-20260927-1015.zip</code>, and
-              the popup is ready for the next snapshot. <strong>Cancel</strong> discards it instead.</li>
+            <li>When it is ready, press <strong>Download</strong>: the file goes to your Downloads folder, named after
+              the page's title with the date and time, for example <code>The-Harbor-Times-20260927-1015.wsnp</code> (or
+              <code>.zip</code>, see <a href="#formats">.zip or .wsnp</a>), and the popup is ready for the next
+              snapshot. <strong>Cancel</strong> discards it instead.</li>
           </ol>
         </div>
         <div>
           <figure>
             <img src="images/screenshots/en/popup-idle.png" width="440" alt="The popup as it opens: the option Load the whole page first, the Save as choice between .zip and .wsnp, the text Ready to save this page, and the Snapshot button; Cancel and Download are greyed out">
-            <figcaption>The popup as it opens: only Snapshot and the option.</figcaption>
+            <figcaption>The popup as it opens: only Snapshot and the options, with the Save as choice (here set to <code>.wsnp</code>).</figcaption>
           </figure>
           <figure>
             <img src="images/screenshots/en/popup-running.png" width="440" alt="The popup while it captures: Found the tab, Scrolled through the page, and Carousel 1 of 1: recording item 3; only Cancel is available">
@@ -67,14 +69,7 @@
           appear then are saved too, and goes back to where you were. It never follows a link to another page or sends a
           form. Endless feeds stop after 40 screens or 20 seconds. Set it before pressing Snapshot; it is remembered.</li>
         <li><strong>Save as</strong> <code>.zip</code> or <code>.wsnp</code> (<code>.zip</code> unless you choose
-          otherwise; remembered): <code>.zip</code> is a plain ZIP. <code>.wsnp</code> (Web SNaPshot) is the same
-          snapshot in PageKeep's own file format, whose manifest names the page's address, title and description, lists
-          every file with its type and checksum, and holds a preview picture. The manifest is signed with a key that
-          PageKeep makes the first time and keeps in this browser (its private half never leaves it), so the viewer
-          can tell if someone edited the file afterwards; the fingerprint of that key is in the popup's Help, with a
-          Copy button, for telling the viewer the key is yours. It is meant for the PageKeep viewer, a
-          separate application to come; until then, rename a <code>.wsnp</code> to <code>.zip</code> to open it as
-          below.</li>
+          otherwise; remembered; set it before pressing Snapshot): see <a href="#formats">.zip or .wsnp</a> below.</li>
         <li><strong>You can close the popup</strong>, or click on the page: the capture carries on in the background.
           Click the icon again to see how it is going.</li>
         <li>The icon's badge shows <strong>…</strong> while it runs, <strong>✓</strong> when it is done and
@@ -100,7 +95,7 @@
               many downloaded);</li>
             <li>notes on what needed special care: carousels saved with all their items, code editors saved as
               text, files offered for download saved next to the page;</li>
-            <li><strong>Download</strong> saves the ZIP to your Downloads folder and gets the popup ready for the next
+            <li><strong>Download</strong> saves the file to your Downloads folder and gets the popup ready for the next
               snapshot;</li>
             <li><strong>Cancel</strong> discards the result without saving anything.</li>
           </ul>
@@ -109,7 +104,42 @@
         <div>
           <figure>
             <img src="images/screenshots/en/popup-done.png" width="440" alt="The finished capture: the saved file name and size, every step with a check mark, notes about the carousel and the linked file, and the buttons: Snapshot greyed out, Cancel and Download available">
-            <figcaption>The finished capture, waiting for OK.</figcaption>
+            <figcaption>The finished capture, waiting for Download: the file is a <code>.wsnp</code>.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="formats">
+      <h2>.zip or .wsnp</h2>
+      <div class="pair">
+        <div>
+          <p>The popup's <strong>Save as</strong> choice sets the kind of file. PageKeep remembers it, and it cannot be
+            changed while a capture runs.</p>
+          <ul>
+            <li><code>.zip</code> (the default) is a plain ZIP. Any unzip tool opens it, and its <code>index.html</code>
+              works offline in a browser.</li>
+            <li><code>.wsnp</code> (Web SNaPshot) is the same page as one file, a <strong>container</strong>: the page
+              and every file it needs in a single ZIP, with a manifest that names the page's address, title and
+              description and lists each file with its type, size and SHA-256, the offline scripts in <code>_wsnp/</code>,
+              and a preview picture. You can keep it, send it, and open it with a <code>.wsnp</code> viewer. To unzip it
+              yourself, rename it to <code>.zip</code>.</li>
+            <li>A <code>.wsnp</code> is <strong>signed</strong>, so a viewer can tell if the file was edited afterwards.
+              The first time it is needed, PageKeep makes a signing key. The key is kept only in this browser (its
+              private half cannot be read or exported, not even by PageKeep), it is never sent anywhere, and its
+              public half and fingerprint are written into each <code>.wsnp</code>. The fingerprint is shown in the
+              popup's <strong>Help</strong>, with a Copy button, so you can tell the viewer that the key is yours.
+              A <code>.zip</code> is not signed.</li>
+          </ul>
+          <p>The <code>.wsnp</code> format is described in the project's <code>docs/FORMAT.md</code>. The WSNP Viewer is
+            a separate desktop application for opening <code>.wsnp</code> files (Linux, Windows and macOS), still in
+            development: there is no release yet, so for now unzip a <code>.wsnp</code> as described
+            <a href="#zip">below</a>.</p>
+        </div>
+        <div>
+          <figure>
+            <img src="images/screenshots/en/popup-help.png" width="440" alt="The popup's Help open: the explanation of the Save as choice, what .zip and .wsnp are, and the signing key's fingerprint with a Copy button">
+            <figcaption>The popup's Help explains the two kinds of file and shows the signing key (the fingerprint here is a sample).</figcaption>
           </figure>
         </div>
       </div>
@@ -166,7 +196,7 @@
     </section>
 
     <section id="zip">
-      <h2>Opening the ZIP</h2>
+      <h2>Opening the file</h2>
       <p>Unzip it anywhere and open <code>index.html</code> in the browser, with or without an internet connection:</p>
       <pre>index.html      the page, pointing at the files in assets/
 assets/         the page's files, in images/, styles/, fonts/, media/ and files/ (saved downloads)
@@ -177,8 +207,8 @@ snapshot.json   the page's address and title, the date, each file saved and each
         format.</p>
       <p>Opening it makes no request at all. Links still lead to the real site when you click them while online.</p>
       <figure class="wide">
-        <img src="images/screenshots/en/snapshot-offline.png" width="1280" alt="An example news page saved by PageKeep, opened offline from the ZIP: masthead, section menu, headlines, the lead story's photo, tabs, a live-updates box and an advertisement">
-        <figcaption>An example news site, saved and opened offline: every photo is there, and its tabs, live-updates box and photo gallery still work.</figcaption>
+        <img src="images/screenshots/en/snapshot-offline.png" width="1280" alt="An example news page saved by PageKeep, opened offline from a .wsnp renamed to .zip: masthead, section menu, headlines, the lead story's photo, tabs, a live-updates box and an advertisement">
+        <figcaption>An example news site, saved as a <code>.wsnp</code>, renamed to <code>.zip</code>, unzipped and opened offline: every photo is there, and its tabs, live-updates box and photo gallery still work.</figcaption>
       </figure>
     </section>
 
@@ -190,6 +220,8 @@ snapshot.json   the page's address and title, the date, each file saved and each
         <li><strong>"Could not read the page's loaded files"</strong>: the browser's debugger could not attach to the tab.
           The capture carries on, but only files from the page's own site can be saved; close developer tools
           or other debugging extensions on that tab and try again.</li>
+        <li><strong>The Help shows no signing key</strong>: the browser could not make or keep one. A <code>.wsnp</code> is
+          then saved unsigned, which is still a valid file; only the protection against later edits is missing.</li>
         <li><strong>The popup shows another page's capture</strong>: one capture runs at a time. Wait for it, or press
           Cancel, then click the icon on your tab.</li>
         <li><strong>A carousel was not recorded</strong>: PageKeep recognises carousels by their arrow buttons' labels in
@@ -202,7 +234,8 @@ snapshot.json   the page's address and title, the date, each file saved and each
     <section id="privacy">
       <h2>Privacy</h2>
       <p>PageKeep reads a page only when you click its icon on that tab, and only while the capture runs. What it
-        reads goes only into the ZIP saved on your computer. Nothing is sent to the developer or anyone else: there
+        reads goes only into the file (ZIP or <code>.wsnp</code>) saved on your computer, and the signing key of the
+        <code>.wsnp</code> files never leaves the browser. Nothing is sent to the developer or anyone else: there
         is no account, no server and no analytics. The only requests it makes are for the page's own files, to the
         servers that page already uses.</p>
     </section>

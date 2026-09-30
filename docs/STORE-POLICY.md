@@ -14,10 +14,10 @@ image in it, and nothing to credit.
 
 | Policy | How this extension meets it | Checked by |
 | --- | --- | --- |
-| **Single purpose** | One purpose: save the page in the current tab as a ZIP that opens offline as it looked. Everything else (stepping through carousels, reading code editors, the progress popup) serves that one capture. | review |
+| **Single purpose** | One purpose: save the page in the current tab as a file that opens offline as it looked, a plain ZIP or a `.wsnp` (the same page as one signed container file, the popup's "Save as" choice). Everything else (stepping through carousels, reading code editors, the progress popup) serves that one capture. | review |
 | **Minimum permissions** | No host permissions at all: `activeTab` gives access only to the tab the user opens the popup on, and the page's files from other sites are downloaded by that tab itself through the debugger. Each permission below is used; none is broader than needed (see "Permissions: what was reduced"). | `tests/store-policy.mjs` (exact permission list, no host access, each one justified here) |
 | **No remotely hosted code** | Every script is in the package; the extension pages' CSP is `script-src 'self'; object-src 'self'`; no `eval`, `new Function` or remote `<script>`/`import`. The small script embedded in each saved snapshot (the modules of `lib/offline/`) is packaged, written into the saved file, and never loads anything. | `tests/store-policy.mjs` |
-| **User data** | The page is read only on the tab the user asked to capture, only while that capture runs, and the result goes only into the ZIP in the user's Downloads folder. Nothing is sent to the developer or anyone else: there is no server, no analytics, no account. A `.wsnp` file is signed with a key pair made on first use: the private key is non-extractable and stays in the extension's IndexedDB, only the public key and its fingerprint go into the file. See [PRIVACY.md](../PRIVACY.md). | review; `tests/store-policy.mjs` (no network host in the code) |
+| **User data** | The page is read only on the tab the user asked to capture, only while that capture runs, and the result goes only into the file (a ZIP or a `.wsnp`) in the user's Downloads folder. Nothing is sent to the developer or anyone else: there is no server, no analytics, no account. A `.wsnp` file is signed with a key pair made on first use: the private key is non-extractable and stays in the extension's IndexedDB, only the public key and its fingerprint go into the file. See [PRIVACY.md](../PRIVACY.md). | review; `tests/store-policy.mjs` (no network host in the code) |
 | **Intellectual property** | Own code, texts and icon, made for this project (the icon: a camera outline on a blue square, drawn for this extension; the PNGs carry no third-party metadata). | `tests/store-policy.mjs` (icons) |
 | **Impersonation / metadata** | Own name ("PageKeep: Offline Page Saver", see "Name"), a description that states what it does (no keyword lists, no other product's name, no links), screenshots of the real popup and of a page it saved. Name, descriptions and pictures in English and Brazilian Portuguese (`store/`). | `tests/store-policy.mjs` (name ≤ 75, summary ≤ 132 characters, in each language; store pictures' sizes; descriptions without other products' names or links) |
 | **Account security** | 2-Step Verification on the publishing Google account. | developer |
@@ -55,7 +55,7 @@ from the tab, and files from the page's own site are still fetched with its cook
 Other permissions considered and kept:
 
 - `downloads`: a capture may end while the popup is closed, and only the downloads API can save
-  the ZIP then (an offscreen document cannot start a download itself).
+  the file then (an offscreen document cannot start a download itself).
 - `storage`: the popup must show a capture that is running or finished after being closed and
   reopened, and the service worker can be stopped in between; session storage keeps that state
   (local storage keeps the one setting, the "Load the whole page first" option)
@@ -65,9 +65,10 @@ Other permissions considered and kept:
 
 ## Single purpose (dashboard text)
 
-> Saves the page in the current tab as a ZIP file (the page, its styles, images and fonts) that
-> opens offline exactly as it looked, including content shown by scripts, form values and every
-> item of its carousels.
+> Saves the page in the current tab as a file (a plain ZIP, or a .wsnp container: the page, its
+> styles, images and fonts, with a manifest of every file's SHA-256 and a signature) that opens
+> offline exactly as it looked, including content shown by scripts, form values and every item of
+> its carousels.
 
 ## Permission justifications (dashboard text)
 
@@ -76,12 +77,16 @@ Other permissions considered and kept:
 | `activeTab` | Access to the tab the user opens the extension's popup on (toolbar click or Alt+Shift+S), to read the page being saved; no access to any other tab or site. |
 | `scripting` | Runs the packaged script that copies the page's current content (DOM, form values, canvases, code editors) and steps through its carousels, on the tab the user chose. |
 | `debugger` | Reads the files the page has already loaded (images, styles, fonts) so the saved copy has exactly what the user saw, including files from other sites; downloads the few files the page had not loaded, in the page's own context, so the extension needs no permission for any website; and takes a picture of each visible frame from another site (an ad, an embedded player), which cannot be read, so the copy shows how it looked. Attached only to the chosen tab and only while the capture runs; the browser shows its "debugging" bar during that time. |
-| `offscreen` | A hidden extension page rebuilds the saved page and packs the ZIP, so the capture continues when the popup closes (a service worker has no DOM parser). |
-| `downloads` | Saves the finished ZIP to the user's Downloads folder when the user presses the popup's Download button. |
+| `offscreen` | A hidden extension page rebuilds the saved page and packs the ZIP or `.wsnp`, so the capture continues when the popup closes (a service worker has no DOM parser). |
+| `downloads` | Saves the finished file (a ZIP or a `.wsnp`) to the user's Downloads folder when the user presses the popup's Download button. |
 | `storage` | Keeps the progress of the current capture in session storage so the popup can show it when reopened (cleared when the capture is dismissed or the browser closes), and the extension's one setting, the popup's "Load the whole page first" option, in local storage. |
 
 The signing key of `.wsnp` files (`lib/signing.js`) lives in the extension's own IndexedDB, which
-needs no permission, so the permission list above is unchanged.
+needs no permission, so the permission list above is unchanged. Signing is part of the same
+purpose: a `.wsnp` is a container whose manifest lists every file's SHA-256, and the signature lets
+a viewer tell if the file was edited after it was saved. The key is made on first use, stays in
+the browser, and is never sent anywhere; its fingerprint is shown in the popup's Help so the user
+can tell the viewer the key is theirs.
 
 Host permissions: **none**. Remote code: **No**.
 
@@ -91,9 +96,9 @@ What the extension handles, and where it goes:
 
 - **Website content**: the page in the tab the user chose (its text, images, styles, form values
   except passwords, canvases, code editors), read only when the user opens the popup on it, and
-  written only into the ZIP saved on the user's computer.
+  written only into the file (a ZIP or a `.wsnp`) saved on the user's computer.
 - **Web history**: only the address and title of the captured page, shown in the popup while the
-  capture is on screen and written into the ZIP (`snapshot.json`); not kept anywhere else.
+  capture is on screen and written into the saved file (`snapshot.json` in a ZIP, `manifest.json` in a `.wsnp`); not kept anywhere else.
 - **Authentication information**: never read. Requests for the page's files may carry the site's
   own cookies (as the page itself does), handled by the browser; the extension does not read or
   store them. Password fields are left empty in the saved copy.
