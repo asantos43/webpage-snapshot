@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-09-30
+
 - A `.wsnp` file is now **signed**: the manifest is signed with a key that the extension makes the
   first time it is needed and keeps in this browser (Ed25519, or ECDSA P-256 where the browser has
   no Ed25519; the private key is non-extractable and never leaves the browser), and the signature
