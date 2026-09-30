@@ -22,11 +22,17 @@ policy answers (single purpose, permissions, data) are in
 
 The five screenshots, one per feature, each with the real screen:
 
-1. **Saves the page as you see it**: the finished capture in the popup.
-2. **Every item of every carousel**: the popup while it records a carousel.
-3. **Opens offline, as it looked**: an example news site saved and opened from the ZIP.
-4. **Nothing left pointing online**: the list of what could not be saved.
-5. **Runs in the background**: the popup's Help (the badge, Cancel, the help page, two languages, no telemetry).
+1. **Saves the page as you see it**: the finished capture in the popup, saving a `.wsnp` (the "Save as" choice is in view).
+2. **Every item of every carousel**: the popup while it records a carousel (a `.wsnp` capture).
+3. **Opens offline, as it looked**: an example news site saved as a `.wsnp`, renamed to `.zip`, unzipped and opened.
+4. **Nothing left pointing online**: the list of what could not be saved (a `.zip` capture).
+5. **Save as .zip or .wsnp**: the popup's Help (what each kind of file is, the signed `.wsnp` and its key, the badge, no telemetry).
+
+The description says what a `.wsnp` is (a container: the page and every file it needs in one ZIP, a
+manifest with each file's SHA-256, the offline scripts and a preview; signed, with a key that stays
+in the browser) and names no viewer: a store listing must not promise a program that has no
+release yet, so it says "a `.wsnp` viewer". The summary (the manifest's description) and the
+toolbar tooltip also say "ZIP or .wsnp".
 
 ## Other fields
 
@@ -41,6 +47,7 @@ The five screenshots, one per feature, each with the real screen:
 
 From `tests/`: `npm run screenshots` (only if the popup changed; it rewrites the extension's own
 screenshots in both languages), then `node store-images.mjs`, which builds every picture in
-`images/<language>/` from those screenshots. Look at every picture before uploading it. The store
+`images/<language>/` from those screenshots (both are deterministic: a second run changes no file).
+Look at every picture before uploading it. The store
 takes JPEG or 24-bit PNG without transparency, exactly 1280×800 (up to five), 440×280 and
 1400×560; `npm run store-policy` checks the sizes and the descriptions.
