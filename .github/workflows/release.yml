@@ -166,6 +166,10 @@ jobs:
         working-directory: tests
         run: npm run wsnp
 
+      - name: WSNP format docs are the viewer's exact copies
+        working-directory: tests
+        run: npm run format-sync
+
       - name: Commit the new version and changelog
         env:
           VERSION: ${{ steps.version.outputs.version }}
