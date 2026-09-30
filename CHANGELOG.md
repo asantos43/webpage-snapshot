@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-09-30
+
 - The store pictures and the help pages' screenshots now show the popup's **Save as** choice with `.wsnp`
   selected (running, finished and Help shots), and the fifth store picture is about `.zip` or `.wsnp`.
   `tests/screenshots.mjs` saves a `.wsnp`, checks that it is valid and signed and that the key in the popup's Help
