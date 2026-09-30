@@ -17,7 +17,7 @@ image in it, and nothing to credit.
 | **Single purpose** | One purpose: save the page in the current tab as a ZIP that opens offline as it looked. Everything else (stepping through carousels, reading code editors, the progress popup) serves that one capture. | review |
 | **Minimum permissions** | No host permissions at all: `activeTab` gives access only to the tab the user opens the popup on, and the page's files from other sites are downloaded by that tab itself through the debugger. Each permission below is used; none is broader than needed (see "Permissions: what was reduced"). | `tests/store-policy.mjs` (exact permission list, no host access, each one justified here) |
 | **No remotely hosted code** | Every script is in the package; the extension pages' CSP is `script-src 'self'; object-src 'self'`; no `eval`, `new Function` or remote `<script>`/`import`. The small script embedded in each saved snapshot (the modules of `lib/offline/`) is packaged, written into the saved file, and never loads anything. | `tests/store-policy.mjs` |
-| **User data** | The page is read only on the tab the user asked to capture, only while that capture runs, and the result goes only into the ZIP in the user's Downloads folder. Nothing is sent to the developer or anyone else: there is no server, no analytics, no account. See [PRIVACY.md](../PRIVACY.md). | review; `tests/store-policy.mjs` (no network host in the code) |
+| **User data** | The page is read only on the tab the user asked to capture, only while that capture runs, and the result goes only into the ZIP in the user's Downloads folder. Nothing is sent to the developer or anyone else: there is no server, no analytics, no account. A `.wsnp` file is signed with a key pair made on first use: the private key is non-extractable and stays in the extension's IndexedDB, only the public key and its fingerprint go into the file. See [PRIVACY.md](../PRIVACY.md). | review; `tests/store-policy.mjs` (no network host in the code) |
 | **Intellectual property** | Own code, texts and icon, made for this project (the icon: a camera outline on a blue square, drawn for this extension; the PNGs carry no third-party metadata). | `tests/store-policy.mjs` (icons) |
 | **Impersonation / metadata** | Own name ("PageKeep: Offline Page Saver", see "Name"), a description that states what it does (no keyword lists, no other product's name, no links), screenshots of the real popup and of a page it saved. Name, descriptions and pictures in English and Brazilian Portuguese (`store/`). | `tests/store-policy.mjs` (name ≤ 75, summary ≤ 132 characters, in each language; store pictures' sizes; descriptions without other products' names or links) |
 | **Account security** | 2-Step Verification on the publishing Google account. | developer |
@@ -80,6 +80,9 @@ Other permissions considered and kept:
 | `downloads` | Saves the finished ZIP to the user's Downloads folder when the user presses the popup's Download button. |
 | `storage` | Keeps the progress of the current capture in session storage so the popup can show it when reopened (cleared when the capture is dismissed or the browser closes), and the extension's one setting, the popup's "Load the whole page first" option, in local storage. |
 
+The signing key of `.wsnp` files (`lib/signing.js`) lives in the extension's own IndexedDB, which
+needs no permission, so the permission list above is unchanged.
+
 Host permissions: **none**. Remote code: **No**.
 
 ## Data usage (dashboard answers)
@@ -94,6 +97,10 @@ What the extension handles, and where it goes:
 - **Authentication information**: never read. Requests for the page's files may carry the site's
   own cookies (as the page itself does), handled by the browser; the extension does not read or
   store them. Password fields are left empty in the saved copy.
+- **A signing key pair** (Web Crypto, made on first use of a `.wsnp` or of the popup's Help): the
+  private key is non-extractable and never leaves the browser; the public key and its fingerprint are
+  written into the `.wsnp` files the user saves. It identifies no person, is not sent anywhere and is
+  not one of the dashboard's data types, so no extra box is ticked; it is described in PRIVACY.md.
 - Not handled: personally identifiable information, health, financial, personal communications,
   location, user activity (clicks, keystrokes).
 

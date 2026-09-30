@@ -28,6 +28,8 @@ details { margin-top: 12px; }
 #help summary { cursor: pointer; color: var(--accent); }
 #help p, #help ul { margin: 6px 0; }
 #help ul { padding-left: 1.2em; }
+#help button { padding: 1px 8px; font-size: 12px; margin-left: 4px; }
+#fingerprint { font-size: 12px; user-select: all; overflow-wrap: anywhere; }
 li { overflow-wrap: anywhere; margin: 4px 0; font-size: 13px; }
 #notes { padding-left: 1.2em; margin: 8px 0; }
 #notes .warn { color: var(--error); }

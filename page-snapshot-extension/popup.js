@@ -2,6 +2,8 @@
 // (or discards a finished one), Download saves the finished ZIP. The capture itself is kept by
 // background.js in storage.session and shown here as it progresses; closing the popup stops
 // nothing.
+import { installationFingerprint } from './lib/signing.js';
+
 const $ = (id) => document.getElementById(id);
 let activeTabId;
 
@@ -122,6 +124,24 @@ chrome.storage.local.get('settings').then(({ settings }) => {
 });
 $('opt-reveal').onchange = () => saveSetting({ reveal: $('opt-reveal').checked });
 for (const radio of formats()) radio.onchange = () => { if (radio.checked) saveSetting({ format: radio.value }); };
+
+// The Help shows the key that signs the .wsnp files (docs/FORMAT.md section 12), so the user can
+// tell the viewer "this key is mine". The key is made the first time it is needed, here or by the
+// first .wsnp; if the browser cannot make or keep one, the line stays hidden.
+$('help').addEventListener('toggle', async () => {
+  if (!$('help').open || !$('signing').hidden) return;
+  try {
+    $('fingerprint').textContent = await installationFingerprint();
+    $('signing').hidden = false;
+  } catch { /* no signing key here: files are saved unsigned */ }
+});
+$('copy-fingerprint').onclick = async () => {
+  try {
+    await navigator.clipboard.writeText($('fingerprint').textContent);
+    $('copy-fingerprint').textContent = chrome.i18n.getMessage('copied');
+    setTimeout(() => { $('copy-fingerprint').textContent = chrome.i18n.getMessage('copy'); }, 1500);
+  } catch { /* clipboard not allowed: the fingerprint can still be selected */ }
+};
 
 chrome.storage.session.onChanged.addListener((changes) => {
   if (changes.job) render(changes.job.newValue);

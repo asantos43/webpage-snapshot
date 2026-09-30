@@ -1,6 +1,6 @@
 # PageKeep — Privacy policy
 
-*Last updated: 2026-09-27 (pictures of frames from other sites). Published at https://gist.github.com/asantos43/a0566af48d0894dc44b72bee43b22da8. Português abaixo.*
+*Last updated: 2026-09-30 (signing key for .wsnp files). Published at https://gist.github.com/asantos43/a0566af48d0894dc44b72bee43b22da8. Português abaixo.*
 
 PageKeep is a browser extension by Anderson Santos (asantos35@gmail.com). It saves the page in the
 tab you choose as a ZIP file that opens offline.
@@ -42,8 +42,20 @@ steps, the file name, what could not be saved) is kept in the browser's session 
 popup can show it when reopened. It is deleted when you press OK or Cancel, or when the browser
 quits; a finished capture is also deleted when its tab closes.
 
-The extension's only setting, whether the popup's option "Load the whole page first" is on, is kept
-in the browser's local storage on this computer (not synced). The extension keeps no history.
+The extension's settings (whether the popup's option "Load the whole page first" is on, and the
+"Save as" choice) are kept in the browser's local storage on this computer (not synced). The
+extension keeps no history.
+
+**A signing key.** The first time you save a `.wsnp` file (or open the popup's Help), the extension
+makes one key pair for this installation, to sign the file's manifest so that a viewer can tell it
+was not edited afterwards. The **private key** is created non-extractable and kept only in the
+extension's own storage (IndexedDB) in this browser: it never leaves the browser, it is never
+exported, and it is never written into a file or sent anywhere. The **public key** and its
+fingerprint (a short code made from it, shown in the popup's Help) are written into every `.wsnp`
+file, so whoever holds several files from this installation can tell they were made by the same
+one; they say nothing about who you are. Plain `.zip` files are not signed. Nothing about the key is
+sent to the developer or anyone else. Clearing the extension's data, or reinstalling it, deletes
+the key; the next `.wsnp` gets a new one.
 
 ## Limited Use
 
@@ -60,7 +72,7 @@ Questions: asantos35@gmail.com.
 
 # PageKeep — Política de privacidade
 
-*Atualizada em 2026-09-27.*
+*Atualizada em 2026-09-30.*
 
 O PageKeep é uma extensão de navegador de Anderson Santos (asantos35@gmail.com). Ele salva a página
 da aba que você escolher num arquivo ZIP que abre offline.
@@ -102,9 +114,20 @@ etapas, o nome do arquivo, o que não pôde ser salvo) fica no armazenamento de 
 para o popup mostrá-lo quando for reaberto. Ele é apagado quando você aperta OK ou Cancelar, ou
 quando o navegador é encerrado; uma captura terminada também é apagada quando a aba dela é fechada.
 
-A única configuração da extensão, se a opção "Carregar a página inteira antes" do popup está
-ligada, fica no armazenamento local do navegador, neste computador (não é sincronizada). A extensão
-não guarda histórico.
+As configurações da extensão (se a opção "Carregar a página inteira antes" do popup está ligada, e
+a escolha "Salvar como") ficam no armazenamento local do navegador, neste computador (não são
+sincronizadas). A extensão não guarda histórico.
+
+**Uma chave de assinatura.** Na primeira vez que você salva um arquivo `.wsnp` (ou abre a Ajuda do
+popup), a extensão cria um par de chaves para esta instalação, para assinar o manifesto do arquivo
+e permitir que um visualizador perceba se ele foi editado depois. A **chave privada** é criada como
+não extraível e fica só no armazenamento próprio da extensão (IndexedDB) neste navegador: ela nunca
+sai do navegador, nunca é exportada e nunca é escrita em arquivo nem enviada a lugar nenhum. A
+**chave pública** e a sua impressão digital (um código curto feito a partir dela, mostrado na Ajuda
+do popup) são escritas em todo arquivo `.wsnp`, de modo que quem tiver vários arquivos desta
+instalação pode perceber que foram feitos pela mesma; elas não dizem quem você é. Arquivos `.zip`
+comuns não são assinados. Nada sobre a chave é enviado ao desenvolvedor nem a ninguém. Limpar os
+dados da extensão, ou reinstalá-la, apaga a chave; o próximo `.wsnp` recebe uma nova.
 
 ## Uso limitado
 

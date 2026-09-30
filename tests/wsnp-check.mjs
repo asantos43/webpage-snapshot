@@ -4,9 +4,11 @@
 // Usage: node wsnp-check.mjs <file.wsnp> [--password=…]
 //   Prints the problems found and exits 1 if there are any. A password-protected file is checked
 //   as far as its outer layout without --password, and fully (decrypted in memory) with it.
-// As a module: checkWsnp(bytes, { password }) → { ok, protected, errors, manifest, entries }.
+// As a module: checkWsnp(bytes, { password }) → { ok, protected, errors, manifest, entries, signature }
+//   (`signature`: the result of checkSignature, section 12 of the format: unsigned, valid or invalid).
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { decryptWsnp, checkEncryptionInfo } from './wsnp-crypt.mjs';
@@ -61,6 +63,57 @@ export function isSafePath(p) {
     && p.split('/').every((part) => part && part !== '.' && part !== '..');
 }
 
+// ---------------------------------------------------------------- the signature (section 12)
+
+// A raw public key wrapped as the SubjectPublicKeyInfo that Node's crypto reads.
+const SPKI_PREFIX = {
+  Ed25519: Buffer.from('302a300506032b6570032100', 'hex'),
+  'ECDSA-P256-SHA256': Buffer.from('3059301306072a8648ce3d020106082a8648ce3d030107034200', 'hex'),
+};
+const KEY_BYTES = { Ed25519: 32, 'ECDSA-P256-SHA256': 65 };
+
+/** The SHA-256 of a raw public key, lowercase hex: what identifies the signer. */
+export const fingerprintOf = (publicKey) => crypto.createHash('sha256').update(publicKey).digest('hex');
+/** The first 128 bits of a fingerprint, upper case, in groups of four: `5647-5AA7-5463-474C-0285-DF5D-BF2B-CAB7`. */
+export const shortFingerprint = (fingerprint) => fingerprint.slice(0, 32).toUpperCase().match(/.{4}/g).join('-');
+
+/**
+ * Checks `signature.json` against the exact bytes of `manifest.json` as FORMAT.md section 12 says.
+ * `signatureBytes` undefined means there is no signature.json: { state: 'unsigned' } (valid).
+ * Otherwise { state: 'valid', algorithm, fingerprint, fingerprintShort } or
+ * { state: 'invalid', reason: 'unreadable' | 'unsupported' | 'manifest-mismatch' | 'bad-signature', message }.
+ */
+export function checkSignature(manifestBytes, signatureBytes) {
+  if (signatureBytes === undefined) return { state: 'unsigned' };
+  const invalid = (reason, message) => ({ state: 'invalid', reason, message });
+  const base64 = (v) => typeof v === 'string' && /^[A-Za-z0-9+/]+={0,2}$/.test(v);
+  let record;
+  try { record = JSON.parse(Buffer.from(signatureBytes).toString('utf8')); } catch { return invalid('unreadable', 'signature.json is not valid JSON'); }
+  if (typeof record !== 'object' || record === null || Array.isArray(record)) return invalid('unreadable', 'signature.json is not an object');
+  const { algorithm } = record;
+  if (typeof algorithm !== 'string' || !Object.hasOwn(KEY_BYTES, algorithm)) return invalid('unsupported', `signature.json uses an algorithm this reader cannot check: ${JSON.stringify(algorithm)}`);
+  if (record.signed !== 'manifest.json' || !base64(record.public_key) || !base64(record.signature) || typeof record.manifest_sha256 !== 'string') {
+    return invalid('unreadable', 'signature.json is missing a field or has one that is not readable');
+  }
+  const publicKey = Buffer.from(record.public_key, 'base64');
+  const signature = Buffer.from(record.signature, 'base64');
+  if (publicKey.length !== KEY_BYTES[algorithm] || signature.length !== 64) return invalid('unreadable', 'signature.json has a key or a signature of the wrong size');
+  const manifest = Buffer.from(manifestBytes);
+  if (crypto.createHash('sha256').update(manifest).digest('hex') !== record.manifest_sha256.toLowerCase()) {
+    return invalid('manifest-mismatch', 'the manifest was edited after it was signed (its SHA-256 is not the signed one)');
+  }
+  let ok = false;
+  try {
+    const key = crypto.createPublicKey({ key: Buffer.concat([SPKI_PREFIX[algorithm], publicKey]), format: 'der', type: 'spki' });
+    ok = algorithm === 'Ed25519'
+      ? crypto.verify(null, manifest, key, signature)
+      : crypto.verify('sha256', manifest, { key, dsaEncoding: 'ieee-p1363' }, signature);
+  } catch { return invalid('unreadable', 'signature.json holds a public key that is not valid'); }
+  if (!ok) return invalid('bad-signature', 'the signature does not check with the public key in signature.json');
+  const fingerprint = fingerprintOf(publicKey);
+  return { state: 'valid', algorithm, fingerprint, fingerprintShort: shortFingerprint(fingerprint) };
+}
+
 const sha256 = async (bytes) => Buffer.from(await crypto.subtle.digest('SHA-256', bytes)).toString('hex');
 const text = (bytes) => new TextDecoder().decode(bytes);
 
@@ -84,7 +137,7 @@ const cssOnline = (css) => [...css.matchAll(/url\(\s*["']?(?:https?:)?\/\/[^)]*\
  */
 export async function checkWsnp(bytes, { password } = {}) {
   const errors = [];
-  const result = { ok: false, protected: false, errors, manifest: null, entries: [] };
+  const result = { ok: false, protected: false, errors, manifest: null, entries: [], signature: null };
   const fail = (message) => { errors.push(message); return result; };
   bytes = new Uint8Array(bytes);
 
@@ -128,7 +181,8 @@ export async function checkWsnp(bytes, { password } = {}) {
   // The manifest.
   if (!byName.has('manifest.json')) return fail('no manifest.json');
   let manifest;
-  try { manifest = JSON.parse(text(byName.get('manifest.json').read())); } catch { return fail('manifest.json is not valid JSON'); }
+  const manifestBytes = byName.get('manifest.json').read();
+  try { manifest = JSON.parse(text(manifestBytes)); } catch { return fail('manifest.json is not valid JSON'); }
   result.manifest = manifest;
   const need = (ok, message) => { if (!ok) errors.push(`manifest: ${message}`); };
   const isString = (v) => typeof v === 'string';
@@ -154,6 +208,10 @@ export async function checkWsnp(bytes, { password } = {}) {
   need(Array.isArray(manifest.failed), '"failed" must be a list');
   if (errors.length) return result;
 
+  // The signature, if there is one (1.1): unsigned is valid; one that cannot be checked or does not check is refused.
+  result.signature = checkSignature(manifestBytes, byName.get('signature.json')?.read());
+  if (result.signature.state === 'invalid') errors.push(`signature: ${result.signature.message}`);
+
   // Every file listed, present, with its size, hash and type; the path rules.
   const listed = new Map();
   const lower = new Set();
@@ -167,7 +225,8 @@ export async function checkWsnp(bytes, { password } = {}) {
     if (lower.has(e.name.toLowerCase())) errors.push(`"${e.name}" clashes with another name when case is ignored`);
     lower.add(e.name.toLowerCase());
     if (e.method !== 0 && e.method !== 8) errors.push(`${e.name}: compression method ${e.method} (only stored or DEFLATE)`);
-    if (e.name === 'mimetype' || e.name === 'manifest.json') continue;
+    // The entries the manifest does not list: it cannot list itself, and signature.json signs it.
+    if (e.name === 'mimetype' || e.name === 'manifest.json' || e.name === 'signature.json') continue;
     const parts = e.name.split('/');
     if (parts[0] === 'assets' && (parts.length < 3 || !ASSET_FOLDERS.includes(parts[1]))) {
       errors.push(`${e.name} is not in one of the assets/ folders (${ASSET_FOLDERS.join(', ')})`);
@@ -209,7 +268,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   for (const e of result.errors) console.log(`  ✗ ${e}`);
   if (result.ok) {
     const m = result.manifest;
-    console.log(result.protected && !m ? `OK (password-protected; give --password=… to check its content): ${file}` : `OK ${file}: "${m.title}" from ${m.source.url}, ${m.files.length} files${result.protected ? ', password-protected' : ''}`);
+    const sig = result.signature;
+    const signed = sig?.state === 'valid' ? `, signed by ${sig.fingerprintShort} (${sig.algorithm})` : sig?.state === 'unsigned' ? ', not signed' : '';
+    console.log(result.protected && !m ? `OK (password-protected; give --password=… to check its content): ${file}` : `OK ${file}: "${m.title}" from ${m.source.url}, ${m.files.length} files${result.protected ? ', password-protected' : ''}${signed}`);
   } else {
     console.log(`INVALID ${file} (${result.errors.length} problem${result.errors.length === 1 ? '' : 's'})`);
     process.exitCode = 1;

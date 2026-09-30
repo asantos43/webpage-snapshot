@@ -70,7 +70,10 @@
         <li><strong>Salvar como</strong> <code>.zip</code> ou <code>.wsnp</code> (<code>.zip</code>, a menos que você
           escolha o outro; a escolha fica guardada): <code>.zip</code> é um ZIP comum. <code>.wsnp</code> (Web SNaPshot) é
           a mesma cópia no formato de arquivo próprio do PageKeep, cujo manifesto traz o endereço, o título e a descrição
-          da página, lista cada arquivo com seu tipo e soma de verificação e guarda uma prévia. Ele é feito para o
+          da página, lista cada arquivo com seu tipo e soma de verificação e guarda uma prévia. O manifesto é assinado
+          com uma chave que o PageKeep cria na primeira vez e guarda neste navegador (a metade privada nunca sai
+          dele), para o visualizador perceber se alguém editou o arquivo depois; a impressão digital dessa chave está
+          na Ajuda do popup, com um botão Copiar, para dizer ao visualizador que a chave é sua. Ele é feito para o
           visualizador do PageKeep, um aplicativo separado que ainda virá; até lá, renomeie um <code>.wsnp</code> para
           <code>.zip</code> para abri-lo como abaixo.</li>
         <li><strong>Você pode fechar o popup</strong> ou clicar na página: a captura continua em segundo plano. Clique no
@@ -170,8 +173,9 @@
 assets/         os arquivos da página, em images/, styles/, fonts/, media/ e files/ (downloads salvos)
 snapshot.json   endereço e título da página, a data, cada arquivo salvo e cada um que falhou</pre>
       <p>Um <code>.wsnp</code> renomeado para <code>.zip</code> descompacta do mesmo jeito, com o
-        <code>manifest.json</code> no lugar do <code>snapshot.json</code>, os scripts offline e uma prévia em
-        <code>_wsnp/</code>, e um primeiro arquivo chamado <code>mimetype</code> que identifica o formato.</p>
+        <code>manifest.json</code> no lugar do <code>snapshot.json</code>, o <code>signature.json</code> (a assinatura do
+        manifesto), os scripts offline e uma prévia em <code>_wsnp/</code>, e um primeiro arquivo chamado
+        <code>mimetype</code> que identifica o formato.</p>
       <p>Abrir a cópia não faz nenhuma requisição. Os links continuam levando ao site real quando você clica neles
         com internet.</p>
       <figure class="wide">

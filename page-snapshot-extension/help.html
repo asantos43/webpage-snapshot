@@ -69,7 +69,10 @@
         <li><strong>Save as</strong> <code>.zip</code> or <code>.wsnp</code> (<code>.zip</code> unless you choose
           otherwise; remembered): <code>.zip</code> is a plain ZIP. <code>.wsnp</code> (Web SNaPshot) is the same
           snapshot in PageKeep's own file format, whose manifest names the page's address, title and description, lists
-          every file with its type and checksum, and holds a preview picture. It is meant for the PageKeep viewer, a
+          every file with its type and checksum, and holds a preview picture. The manifest is signed with a key that
+          PageKeep makes the first time and keeps in this browser (its private half never leaves it), so the viewer
+          can tell if someone edited the file afterwards; the fingerprint of that key is in the popup's Help, with a
+          Copy button, for telling the viewer the key is yours. It is meant for the PageKeep viewer, a
           separate application to come; until then, rename a <code>.wsnp</code> to <code>.zip</code> to open it as
           below.</li>
         <li><strong>You can close the popup</strong>, or click on the page: the capture carries on in the background.
@@ -169,8 +172,9 @@
 assets/         the page's files, in images/, styles/, fonts/, media/ and files/ (saved downloads)
 snapshot.json   the page's address and title, the date, each file saved and each one that failed</pre>
       <p>A <code>.wsnp</code> renamed to <code>.zip</code> unzips the same way, with <code>manifest.json</code> in place
-        of <code>snapshot.json</code>, the offline scripts and a preview picture in <code>_wsnp/</code>, and a first
-        file named <code>mimetype</code> that identifies the format.</p>
+        of <code>snapshot.json</code>, <code>signature.json</code> (the signature of the manifest), the offline scripts and a
+        preview picture in <code>_wsnp/</code>, and a first file named <code>mimetype</code> that identifies the
+        format.</p>
       <p>Opening it makes no request at all. Links still lead to the real site when you click them while online.</p>
       <figure class="wide">
         <img src="images/screenshots/en/snapshot-offline.png" width="1280" alt="An example news page saved by PageKeep, opened offline from the ZIP: masthead, section menu, headlines, the lead story's photo, tabs, a live-updates box and an advertisement">
