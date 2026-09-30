@@ -1,7 +1,8 @@
 # Protecting the metadata: a signed manifest (proposal)
 
-**Status: decided** (a key per installation, trusted on first use, told by the user). The format is in [`FORMAT.md`](FORMAT.md) section 12 (1.1) and the viewer reads it. **PageKeep, the extension that writes the files, does not sign yet**:
-until it does, every file it makes is *unsigned*, and the viewer says, in the metadata view and the status bar, that the metadata is not protected.
+**Status: decided and built.** A key per installation, trusted on first use, told by the user. The format is in [`FORMAT.md`](FORMAT.md) section 12 (1.1). The viewer reads it, and PageKeep (the extension that writes the files)
+signs every `.wsnp` it writes, from the release that follows this design: a file written before it is *unsigned*, and the viewer says so, quietly, in the metadata view and the status bar. The viewer itself does not sign yet
+(that comes with conversion).
 
 ## The problem
 
