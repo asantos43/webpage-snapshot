@@ -1,4 +1,4 @@
-O PageKeep salva a página que você está vendo num arquivo ZIP que abre offline, exatamente como ela aparecia na sua tela: estilos, imagens e fontes, o que os scripts colocaram na página, o que você digitou em formulários e todos os itens dos carrosséis. Útil para guardar uma receita, um artigo, um comprovante, uma documentação ou qualquer página que possa mudar ou sumir.
+O PageKeep salva a página que você está vendo num arquivo que abre offline, exatamente como ela aparecia na sua tela, um ZIP comum ou um arquivo .wsnp: estilos, imagens e fontes, o que os scripts colocaram na página, o que você digitou em formulários e todos os itens dos carrosséis. Útil para guardar uma receita, um artigo, um comprovante, uma documentação ou qualquer página que possa mudar ou sumir.
 
 SALVA A PÁGINA COMO VOCÊ A VÊ
 
@@ -14,7 +14,14 @@ Um carrossel costuma mostrar um item por vez e deixar os outros fora da página.
 
 ABRE OFFLINE, COMO ERA
 
-Descompacte o arquivo onde quiser e abra o index.html no navegador, com ou sem internet. Seções recolhíveis, acordeões, abas, menus suspensos, janelas sobrepostas, galerias de fotos (as fotos grandes também são salvas) e carrosséis, com suas setas e bolinhas, continuam funcionando, graças a pequenos scripts guardados na cópia. Abrir a cópia não faz nenhuma requisição; os links continuam levando ao site real quando você clica neles com internet.
+Descompacte o arquivo onde quiser (um .wsnp: renomeie-o para .zip antes) e abra o index.html no navegador, com ou sem internet. Seções recolhíveis, acordeões, abas, menus suspensos, janelas sobrepostas, galerias de fotos (as fotos grandes também são salvas) e carrosséis, com suas setas e bolinhas, continuam funcionando, graças a pequenos scripts guardados na cópia. Abrir a cópia não faz nenhuma requisição; os links continuam levando ao site real quando você clica neles com internet.
+
+DUAS FORMAS DE GUARDAR: .ZIP OU .WSNP
+
+A escolha "Salvar como" do popup define o tipo de arquivo, e o PageKeep a lembra.
+• .zip (o padrão) é um ZIP comum: qualquer programa de descompactar o abre, e o index.html dele funciona offline no navegador.
+• .wsnp (Web SNaPshot) é a mesma página num só arquivo, um contêiner: a página e todos os arquivos de que ela precisa num único ZIP, com um manifesto que lista cada arquivo com seu SHA-256, os scripts offline e uma imagem de prévia. Dá para guardá-lo, enviá-lo e abri-lo num visualizador de .wsnp; para descompactar você mesmo, renomeie-o para .zip.
+• Um .wsnp é assinado, para que um visualizador perceba se ele foi editado depois. Na primeira vez, o PageKeep cria uma chave de assinatura que fica neste navegador e nunca é enviada a lugar nenhum, e com ela assina o manifesto do arquivo. A impressão digital da chave está na Ajuda do popup, para você dizer ao visualizador que a chave é sua. Um .zip não é assinado.
 
 NADA FICA APONTANDO PARA A INTERNET
 
@@ -29,8 +36,7 @@ FUNCIONA EM SEGUNDO PLANO
 • Clique no ícone na barra de ferramentas ou aperte Alt+Shift+S: o popup abre embaixo do ícone. Aperte Capturar para começar.
 • Acompanhe cada etapa ou feche o popup e continue trabalhando: o selo do ícone mostra … enquanto roda, ✓ quando termina e ! se falhou. Clique no ícone de novo para ver o resultado.
 • Cancelar interrompe a captura a qualquer momento: os carrosséis voltam ao primeiro item e nada é salvo.
-• Quando o ZIP está pronto, Baixar o salva na sua pasta de Downloads, com o título da página, a data e a hora no nome; Cancelar o descarta. Nada é salvo antes de você escolher.
-• Salve como .zip (um ZIP comum) ou .wsnp (Web SNaPshot, o formato de arquivo próprio do PageKeep: a mesma cópia com um manifesto que traz o endereço, o título e a descrição da página, e uma prévia).
+• Quando o arquivo está pronto, Baixar o salva na sua pasta de Downloads, com o título da página, a data e a hora no nome; Cancelar o descarta. Nada é salvo antes de você escolher.
 
 COMO ELE LÊ OS ARQUIVOS
 
@@ -38,7 +44,7 @@ Para salvar exatamente os arquivos que você viu, inclusive imagens que exigem o
 
 PRIVADO POR PRINCÍPIO
 
-Sem conta, sem servidor, sem anúncios e sem telemetria. Nada é enviado ao desenvolvedor nem a ninguém: o que o PageKeep lê vai apenas para o ZIP salvo no seu computador. As únicas requisições que ele faz são para os arquivos da própria página, aos servidores que essa página já usa. Política de privacidade: veja o link nesta página.
+Sem conta, sem servidor, sem anúncios e sem telemetria. Nada é enviado ao desenvolvedor nem a ninguém: o que o PageKeep lê vai apenas para o arquivo salvo no seu computador, e a chave de assinatura nunca sai do navegador. As únicas requisições que ele faz são para os arquivos da própria página, aos servidores que essa página já usa. Política de privacidade: veja o link nesta página.
 
 TAMBÉM
 

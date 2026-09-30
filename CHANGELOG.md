@@ -6,6 +6,18 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- The store pictures and the help pages' screenshots now show the popup's **Save as** choice with `.wsnp`
+  selected (running, finished and Help shots), and the fifth store picture is about `.zip` or `.wsnp`.
+  `tests/screenshots.mjs` saves a `.wsnp`, checks that it is valid and signed and that the key in the popup's Help
+  is the one in the file, and makes the same pictures on every run.
+- The descriptions (store, both READMEs, both help pages), the popup's Help and the store policy notes now say what a
+  `.wsnp` is (a container: the page and every file it needs in one ZIP, a manifest with each file's SHA-256, the
+  offline scripts and a preview), that it is signed with a key that stays in this browser and whose
+  fingerprint is in the Help, that a `.wsnp` can be unzipped by renaming it to `.zip`, and that the WSNP Viewer
+  (a separate desktop application, in development) opens it. The help pages have a new section, ".zip or .wsnp".
+- Texts of the popup that said "ZIP" for both kinds of file now say "file" (the steps, the status while saving),
+  and the extension's summary and toolbar tooltip say "ZIP or .wsnp".
+
 ## [1.6.0] - 2026-09-30
 
 - A `.wsnp` file is now **signed**: the manifest is signed with a key that the extension makes the

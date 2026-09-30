@@ -12,9 +12,9 @@
     <img src="icons/icon128.png" width="56" height="56" alt="">
     <div>
       <h1>PageKeep</h1>
-      <p class="lead">Salva a página que você está vendo num ZIP que abre offline exatamente como você a viu: estilos,
-        imagens e fontes, o que os scripts colocaram na tela, o que você digitou em formulários e todos os itens dos
-        carrosséis. Esta ajuda funciona offline; a <a href="help.html" lang="en">English version</a> também.</p>
+      <p class="lead">Salva a página que você está vendo num arquivo que abre offline exatamente como você a viu, um ZIP
+        comum ou um <code>.wsnp</code>: estilos, imagens e fontes, o que os scripts colocaram na tela, o que você
+        digitou em formulários e todos os itens dos carrosséis. Esta ajuda funciona offline; a <a href="help.html" lang="en">English version</a> também.</p>
     </div>
   </header>
 
@@ -22,9 +22,10 @@
     <a href="#start">Começo rápido</a>
     <a href="#running">Durante a captura</a>
     <a href="#result">O resultado</a>
+    <a href="#formats">.zip ou .wsnp</a>
     <a href="#saved">O que é salvo</a>
     <a href="#not-saved">O que não é salvo</a>
-    <a href="#zip">Abrindo o ZIP</a>
+    <a href="#zip">Abrindo o arquivo</a>
     <a href="#troubleshooting">Problemas</a>
     <a href="#privacy">Privacidade</a>
   </nav>
@@ -41,15 +42,16 @@
               embaixo do ícone; nada começa ainda. Aperte <strong>Capturar</strong> (ou Enter).</li>
             <li>Acompanhe: uma linha por etapa, com um indicador girando que vira um sinal de ✓. Numa página com
               carrossel, você vê cada item sendo gravado.</li>
-            <li>Quando estiver pronto, aperte <strong>Baixar</strong>: o ZIP vai para a sua pasta de Downloads, com o
-              título da página, a data e a hora no nome, por exemplo <code>Gazeta-do-Porto-20260927-1015.zip</code>, e o
-              popup fica pronto para a próxima captura. <strong>Cancelar</strong> descarta o resultado.</li>
+            <li>Quando estiver pronto, aperte <strong>Baixar</strong>: o arquivo vai para a sua pasta de Downloads, com o
+              título da página, a data e a hora no nome, por exemplo <code>Gazeta-do-Porto-20260927-1015.wsnp</code> (ou
+              <code>.zip</code>, veja <a href="#formats">.zip ou .wsnp</a>), e o popup fica pronto para a próxima
+              captura. <strong>Cancelar</strong> descarta o resultado.</li>
           </ol>
         </div>
         <div>
           <figure>
             <img src="images/screenshots/pt_BR/popup-idle.png" width="440" alt="O popup ao abrir: a opção Carregar a página inteira antes, a escolha Salvar como entre .zip e .wsnp, o texto Pronto para salvar esta página e o botão Capturar; Cancelar e Baixar ficam apagados">
-            <figcaption>O popup ao abrir: só Capturar e a opção.</figcaption>
+            <figcaption>O popup ao abrir: só Capturar e as opções, com a escolha Salvar como (aqui em <code>.wsnp</code>).</figcaption>
           </figure>
           <figure>
             <img src="images/screenshots/pt_BR/popup-running.png" width="440" alt="O popup durante a captura: Aba encontrada, Página percorrida até o fim e Carrossel 1 de 1: gravando o item 3; só Cancelar disponível">
@@ -68,14 +70,8 @@
           nem envia um formulário. Feeds infinitos param em 40 telas ou 20 segundos. Ajuste antes de apertar Capturar; a
           escolha fica guardada.</li>
         <li><strong>Salvar como</strong> <code>.zip</code> ou <code>.wsnp</code> (<code>.zip</code>, a menos que você
-          escolha o outro; a escolha fica guardada): <code>.zip</code> é um ZIP comum. <code>.wsnp</code> (Web SNaPshot) é
-          a mesma cópia no formato de arquivo próprio do PageKeep, cujo manifesto traz o endereço, o título e a descrição
-          da página, lista cada arquivo com seu tipo e soma de verificação e guarda uma prévia. O manifesto é assinado
-          com uma chave que o PageKeep cria na primeira vez e guarda neste navegador (a metade privada nunca sai
-          dele), para o visualizador perceber se alguém editou o arquivo depois; a impressão digital dessa chave está
-          na Ajuda do popup, com um botão Copiar, para dizer ao visualizador que a chave é sua. Ele é feito para o
-          visualizador do PageKeep, um aplicativo separado que ainda virá; até lá, renomeie um <code>.wsnp</code> para
-          <code>.zip</code> para abri-lo como abaixo.</li>
+          escolha o outro; a escolha fica guardada; ajuste antes de apertar Capturar): veja
+          <a href="#formats">.zip ou .wsnp</a> abaixo.</li>
         <li><strong>Você pode fechar o popup</strong> ou clicar na página: a captura continua em segundo plano. Clique no
           ícone de novo para ver como está.</li>
         <li>O selo do ícone mostra <strong>…</strong> enquanto roda, <strong>✓</strong> quando termina e
@@ -101,7 +97,7 @@
               foram baixados);</li>
             <li>observações sobre o que precisou de cuidado especial: carrosséis salvos com todos os itens, editores
               de código salvos como texto, arquivos para download salvos junto da página;</li>
-            <li><strong>Baixar</strong> salva o ZIP na sua pasta de Downloads e deixa o popup pronto para a próxima
+            <li><strong>Baixar</strong> salva o arquivo na sua pasta de Downloads e deixa o popup pronto para a próxima
               captura;</li>
             <li><strong>Cancelar</strong> descarta o resultado sem salvar nada.</li>
           </ul>
@@ -110,7 +106,42 @@
         <div>
           <figure>
             <img src="images/screenshots/pt_BR/popup-done.png" width="440" alt="A captura terminada: o nome e o tamanho do arquivo salvo, cada etapa com um sinal de ✓, observações sobre o carrossel e o arquivo do link, e os botões: Capturar apagado, Cancelar e Baixar disponíveis">
-            <figcaption>A captura terminada, esperando o OK.</figcaption>
+            <figcaption>A captura terminada, esperando Baixar: o arquivo é um <code>.wsnp</code>.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="formats">
+      <h2>.zip ou .wsnp</h2>
+      <div class="pair">
+        <div>
+          <p>A escolha <strong>Salvar como</strong> do popup define o tipo de arquivo. O PageKeep a lembra, e ela não
+            pode ser mudada enquanto uma captura roda.</p>
+          <ul>
+            <li><code>.zip</code> (o padrão) é um ZIP comum. Qualquer programa de descompactar o abre, e o
+              <code>index.html</code> dele funciona offline no navegador.</li>
+            <li><code>.wsnp</code> (Web SNaPshot) é a mesma página num só arquivo, um <strong>contêiner</strong>: a página
+              e todos os arquivos de que ela precisa num único ZIP, com um manifesto que traz o endereço, o título e a
+              descrição da página e lista cada arquivo com tipo, tamanho e SHA-256, os scripts offline em
+              <code>_wsnp/</code> e uma imagem de prévia. Dá para guardá-lo, enviá-lo e abri-lo num visualizador de
+              <code>.wsnp</code>. Para descompactar você mesmo, renomeie-o para <code>.zip</code>.</li>
+            <li>Um <code>.wsnp</code> é <strong>assinado</strong>, para que um visualizador perceba se o arquivo foi
+              editado depois. Na primeira vez em que é preciso, o PageKeep cria uma chave de assinatura. A chave fica só
+              neste navegador (a metade privada não pode ser lida nem exportada, nem pelo PageKeep), nunca é enviada a
+              lugar nenhum, e a metade pública e a impressão digital são escritas em cada <code>.wsnp</code>. A
+              impressão digital aparece na <strong>Ajuda</strong> do popup, com um botão Copiar, para você dizer ao
+              visualizador que a chave é sua. Um <code>.zip</code> não é assinado.</li>
+          </ul>
+          <p>O formato <code>.wsnp</code> está descrito em <code>docs/FORMAT.md</code>, no projeto. O WSNP Viewer é um
+            aplicativo de desktop separado para abrir arquivos <code>.wsnp</code> (Linux, Windows e macOS), ainda em
+            desenvolvimento: não há versão publicada, então por enquanto descompacte um <code>.wsnp</code> como
+            descrito <a href="#zip">abaixo</a>.</p>
+        </div>
+        <div>
+          <figure>
+            <img src="images/screenshots/pt_BR/popup-help.png" width="440" alt="A Ajuda do popup aberta: a explicação da escolha Salvar como, o que são .zip e .wsnp, e a impressão digital da chave de assinatura com um botão Copiar">
+            <figcaption>A Ajuda do popup explica os dois tipos de arquivo e mostra a chave de assinatura (a impressão digital aqui é um exemplo).</figcaption>
           </figure>
         </div>
       </div>
@@ -167,7 +198,7 @@
     </section>
 
     <section id="zip">
-      <h2>Abrindo o ZIP</h2>
+      <h2>Abrindo o arquivo</h2>
       <p>Descompacte onde quiser e abra o <code>index.html</code> no navegador, com ou sem internet:</p>
       <pre>index.html      a página, apontando para os arquivos em assets/
 assets/         os arquivos da página, em images/, styles/, fonts/, media/ e files/ (downloads salvos)
@@ -179,8 +210,8 @@ snapshot.json   endereço e título da página, a data, cada arquivo salvo e cad
       <p>Abrir a cópia não faz nenhuma requisição. Os links continuam levando ao site real quando você clica neles
         com internet.</p>
       <figure class="wide">
-        <img src="images/screenshots/pt_BR/snapshot-offline.png" width="1280" alt="Uma página de notícias de exemplo salva pelo PageKeep, aberta offline a partir do ZIP: cabeçalho, menu de seções, manchetes, a foto da matéria principal, abas, um quadro de notícias ao vivo e um anúncio">
-        <figcaption>Um site de notícias de exemplo, salvo e aberto offline: todas as fotos estão lá, e as abas, o quadro ao vivo e a galeria de fotos continuam funcionando.</figcaption>
+        <img src="images/screenshots/pt_BR/snapshot-offline.png" width="1280" alt="Uma página de notícias de exemplo salva pelo PageKeep, aberta offline a partir de um .wsnp renomeado para .zip: cabeçalho, menu de seções, manchetes, a foto da matéria principal, abas, um quadro de notícias ao vivo e um anúncio">
+        <figcaption>Um site de notícias de exemplo, salvo como <code>.wsnp</code>, renomeado para <code>.zip</code>, descompactado e aberto offline: todas as fotos estão lá, e as abas, o quadro ao vivo e a galeria de fotos continuam funcionando.</figcaption>
       </figure>
     </section>
 
@@ -192,6 +223,9 @@ snapshot.json   endereço e título da página, a data, cada arquivo salvo e cad
         <li><strong>"Não foi possível ler os arquivos carregados pela página"</strong>: o depurador do navegador não conseguiu
           se conectar à aba. A captura continua, mas só os arquivos do próprio site da página podem ser salvos; feche
           as ferramentas de desenvolvedor ou outras extensões de depuração nessa aba e tente de novo.</li>
+        <li><strong>A Ajuda não mostra uma chave de assinatura</strong>: o navegador não conseguiu criar nem guardar uma.
+          O <code>.wsnp</code> é então salvo sem assinatura, o que continua sendo um arquivo válido; só falta a proteção
+          contra edições posteriores.</li>
         <li><strong>O popup mostra a captura de outra página</strong>: é uma captura por vez. Espere terminar ou aperte
           Cancelar, e depois clique no ícone na sua aba.</li>
         <li><strong>Um carrossel não foi gravado</strong>: o PageKeep reconhece carrosséis pelo rótulo dos botões de seta
@@ -204,7 +238,8 @@ snapshot.json   endereço e título da página, a data, cada arquivo salvo e cad
     <section id="privacy">
       <h2>Privacidade</h2>
       <p>O PageKeep lê uma página só quando você clica no ícone dele naquela aba, e só enquanto a captura roda. O que
-        ele lê vai apenas para o ZIP salvo no seu computador. Nada é enviado ao desenvolvedor nem a ninguém: não há
+        ele lê vai apenas para o arquivo (ZIP ou <code>.wsnp</code>) salvo no seu computador, e a chave de assinatura dos
+        arquivos <code>.wsnp</code> nunca sai do navegador. Nada é enviado ao desenvolvedor nem a ninguém: não há
         conta, servidor nem estatísticas de uso. As únicas requisições que ele faz são para os arquivos da própria
         página, aos servidores que essa página já usa.</p>
     </section>

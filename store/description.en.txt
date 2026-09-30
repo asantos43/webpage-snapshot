@@ -1,4 +1,4 @@
-PageKeep saves the page you are looking at as a ZIP file that opens offline, exactly as it looked on your screen: its styles, images and fonts, what scripts put on the page, what you typed in forms, and every item of its carousels. Useful for keeping a recipe, an article, a receipt, documentation or any page that may change or disappear.
+PageKeep saves the page you are looking at as a file that opens offline, exactly as it looked on your screen, either a plain ZIP or a .wsnp file: its styles, images and fonts, what scripts put on the page, what you typed in forms, and every item of its carousels. Useful for keeping a recipe, an article, a receipt, documentation or any page that may change or disappear.
 
 SAVES THE PAGE AS YOU SEE IT
 
@@ -14,7 +14,14 @@ A carousel usually shows one item at a time and leaves the others out of the pag
 
 OPENS OFFLINE, AS IT LOOKED
 
-Unzip the file anywhere and open index.html in your browser, with or without an internet connection. Collapsible sections, accordions, tabs, drop-down menus, pop-up windows, photo galleries (the large pictures are saved too) and carousels, with their arrows and dots, keep working, through small scripts packed into the copy. Opening it makes no request at all; links still lead to the real site when you click them while online.
+Unzip the file anywhere (a .wsnp: rename it to .zip first) and open index.html in your browser, with or without an internet connection. Collapsible sections, accordions, tabs, drop-down menus, pop-up windows, photo galleries (the large pictures are saved too) and carousels, with their arrows and dots, keep working, through small scripts packed into the copy. Opening it makes no request at all; links still lead to the real site when you click them while online.
+
+TWO WAYS TO KEEP IT: .ZIP OR .WSNP
+
+The popup's "Save as" choice sets the kind of file, and PageKeep remembers it.
+• .zip (the default) is a plain ZIP: any unzip tool opens it, and its index.html works offline in a browser.
+• .wsnp (Web SNaPshot) is the same page as one file, a container: the page and every file it needs in a single ZIP, with a manifest that lists each file with its SHA-256, the offline scripts and a preview picture. You can keep it, send it and open it with a .wsnp viewer; to unzip it yourself, rename it to .zip.
+• A .wsnp is signed, so a viewer can tell if it was edited afterwards. The first time, PageKeep makes a signing key that stays in this browser and is never sent anywhere, and it signs the file's manifest with it. The key's fingerprint is in the popup's Help, so you can tell the viewer the key is yours. A .zip is not signed.
 
 NOTHING LEFT POINTING ONLINE
 
@@ -29,8 +36,7 @@ WORKS IN THE BACKGROUND
 • Click the toolbar icon or press Alt+Shift+S: the popup opens under the icon. Press Snapshot to start.
 • Watch each step as it happens, or close the popup and keep working: the icon's badge shows … while it runs, ✓ when it is done and ! if it failed. Click the icon again to see the result.
 • Cancel stops a capture at any time: carousels go back to their first item and nothing is saved.
-• When the ZIP is ready, Download saves it to your Downloads folder, named after the page's title with the date and time; Cancel discards it. Nothing is saved until you choose.
-• Save as .zip (a plain ZIP) or .wsnp (Web SNaPshot, PageKeep's own file format: the same copy with a manifest naming the page's address, title and description, and a preview).
+• When the file is ready, Download saves it to your Downloads folder, named after the page's title with the date and time; Cancel discards it. Nothing is saved until you choose.
 
 HOW IT READS THE FILES
 
@@ -38,7 +44,7 @@ To save the exact files you saw, including images that need your login, PageKeep
 
 PRIVATE BY DESIGN
 
-No account, no server, no ads and no telemetry. Nothing is sent to the developer or anyone else: what PageKeep reads goes only into the ZIP saved on your computer. The only requests it makes are for the page's own files, to the servers that page already uses. Privacy policy: see the link on this page.
+No account, no server, no ads and no telemetry. Nothing is sent to the developer or anyone else: what PageKeep reads goes only into the file saved on your computer, and the signing key never leaves the browser. The only requests it makes are for the page's own files, to the servers that page already uses. Privacy policy: see the link on this page.
 
 ALSO
 

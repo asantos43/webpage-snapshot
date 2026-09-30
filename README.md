@@ -1,6 +1,6 @@
 # PageKeep
 
-**PageKeep** (até a versão 1.1.1 chamada Page Snapshot) é uma extensão para navegadores Chromium (Chrome, Opera, Edge e outros; Manifest V3) que salva a aba que você está vendo como um ZIP. Cada folha de estilo, imagem, fonte e ícone é baixado e a página é reescrita para apontar para as cópias locais: basta descompactar e abrir o `index.html`, a qualquer momento e sem internet.
+**PageKeep** (até a versão 1.1.1 chamada Page Snapshot) é uma extensão para navegadores Chromium (Chrome, Opera, Edge e outros; Manifest V3) que salva a aba que você está vendo como um ZIP ou como um arquivo `.wsnp` (veja **Salvar como**, abaixo). Cada folha de estilo, imagem, fonte e ícone é baixado e a página é reescrita para apontar para as cópias locais: basta descompactar e abrir o `index.html`, a qualquer momento e sem internet.
 
 Ela captura a página **como está na tela agora**, e não como o servidor a enviou: conteúdo gerado por JavaScript, o que você digitou em formulários e canvases entram no snapshot.
 
@@ -16,7 +16,8 @@ Os detalhes técnicos (o que é capturado, de onde vêm os arquivos, limitaçõe
 - **Carrosséis:** a extensão percorre cada item na página ao vivo (e a devolve ao estado em que estava). Os que mostram um item por vez têm todos os itens gravados; os que deslizam uma faixa com todos os itens (Glide, Swiper, Slick, rolagem lateral) têm as posições gravadas. Nos dois casos as setas funcionam na cópia offline.
 - **Arquivos para download:** links `<a download>` e documentos do mesmo site (`.zip`, `.pdf`, `.csv`…), até 25 arquivos, vão para `assets/files/` (os demais arquivos da página ficam separados em `assets/images/`, `styles/`, `fonts/` e `media/`).
 - **Texto cortado com "…mais"** por clamp de CSS aparece inteiro.
-- **Progresso ao vivo:** o popup da extensão, embaixo do ícone, mostra cada fase com contadores e o arquivo sendo baixado naquele momento, com os botões **OK** e **Cancel** e uma seção **Help**. A captura continua mesmo com o popup fechado.
+- **Dois tipos de arquivo:** `.zip` (um ZIP comum, que abre em qualquer programa de descompactar) ou `.wsnp` (Web SNaPshot: a mesma página num só arquivo contêiner, com um manifesto que lista cada arquivo com seu SHA-256, os scripts offline e uma prévia; é **assinado** com uma chave que fica só no navegador, para um visualizador perceber se foi editado depois). Veja **Salvar como**, em Usar.
+- **Progresso ao vivo:** o popup da extensão, embaixo do ícone, mostra cada fase com contadores e o arquivo sendo baixado naquele momento, com os botões **Capturar**, **Cancelar** e **Baixar**, a escolha **Salvar como** e uma seção **Ajuda**. A captura continua mesmo com o popup fechado.
 
 ## Idiomas
 
@@ -56,30 +57,38 @@ Cada versão é publicada em **Releases** no GitHub como `pagekeep-<versão>.zip
 
 ## Usar
 
-Clique no botão da barra de ferramentas ou aperte **Alt+Shift+S**. O popup da extensão abre embaixo do ícone com três botões, **Capturar**, **Cancelar** e **Baixar**; nada começa até você apertar Capturar (ou Enter). O popup mostra o progresso e, quando o ZIP está pronto, **Baixar** o salva como `<título-da-página>-<AAAAMMDD-HHmm>.zip` e deixa o popup pronto para a próxima captura.
+Clique no botão da barra de ferramentas ou aperte **Alt+Shift+S**. O popup da extensão abre embaixo do ícone com três botões, **Capturar**, **Cancelar** e **Baixar**; nada começa até você apertar Capturar (ou Enter). O popup mostra o progresso e, quando o arquivo está pronto, **Baixar** o salva como `<título-da-página>-<AAAAMMDD-HHmm>.zip` (ou `.wsnp`, veja abaixo) e deixa o popup pronto para a próxima captura.
 
 | Situação | Botões ativos |
 | --- | --- |
 | O popup abre | Capturar, e as duas opções abaixo |
 | A captura roda | Cancelar: interrompe, devolve os carrosséis e fecha o popup |
-| O ZIP está pronto | Baixar (salva e volta ao início) e Cancelar (descarta e volta ao início) |
+| O arquivo está pronto | Baixar (salva e volta ao início) e Cancelar (descarta e volta ao início) |
 | Deu erro | Cancelar (volta ao início) |
 
 - **Carregar a página inteira antes** (opção no popup, ligada a menos que você desligue): antes de copiar, a extensão rola a página até o fim, para que imagens e blocos que só carregam ao rolar entrem na cópia, e aperta os botões "Carregar mais" / "Ver mais" / "Load more" (até 5; nunca um link para outra página nem um botão de formulário), depois volta para onde você estava. Feeds infinitos param em 40 telas ou 20 segundos. Ajuste antes de apertar Capturar; a escolha fica guardada.
-- **Salvar como** `.zip` / `.wsnp` (`.zip`, a menos que você escolha o outro; a escolha fica guardada): `.wsnp` (Web SNaPshot) é o formato de arquivo próprio do PageKeep, definido em [`docs/FORMAT.md`](docs/FORMAT.md): um ZIP com estrutura fixa, cujo manifesto traz o endereço, o título e a descrição da página e lista cada arquivo com tipo e SHA-256, mais uma prévia. O manifesto é **assinado** com uma chave criada no primeiro uso e guardada no navegador (Ed25519, ou ECDSA P-256 onde não há Ed25519; a chave privada nunca é exportada), para o visualizador perceber se o arquivo foi editado depois; a Ajuda do popup mostra a impressão digital da chave, com um botão Copiar. Ele é feito para o visualizador do PageKeep, um aplicativo em repositório separado ([`docs/VIEWER-GUIDELINES.md`](docs/VIEWER-GUIDELINES.md)); até lá, renomeie para `.zip` para descompactar.
+- **Salvar como** `.zip` / `.wsnp` (`.zip`, a menos que você escolha o outro; a escolha fica guardada e fica travada enquanto uma captura roda):
+  - `.zip` é um ZIP comum: qualquer programa de descompactar o abre, e o `index.html` funciona offline no navegador.
+  - `.wsnp` (Web SNaPshot) é a mesma página num só arquivo, um **contêiner** no formato definido em [`docs/FORMAT.md`](docs/FORMAT.md): a página e todos os arquivos de que ela precisa num único ZIP de estrutura fixa, com um manifesto que traz o endereço, o título e a descrição da página e lista cada arquivo com tipo, tamanho e SHA-256, os scripts offline em `_wsnp/` e uma prévia. Dá para guardá-lo, enviá-lo e abri-lo num visualizador de `.wsnp`; para descompactar você mesmo, renomeie-o para `.zip`.
+  - O `.wsnp` é **assinado**, para um visualizador perceber se ele foi editado depois: uma chave criada na primeira vez em que é preciso e guardada só neste navegador (Ed25519, ou ECDSA P-256 onde não há Ed25519; a chave privada é uma `CryptoKey` não exportável no IndexedDB da extensão, nunca é exportada nem enviada) assina o `manifest.json`, e a chave pública e a impressão digital vão no `signature.json`. A Ajuda do popup mostra a impressão digital, com um botão Copiar, para você dizer ao visualizador que a chave é sua. Se não der para assinar, o arquivo é salvo sem assinatura, e continua válido. O `.zip` não é assinado.
+  - O visualizador é o **WSNP Viewer**, um aplicativo de desktop separado (Linux, Windows e macOS), em repositório próprio e ainda em desenvolvimento: não há versão publicada. Até lá, renomeie um `.wsnp` para `.zip` para descompactar (as diretrizes antigas dele estão em [`docs/VIEWER-GUIDELINES.md`](docs/VIEWER-GUIDELINES.md)).
 - Você pode fechar o popup ou clicar na página: a captura continua em segundo plano. Clique no ícone de novo para ver como está. O selo do ícone mostra **…** enquanto roda, **✓** quando termina e **!** se falhou.
 - Uma captura terminada espera por Baixar ou Cancelar, mesmo se você fechar o popup ou abri-lo em outra aba.
 - **Cancelar** durante a captura a interrompe: os carrosséis voltam ao item em que estavam e nada é salvo.
 - Uma captura por vez. Abrir o popup em outra aba enquanto uma captura roda mostra essa captura.
 - **Ajuda** (*Help*) resume esses pontos no próprio popup, com um link para a página de ajuda completa, com imagens (`help.pt_BR.html` em português, `help.html` em inglês), que faz parte da extensão e funciona offline.
 
-| Durante a captura | Captura terminada | O que não pôde ser salvo |
+| Durante a captura (`.wsnp`) | Captura terminada (`.wsnp`) | O que não pôde ser salvo (`.zip`) |
 | --- | --- | --- |
-| <img src="page-snapshot-extension/images/screenshots/pt_BR/popup-running.png" width="260" alt="O popup gravando o item 3 de um carrossel"> | <img src="page-snapshot-extension/images/screenshots/pt_BR/popup-done.png" width="260" alt="O popup com a captura terminada, as etapas concluídas e o botão OK"> | <img src="page-snapshot-extension/images/screenshots/pt_BR/popup-failed.png" width="260" alt="O popup listando uma imagem que faltava no site"> |
+| <img src="page-snapshot-extension/images/screenshots/pt_BR/popup-running.png" width="260" alt="O popup gravando o item 3 de um carrossel"> | <img src="page-snapshot-extension/images/screenshots/pt_BR/popup-done.png" width="260" alt="O popup com a captura terminada: um arquivo .wsnp pronto, as etapas concluídas e o botão Baixar"> | <img src="page-snapshot-extension/images/screenshots/pt_BR/popup-failed.png" width="260" alt="O popup listando uma imagem que faltava no site"> |
 
-A página salva, aberta offline a partir do ZIP, com o carrossel funcionando:
+A Ajuda do popup explica os dois tipos de arquivo e mostra a impressão digital da chave de assinatura (a da imagem é um exemplo):
 
-<img src="page-snapshot-extension/images/screenshots/pt_BR/snapshot-offline.png" width="600" alt="Um site de notícias de exemplo salvo pelo PageKeep, aberto offline">
+<img src="page-snapshot-extension/images/screenshots/pt_BR/popup-help.png" width="300" alt="A Ajuda do popup aberta: a escolha Salvar como, o que são .zip e .wsnp e a chave de assinatura com um botão Copiar">
+
+A página salva como `.wsnp`, renomeada para `.zip`, descompactada e aberta offline, com o carrossel funcionando:
+
+<img src="page-snapshot-extension/images/screenshots/pt_BR/snapshot-offline.png" width="600" alt="Um site de notícias de exemplo salvo pelo PageKeep como .wsnp, aberto offline">
 
 ### Um site real: TudoGostoso
 
@@ -95,13 +104,15 @@ As imagens de cima são capturas reais, geradas por `tests/screenshots.mjs` (vej
 
 A página capturada continua sendo a aba visível com o popup aberto por cima, então o navegador não a deixa lenta enquanto os carrosséis são percorridos; só não minimize a janela do navegador até a captura terminar.
 
-Descompacte e abra o `index.html`:
+Descompacte (um `.wsnp`: renomeie para `.zip` antes) e abra o `index.html`. Um `.zip` traz:
 
 ```
 index.html        a página, com todas as referências apontando para assets/
 assets/           CSS, imagens, fontes e ícones
 snapshot.json     URL de origem, título, data da captura, cada recurso salvo e cada falha
 ```
+
+Um `.wsnp` traz `mimetype`, `manifest.json` (com cada arquivo e seu SHA-256), `signature.json` (a assinatura do manifesto), `index.html`, `assets/` e `_wsnp/` (os scripts offline e a prévia).
 
 Durante a captura o navegador mostra a barra "Extension started debugging this browser" na aba; ela some quando a captura termina.
 

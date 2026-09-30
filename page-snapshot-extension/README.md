@@ -1,6 +1,6 @@
 # PageKeep
 
-A Chrome extension that saves the tab you are looking at as a ZIP. Every stylesheet, image, font and icon is downloaded and the page is rewritten to point at the local copies, so you can unzip it and open `index.html` offline at any time.
+A Chrome extension that saves the tab you are looking at as a ZIP, or as a `.wsnp` file (see **Save as** below). Every stylesheet, image, font and icon is downloaded and the page is rewritten to point at the local copies, so you can unzip it and open `index.html` offline at any time.
 
 It captures the page **as it is on screen right now**, not as the server originally sent it. That includes content rendered by JavaScript, things you typed into forms, and canvases.
 
@@ -14,7 +14,7 @@ There is no build step and no dependencies.
 
 ## Use
 
-Click the toolbar button, or press **Alt+Shift+S**. The extension's popup opens under its icon with three buttons, **Snapshot**, **Cancel** and **Download**; nothing starts until you press Snapshot (or Enter). The popup then shows what it is doing as it happens: a list with one line per phase (reading editors, stepping through each carousel item by item, copying the page, listing the files the page already loaded, downloading resources with running counts and the file being fetched right now, saving linked files, packing the ZIP), each with a spinner that turns into a check mark when done. When the snapshot is ready, **Download** saves it as `<page-title>-<YYYYMMDD-HHmm>.zip` (or `.wsnp`, see **Save as** below) and gets the popup ready for the next snapshot; nothing is saved before that.
+Click the toolbar button, or press **Alt+Shift+S**. The extension's popup opens under its icon with three buttons, **Snapshot**, **Cancel** and **Download**; nothing starts until you press Snapshot (or Enter). The popup then shows what it is doing as it happens: a list with one line per phase (reading editors, stepping through each carousel item by item, copying the page, listing the files the page already loaded, downloading resources with running counts and the file being fetched right now, saving linked files, packing the file), each with a spinner that turns into a check mark when done. When the snapshot is ready, **Download** saves it as `<page-title>-<YYYYMMDD-HHmm>.zip` (or `.wsnp`, see **Save as** below) and gets the popup ready for the next snapshot; nothing is saved before that.
 
 | State | Enabled |
 | --- | --- |
@@ -24,7 +24,11 @@ Click the toolbar button, or press **Alt+Shift+S**. The extension's popup opens 
 | It failed | Cancel (back to idle) |
 
 - **Load the whole page first** (an option in the popup, on unless you turn it off): before copying, the extension scrolls through the page screen by screen, so images and blocks that only load as you scroll are there too, presses its "Load more" / "Carregar mais" / "Ver mais" / "Cargar más" buttons (up to 5; never a link to another page or a form button), then goes back to where you were. Endless feeds stop after 40 screens or 20 seconds. Set it before pressing Snapshot; it is remembered.
-- **Save as** `.zip` / `.wsnp` (`.zip` unless you choose otherwise; remembered): `.zip` is a plain ZIP; `.wsnp` is the same snapshot as a **Web SNaPshot** file, the format defined in [`docs/FORMAT.md`](../docs/FORMAT.md): a ZIP with a fixed structure whose manifest names the page's address, title and description and lists every file with its type and SHA-256, plus a preview picture. A `.wsnp` is **signed**: a key pair made on first use and kept in this browser (Ed25519, or ECDSA P-256 where the browser lacks Ed25519; the private key is never exported) signs `manifest.json`, so the viewer can tell the file was not edited afterwards; the popup's Help shows the key's fingerprint, with a Copy button, to tell the viewer the key is yours. If signing is not possible the file is saved unsigned, as before. A `.wsnp` is meant for the PageKeep viewer (a separate application, to come); until then, rename it to `.zip` to unzip it.
+- **Save as** `.zip` / `.wsnp` (`.zip` unless you choose otherwise; remembered; locked while a capture runs):
+  - `.zip` is a plain ZIP: any unzip tool opens it, and `index.html` works offline in a browser.
+  - `.wsnp` is the same page as one file, a **container** in the **Web SNaPshot** format defined in [`docs/FORMAT.md`](../docs/FORMAT.md): the page and every file it needs in a single ZIP with a fixed structure, a manifest that names the page's address, title and description and lists every file with its type, size and SHA-256, the offline scripts in `_wsnp/`, and a preview picture. It can be kept, sent and opened with a `.wsnp` viewer; to unzip it yourself, rename it to `.zip`.
+  - A `.wsnp` is **signed**, so a viewer can tell if it was edited afterwards: a key pair made the first time it is needed and kept only in this browser (Ed25519, or ECDSA P-256 where the browser lacks Ed25519; the private key is a non-extractable `CryptoKey` in the extension's IndexedDB, never exported and never sent anywhere) signs `manifest.json`, and the public key and its fingerprint go into `signature.json`. The popup's Help shows the fingerprint, with a Copy button, to tell the viewer the key is yours. If signing is not possible the file is saved unsigned, which is still a valid file. A `.zip` is not signed.
+  - The viewer is the **WSNP Viewer**, a separate desktop application (Linux, Windows, macOS) in its own repository, still in development: it has no release yet. Until then, rename a `.wsnp` to `.zip` to unzip it.
 - You can close the popup, or click on the page: the capture carries on in the background. Click the icon again to see how it is going. The icon's badge shows **…** while it runs, **✓** when it is done and **!** if it failed.
 - A finished capture waits for Download or Cancel, even if you close the popup or open it on another tab.
 - **Cancel** during a capture stops it: carousels are put back to the item they were on and nothing is saved.
@@ -32,15 +36,19 @@ Click the toolbar button, or press **Alt+Shift+S**. The extension's popup opens 
 
 The page you capture stays the visible tab while the popup is open over it, so the browser does not slow it down while carousels are stepped through; just keep the browser window from being minimized until the capture ends. The popup's **Help** section explains all this in short, and links to the full help page, with pictures (`help.html`, or `help.pt_BR.html` in Portuguese), which is part of the extension and works offline.
 
-| While it runs | Finished | What could not be saved |
+| While it runs (`.wsnp`) | Finished (`.wsnp`) | What could not be saved (`.zip`) |
 | --- | --- | --- |
-| <img src="images/screenshots/en/popup-running.png" width="260" alt="The popup recording item 3 of a carousel"> | <img src="images/screenshots/en/popup-done.png" width="260" alt="The popup with the finished capture, every step done and the OK button"> | <img src="images/screenshots/en/popup-failed.png" width="260" alt="The popup listing an image the site had lost"> |
+| <img src="images/screenshots/en/popup-running.png" width="260" alt="The popup recording item 3 of a carousel"> | <img src="images/screenshots/en/popup-done.png" width="260" alt="The popup with the finished capture: a .wsnp file ready, every step done and the Download button"> | <img src="images/screenshots/en/popup-failed.png" width="260" alt="The popup listing an image the site had lost"> |
 
 The screenshots are real, made by `tests/screenshots.mjs`.
 
-Unzip it and open `index.html`. You can turn off the network to check that it is self-contained.
+The popup's Help explains the two kinds of file and shows the signing key's fingerprint (the one in this picture is a sample):
 
-<img src="images/screenshots/en/snapshot-offline.png" width="600" alt="An example news site saved by PageKeep, opened offline">
+<img src="images/screenshots/en/popup-help.png" width="300" alt="The popup's Help open: the Save as choice, what .zip and .wsnp are, and the signing key with a Copy button">
+
+Unzip it (a `.wsnp`: rename it to `.zip` first) and open `index.html`. You can turn off the network to check that it is self-contained.
+
+<img src="images/screenshots/en/snapshot-offline.png" width="600" alt="An example news site saved by PageKeep as a .wsnp, renamed to .zip and opened offline">
 
 ## Languages
 
@@ -130,10 +138,10 @@ While it runs, Chrome shows an "Extension started debugging this browser" bar on
 - **`debugger`**: reads the files the tab already loaded, and downloads the missing ones in the page's own context, as described above. Attached only to that tab, only while the capture runs.
 - **`scripting`**: reads the DOM of the tab you clicked on.
 - **`offscreen`**: the capture runs in a hidden extension page, so it carries on when the popup closes.
-- **`downloads`**: saves the finished ZIP to your Downloads folder (the popup may be closed by then).
-- **`storage`**: keeps the capture's progress for the popup while it runs (session storage, cleared when the browser closes), and the one setting, the "Load the whole page first" option (local storage).
+- **`downloads`**: saves the finished file (ZIP or `.wsnp`) to your Downloads folder (the popup may be closed by then).
+- **`storage`**: keeps the capture's progress for the popup while it runs (session storage, cleared when the browser closes), and the popup's two options, "Load the whole page first" and "Save as" (local storage). The signing key of the `.wsnp` files is in the extension's own IndexedDB, which needs no permission.
 
-The extension only touches a tab when you click the button, and nothing is sent anywhere: everything stays in your browser until the ZIP is saved to disk. The Chrome Web Store checklist, with the reasons for each permission, is in [`docs/STORE-POLICY.md`](../docs/STORE-POLICY.md).
+The extension only touches a tab when you click the button, and nothing is sent anywhere: everything stays in your browser until the file is saved to disk. The Chrome Web Store checklist, with the reasons for each permission, is in [`docs/STORE-POLICY.md`](../docs/STORE-POLICY.md).
 
 ## Files
 

@@ -27,9 +27,16 @@ Links que você vai usar:
 
 Siga a tabela de [`README.md`](README.md):
 
-- **Description**: cole [`description.en.txt`](description.en.txt).
+- **Description**: cole [`description.en.txt`](description.en.txt). Ela explica as duas formas de
+  guardar, `.zip` e `.wsnp` (um contêiner assinado: a página e cada arquivo dela num só ZIP, com um
+  manifesto de SHA-256), e diz "um visualizador de .wsnp" sem citar nenhum programa, porque a loja
+  não deve prometer o que ainda não foi lançado. O **resumo** vem do manifesto (`ext_description`)
+  e também cita `.wsnp`.
 - **Category**: Productivity → Tools. **Language**: English.
-- **Screenshots**: `images/en/screenshot-1.jpg` a `screenshot-5.jpg`, nessa ordem.
+- **Screenshots**: `images/en/screenshot-1.jpg` a `screenshot-5.jpg`, nessa ordem. Desde a versão
+  1.6.0 elas mostram a escolha **Salvar como** com `.wsnp` marcado (a quinta explica `.zip` e
+  `.wsnp`); num item que já existe na loja, **troque** as cinco imagens, o tile pequeno e o
+  marquee no painel, porque a loja não as atualiza sozinha com o pacote.
 - **Small promo tile**: `images/en/small-promo-tile.jpg`. **Marquee** (opcional):
   `images/en/marquee-promo-tile.jpg`.
 - **Store icon**: `page-snapshot-extension/icons/icon128.png`.
@@ -41,7 +48,8 @@ Siga a tabela de [`README.md`](README.md):
 
 Copie de [`../docs/STORE-POLICY.md`](../docs/STORE-POLICY.md):
 
-- **Single purpose**: o texto da seção "Single purpose".
+- **Single purpose**: o texto da seção "Single purpose" (agora cita o `.wsnp`; se o item já existe,
+  troque o texto no painel).
 - **Permission justification**: uma linha para cada permissão da tabela: `activeTab`,
   `scripting`, `debugger`, `offscreen`, `downloads` e `storage`. Não há permissões de host (se o
   painel perguntar por "host permission", a resposta é que não há nenhuma).

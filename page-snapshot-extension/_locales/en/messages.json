@@ -4,11 +4,11 @@
     "description": "Extension and store name (max 75 characters)."
   },
   "ext_description": {
-    "message": "Saves the page you are looking at as a ZIP with its styles, images and fonts, so it opens offline exactly as you saw it.",
+    "message": "Saves the page you are looking at as a ZIP or .wsnp file with its styles, images and fonts, so it opens offline as you saw it.",
     "description": "Store and browser description: the single purpose (max 132 characters)."
   },
   "action_title": {
-    "message": "Save this page for offline use (ZIP)",
+    "message": "Save this page for offline use (ZIP or .wsnp)",
     "description": "Tooltip of the toolbar icon."
   },
   "command_save": {
@@ -28,7 +28,7 @@
     "description": "Title of the collapsible help section."
   },
   "help_intro": {
-    "message": "This popup saves the page you are looking at as a ZIP that opens offline. Snapshot reads the page, steps through each carousel, reuses the files the page already loaded and downloads the rest; Download then saves the ZIP to your Downloads folder.",
+    "message": "This popup saves the page you are looking at as a file that opens offline, a ZIP or a .wsnp. Snapshot reads the page, steps through each carousel, reuses the files the page already loaded and downloads the rest; Download then saves the file to your Downloads folder.",
     "description": "First paragraph of the help."
   },
   "help_close_label": {
@@ -36,7 +36,7 @@
     "description": "Bold start of a help item."
   },
   "help_close": {
-    "message": "(or click on the page) while a snapshot runs: it carries on. Click the extension's icon again to see how it is going; the finished ZIP waits there for Download. The icon's badge shows … while it runs, ✓ when it is done and ! if it failed.",
+    "message": "(or click on the page) while a snapshot runs: it carries on. Click the extension's icon again to see how it is going; the finished file waits there for Download. The icon's badge shows … while it runs, ✓ when it is done and ! if it failed.",
     "description": "Rest of the help item after help_close_label."
   },
   "help_cancel": {
@@ -52,7 +52,7 @@
     "description": "Help item about one capture at a time and the debugging bar."
   },
   "help_unzip": {
-    "message": "Unzip the file and open index.html. Anything that could not be saved is listed below the results and is left out of the snapshot, which never goes online.",
+    "message": "Unzip the file (a .wsnp: rename it to .zip first) and open index.html. Anything that could not be saved is listed below the results and is left out of the snapshot, which never goes online.",
     "description": "Last help item."
   },
   "help_full": {
@@ -204,11 +204,11 @@
     "description": "Step done."
   },
   "step_zip_packing": {
-    "message": "Packing everything into a ZIP…",
+    "message": "Packing everything into one file…",
     "description": "Step."
   },
   "step_zip_packed": {
-    "message": "Packed the ZIP ($1 files, $2 MB)",
+    "message": "Packed the file ($1 files, $2 MB)",
     "description": "Step done."
   },
   "status_saved_one": {
@@ -292,7 +292,7 @@
     "description": "Popup option: label of the .zip / .wsnp radio buttons."
   },
   "help_format": {
-    "message": ".zip (the default) is a plain ZIP; .wsnp is the same snapshot as a Web SNaPshot file, with a manifest naming the page’s address, title and description, and a preview. Rename a .wsnp to .zip to unzip it.",
+    "message": ".zip (the default) is a plain ZIP: any unzip tool opens it. .wsnp (Web SNaPshot) is the same page as one container file: every file it needs, a manifest that lists each with its SHA-256, the offline scripts and a preview. Keep it, send it, open it with a .wsnp viewer. It is signed, so a viewer can tell if it was edited afterwards. Rename a .wsnp to .zip to unzip it.",
     "description": "Help item after option_format."
   },
   "step_reveal": {
@@ -348,7 +348,7 @@
     "description": "Status before any capture."
   },
   "status_downloading": {
-    "message": "Saving the ZIP to your Downloads folder…",
+    "message": "Saving the file to your Downloads folder…",
     "description": "Status after Download is pressed."
   },
   "help_snapshot": {
@@ -356,7 +356,7 @@
     "description": "Help item after the Snapshot button's name."
   },
   "help_key": {
-    "message": "Signing key of the .wsnp files this browser saves (tell the viewer it is yours):",
+    "message": "Signing key of the .wsnp files this browser saves: made on first use, it stays in this browser and is never sent anywhere. Tell the viewer it is yours:",
     "description": "Popup Help line before the fingerprint of the signing key."
   },
   "copy": {
