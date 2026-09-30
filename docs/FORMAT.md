@@ -15,6 +15,9 @@ dependency, for readers to reuse.
 
 The key words **must**, **must not**, **should** and **may** are used as in RFC 2119.
 
+This description lives in two repositories that must say the same thing: the viewer (`wsnp-viewer`, where it is written) and PageKeep (`webpage-snapshot`, where it is an exact copy, with
+`MANIFEST-SIGNING.md` and `FORMAT.sha256`). A change is made in the viewer's copy first, then copied; `scripts/format-sync.mjs` (`npm run format-sync`) checks that the two are identical.
+
 ## 1. Summary
 
 | Item | Value |
@@ -25,7 +28,8 @@ The key words **must**, **must not**, **should** and **may** are used as in RFC 
 | Identification | first entry `mimetype`, stored, holding the media type |
 | Description | `manifest.json` |
 | Entry point | `index.html` |
-| Version | `format_version` `"1.0"` in the manifest |
+| Version | `format_version` `"1.0"` in the manifest (`"1.1"` when the file is signed) |
+| Signature | optional `signature.json` (1.1): the manifest signed by the writer's key (section 12) |
 | Family | `.wsnpx` (`application/vnd.wsnp.x+zip`): the profile with an application's scripts (section 8) |
 
 No format was found using `.wsnp` or `.wsnpx` when they were chosen (September 2026); the nearest
@@ -73,6 +77,7 @@ EPUB and OpenDocument use: a program recognises the file from its first bytes, w
 ```
 mimetype              application/vnd.wsnp+zip (first, stored)
 manifest.json         describes the file (section 6)
+signature.json        the signature of the manifest (optional, 1.1; section 12)
 index.html            the page
 assets/               every file the page uses, by kind:
   images/               pictures, icons, SVG, pictures of frames from other sites
@@ -114,7 +119,7 @@ References inside the page and its stylesheets are relative too: `index.html` re
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `format` | `"wsnp"` | required |
-| `format_version` | string `"major.minor"` | `"1.0"`; see section 11 |
+| `format_version` | string `"major.minor"` | `"1.0"`, or `"1.1"` for a signed file; see section 11 |
 | `generator` | `{ name, version }` | the program that wrote the file, e.g. `{ "name": "PageKeep", "version": "1.5.0" }` |
 | `created` | string, ISO 8601 | when the page was captured |
 | `title` | string | the original page's title (`<title>`, else its first `<h1>`, else its address) |
@@ -124,6 +129,7 @@ References inside the page and its stylesheets are relative too: `index.html` re
 | `preview` | string, optional | `"_wsnp/preview.jpg"` when there is one |
 | `viewport` | `{ width, height, device_pixel_ratio }` | the browser window's size in CSS pixels, and its pixel ratio, at capture time |
 | `capture` | object | how it was captured: `load_whole_page` (true when the page was scrolled through and "Load more" pressed first) |
+| `converted_from` | object, optional | present when a program made the file from another format, such as a plain ZIP saved by PageKeep: `format` (`"zip"`) and `tool` (the program named in the original's `snapshot.json`, e.g. `"Page Snapshot 1.0.0"`). Facts the original did not record (`viewport`, `capture`) then hold defaults. |
 | `files` | array | one entry per file of the archive except `mimetype` and `manifest.json` (below) |
 | `failed` | array | what could not be saved: `[{ url, reason }]`; those references were removed from the page |
 
@@ -395,7 +401,7 @@ A reader, whether a desktop program, an installable web app or a web site, **sho
 - apply a Content Security Policy that keeps everything inside the snapshot, for example
   `default-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline' data:`
   (`'self'` being wherever the reader serves the snapshot's files from). A valid `.wsnp` works
-  under it with no violation: that is what `tests/carousel.mjs` checks.
+  under it with no violation.
 
 An installable web app can register the file types in its web app manifest:
 
@@ -426,9 +432,12 @@ A reader **must** check, and refuse the file if any check fails (saying why):
 5. The required fields are present with the right types, and `source.url` is an address.
 6. Every entry name follows section 5; no entry is compressed with another method than stored or
    DEFLATE; no ZIP-level encryption.
-7. Every entry (except `mimetype` and `manifest.json`) is listed in `files`, and every file listed
+7. Every entry (except `mimetype`, `manifest.json` and, from 1.1, `signature.json`) is listed in `files`, and every file listed
    is present, with the same size, the same SHA-256 and a `media_type`.
 8. The page (`pages[0].entry`) and the `preview`, when declared, are present.
+
+If `signature.json` is present (1.1), a reader that knows 1.1 **must** also check it as section 12 says, and a file whose signature does not check is **not valid**. A file with no
+`signature.json` is valid: every file written before 1.1 is such a file, and a reader tells its user that the metadata is not protected.
 
 A reader **should** also check that no page contains inline script or a reference that would load
 from the network, and treat a file that fails as unsafe to show with scripts.
@@ -451,5 +460,63 @@ ignores fields and entries it does not know; a new minor version only adds. A ne
 may change anything, and readers refuse majors they do not know. `encryption_version` follows the
 same rule for section 9.
 
-Possible additions in a later 1.x: a signature of the manifest, several pages in `.wsnp`, text
+1.1 adds the signature of section 12 and nothing else. Possible additions in a later 1.x: several pages in `.wsnp`, text
 extracted for search.
+
+## 12. Signing the manifest (1.1)
+
+The hashes of section 6 protect the files, but a `.wsnp` is a ZIP: anyone can unzip it, change the manifest (its title, the address the page came from, the date) and zip it again, and nothing in the file tells.
+A signature does, because it can be made only by someone who holds a key that is not in the file. The design, the reasons and what it does not cover are in
+[`MANIFEST-SIGNING.md`](MANIFEST-SIGNING.md).
+
+### The file
+
+`signature.json` is at the root, beside `manifest.json`, and like `manifest.json` it is **not listed in `files`** (it signs the manifest that would list it). It is UTF-8 JSON:
+
+```json
+{
+  "signature_version": "1.0",
+  "algorithm": "Ed25519",
+  "public_key": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+  "signed": "manifest.json",
+  "manifest_sha256": "5d7ad4fd156257bf10d2772ee5a6c2f41e7cb835e0732c3d3fc0f7e765db9c60",
+  "signature": "wVPgpLe7+q5VYI58HQ2USJbELBdfrPo1hkQzauk0lzTLLo5V0jL/2fumEDdo+rjgdFKAf6SM5Bei8Tx7VY33AA=="
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `signature_version` | `"1.0"` |
+| `algorithm` | `"Ed25519"` (the key is 32 bytes, the signature 64) or `"ECDSA-P256-SHA256"` (the key is the 65-byte uncompressed point, the signature the 64 bytes `r‖s` that Web Crypto gives) |
+| `public_key` | the writer's public key, raw, in base64 |
+| `signed` | always `"manifest.json"` |
+| `manifest_sha256` | the SHA-256 of the exact bytes of `manifest.json` that were signed, in hex: a reader says "the manifest was edited" from this before it checks the signature |
+| `signature` | the signature over the exact bytes of `manifest.json` as stored in the archive (for ECDSA, over their SHA-256), in base64 |
+
+Because the manifest holds the SHA-256 of every other file, the signature covers the whole archive. The signature is made **after** the manifest is final: any later change to the manifest's bytes, even of spacing, breaks it.
+In a protected file (section 9) `signature.json` is inside the encrypted content, part of the open file.
+
+### The signer
+
+The signer is identified by the **fingerprint**: the SHA-256 of the raw public key, in lowercase hex. To show it to people, the first 128 bits, in groups of four hex digits, upper case: `5647-5AA7-5463-474C-0285-DF5D-BF2B-CAB7`.
+A fingerprint says *which key* signed, not who the person is: a reader keeps the fingerprints its user has chosen to trust (trust on first use) and tells a key it does not know from one it does.
+
+A writer **should** make its key with the private part not extractable (Web Crypto `extractable: false`), keep it in its own storage, and **must not** write the private key into any file.
+
+### Checking
+
+A reader that knows 1.1:
+
+1. finds no `signature.json`: the file is *unsigned* (valid; the metadata is not protected);
+2. cannot read it (not JSON, a field missing, a `signed` other than `manifest.json`, a key or a signature of the wrong size, bytes that are not base64): *not valid*;
+3. does not know the `algorithm`: *not valid* (a reader cannot tell a signature it cannot check from one that would fail);
+4. finds that the SHA-256 of `manifest.json` is not `manifest_sha256`: *not valid*, the manifest was edited after it was signed;
+5. finds that the signature does not check with `public_key`: *not valid*;
+6. otherwise the file is *signed* by that fingerprint, and the manifest is what they signed.
+
+### Known answer
+
+An implementation can check itself against this: the Ed25519 key made from the seed `00 01 02 … 1f` (32 bytes) signs the manifest bytes
+`{"format":"wsnp","format_version":"1.1","title":"Known answer"}` followed by a line feed (`0a`), and gives exactly the `public_key`, `manifest_sha256` and `signature` of the example above.
+The fingerprint of that key is `56475aa75463474c0285df5dbf2bcab73da651358839e9b77481b2eab107708c`. (Ed25519 is deterministic: the same key and bytes always give the same signature.)
+

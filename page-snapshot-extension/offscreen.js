@@ -8,6 +8,7 @@
 // popup translates it. Why a file failed is an Error whose `text` is such a message; its English
 // `message` goes into snapshot.json.
 import { buildZip } from './lib/zip.js';
+import { installationSigner, signatureJson } from './lib/signing.js';
 import { offlineScript } from './lib/offline/index.js';
 import {
   assetFileName, assetFolder, fetchableUrl, isSafePath, mediaTypeOf, parseSrcset, rewriteCss,
@@ -724,6 +725,27 @@ async function takePreview() {
 const hex = (buffer) => Array.from(new Uint8Array(buffer), (b) => b.toString(16).padStart(2, '0')).join('');
 const asBytes = (data) => (typeof data === 'string' ? new TextEncoder().encode(data) : data);
 
+// Signs the manifest with this installation's key (docs/FORMAT.md section 12). The signature is
+// over the exact bytes that go into the ZIP, and the manifest says "1.1" only when it is signed.
+// Anything that goes wrong (no Web Crypto support, IndexedDB blocked or slow) gives the ordinary
+// unsigned 1.0 file: signing must never fail or hold up a capture. The reason goes to the console only.
+const SIGN_TIMEOUT_MS = 5000;
+async function signManifest(manifest) {
+  const encode = (version) => new TextEncoder().encode(JSON.stringify({ ...manifest, format_version: version }, null, 2));
+  try {
+    const manifestBytes = encode('1.1');
+    let timer;
+    const signature = await Promise.race([
+      installationSigner().then((signer) => signatureJson(signer, manifestBytes)),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('timed out')), SIGN_TIMEOUT_MS); }),
+    ]).finally(() => clearTimeout(timer));
+    return { manifestBytes, signature };
+  } catch (err) {
+    console.warn('PageKeep: the file is not signed:', err?.message || err);
+    return { manifestBytes: encode('1.0'), signature: null };
+  }
+}
+
 // The entries of a .wsnp (docs/FORMAT.md): `mimetype` first and stored, then manifest.json, the
 // page, its assets and the format's own files, every one listed in the manifest with its type,
 // size and SHA-256.
@@ -748,7 +770,7 @@ async function wsnpEntries({ page, html, capturedAt, preview }) {
   const description = page.about?.description || '';
   const manifest = {
     format: 'wsnp',
-    format_version: '1.0',
+    format_version: '1.0', // "1.1" when the file is signed (see below)
     generator: { name: 'PageKeep', version },
     created: capturedAt.toISOString(),
     title,
@@ -761,9 +783,11 @@ async function wsnpEntries({ page, html, capturedAt, preview }) {
     files,
     failed: failures.map(({ url, reason }) => ({ url, reason })),
   };
+  const { manifestBytes, signature } = await signManifest(manifest);
   return [
     { name: 'mimetype', data: WSNP_TYPE, compress: false },
-    { name: 'manifest.json', data: JSON.stringify(manifest, null, 2), compress: true },
+    { name: 'manifest.json', data: manifestBytes, compress: true },
+    ...(signature ? [{ name: 'signature.json', data: signature, compress: true }] : []),
     ...content.map(({ name, data, compress }) => ({ name, data, compress })),
   ];
 }

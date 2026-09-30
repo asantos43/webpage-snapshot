@@ -354,5 +354,17 @@
   "help_snapshot": {
     "message": "starts saving this page (the option below it decides whether the whole page is loaded first).",
     "description": "Help item after the Snapshot button's name."
+  },
+  "help_key": {
+    "message": "Signing key of the .wsnp files this browser saves (tell the viewer it is yours):",
+    "description": "Popup Help line before the fingerprint of the signing key."
+  },
+  "copy": {
+    "message": "Copy",
+    "description": "Button that copies the signing key's fingerprint."
+  },
+  "copied": {
+    "message": "Copied",
+    "description": "The Copy button's text for a moment after copying."
   }
 }

@@ -6,6 +6,18 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- A `.wsnp` file is now **signed**: the manifest is signed with a key that the extension makes the
+  first time it is needed and keeps in this browser (Ed25519, or ECDSA P-256 where the browser has
+  no Ed25519; the private key is non-extractable and never leaves the browser), and the signature
+  goes in `signature.json` next to `manifest.json` (format 1.1, `docs/FORMAT.md` section 12), so
+  the viewer can tell if the file was edited afterwards. The popup's Help shows the key's
+  fingerprint with a Copy button, to tell the viewer the key is yours. If signing is not possible
+  the file is saved unsigned, as before; plain `.zip` files are not signed. No new permission.
+- `docs/FORMAT.md` and `docs/MANIFEST-SIGNING.md` are now exact copies of the viewer repository's
+  (checked by `npm run format-sync`); the reference validator (`tests/wsnp-check.mjs`) reads and
+  verifies signed files.
+- `PRIVACY.md` (English and Portuguese) describes the signing key, which stays on the device.
+
 ## [1.5.0] - 2026-09-29
 
 - New file format **WSNP** (Web SNaPshot, `.wsnp`): the popup's new **Save as** choice saves the

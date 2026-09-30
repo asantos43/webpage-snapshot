@@ -12,7 +12,8 @@
     "readme-images": "node readme-images.mjs",
     "publish-script": "node publish-script.mjs",
     "library": "node library.mjs",
-    "wsnp": "node wsnp.mjs"
+    "wsnp": "node wsnp.mjs",
+    "format-sync": "node format-sync.mjs"
   },
   "devDependencies": {
     "playwright": "^1.63.0"

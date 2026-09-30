@@ -24,7 +24,7 @@ Click the toolbar button, or press **Alt+Shift+S**. The extension's popup opens 
 | It failed | Cancel (back to idle) |
 
 - **Load the whole page first** (an option in the popup, on unless you turn it off): before copying, the extension scrolls through the page screen by screen, so images and blocks that only load as you scroll are there too, presses its "Load more" / "Carregar mais" / "Ver mais" / "Cargar más" buttons (up to 5; never a link to another page or a form button), then goes back to where you were. Endless feeds stop after 40 screens or 20 seconds. Set it before pressing Snapshot; it is remembered.
-- **Save as** `.zip` / `.wsnp` (`.zip` unless you choose otherwise; remembered): `.zip` is a plain ZIP; `.wsnp` is the same snapshot as a **Web SNaPshot** file, the format defined in [`docs/FORMAT.md`](../docs/FORMAT.md): a ZIP with a fixed structure whose manifest names the page's address, title and description and lists every file with its type and SHA-256, plus a preview picture. A `.wsnp` is meant for the PageKeep viewer (a separate application, to come); until then, rename it to `.zip` to unzip it.
+- **Save as** `.zip` / `.wsnp` (`.zip` unless you choose otherwise; remembered): `.zip` is a plain ZIP; `.wsnp` is the same snapshot as a **Web SNaPshot** file, the format defined in [`docs/FORMAT.md`](../docs/FORMAT.md): a ZIP with a fixed structure whose manifest names the page's address, title and description and lists every file with its type and SHA-256, plus a preview picture. A `.wsnp` is **signed**: a key pair made on first use and kept in this browser (Ed25519, or ECDSA P-256 where the browser lacks Ed25519; the private key is never exported) signs `manifest.json`, so the viewer can tell the file was not edited afterwards; the popup's Help shows the key's fingerprint, with a Copy button, to tell the viewer the key is yours. If signing is not possible the file is saved unsigned, as before. A `.wsnp` is meant for the PageKeep viewer (a separate application, to come); until then, rename it to `.zip` to unzip it.
 - You can close the popup, or click on the page: the capture carries on in the background. Click the icon again to see how it is going. The icon's badge shows **…** while it runs, **✓** when it is done and **!** if it failed.
 - A finished capture waits for Download or Cancel, even if you close the popup or open it on another tab.
 - **Cancel** during a capture stops it: carousels are put back to the item they were on and nothing is saved.
@@ -65,8 +65,9 @@ A `.wsnp` (see [`docs/FORMAT.md`](../docs/FORMAT.md)):
 
 ```
 mimetype          application/vnd.wsnp+zip (first, not compressed: identifies the file)
-manifest.json     format version, source address, title, description, viewport, every file
-                  with its type, size and SHA-256, and what could not be saved
+manifest.json     format version (1.1 when signed), source address, title, description,
+                  viewport, every file with its type, size and SHA-256, and what could not be saved
+signature.json    the signature of manifest.json (the public key, its SHA-256 and the signature)
 index.html        the page (no inline script)
 assets/           as in the .zip
 _wsnp/offline.js  the extension's offline scripts for this page
@@ -148,5 +149,6 @@ The extension only touches a tab when you click the button, and nothing is sent 
 | `inpage.js` | Runs inside the tab; snapshots the live DOM and its state |
 | `lib/helpers.js` | Pure helpers: CSS/`srcset` rewriting, file naming |
 | `lib/zip.js` | Dependency-free ZIP writer |
+| `lib/signing.js` | The installation's signing key (Web Crypto, IndexedDB) and the signature of a `.wsnp`'s manifest |
 | `inpage-main.js` | Runs in the page's own JavaScript world to read the full text of Monaco editors |
 | `lib/offline/` | The offline library: one small local script per kind of element (`disclosure.js`, `tabs.js`, `pager.js`, `slider.js`, `lightbox.js`, `modal.js`, `toggles.js`, `editors.js`), listed in `index.js`; a saved page gets the ones it needs |

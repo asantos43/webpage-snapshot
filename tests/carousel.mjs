@@ -21,7 +21,8 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { controls, openPopupWindow, popupTargets } from './popup.mjs';
-import { checkWsnp, readZip } from './wsnp-check.mjs';
+import crypto from 'node:crypto';
+import { checkSignature, checkWsnp, readZip } from './wsnp-check.mjs';
 
 const extensionPath = path.resolve(process.argv[2] || '../page-snapshot-extension');
 const ITEMS = 12;
@@ -320,6 +321,27 @@ try {
   check('manifest: a preview of the page', m.preview === '_wsnp/preview.jpg' && m.files.some((f) => f.path === m.preview && f.media_type === 'image/jpeg'));
   check('manifest: the offline scripts are a file of _wsnp/', m.files.some((f) => f.path === '_wsnp/offline.js' && f.media_type === 'text/javascript'));
 
+  // The manifest is signed (docs/FORMAT.md section 12): signature.json right after manifest.json, the
+  // manifest says 1.1, the signature checks with Node's crypto, and nothing but that exact manifest verifies.
+  const zipEntries = readZip(bytes);
+  check('signed: signature.json comes right after manifest.json, and is not listed in the manifest', zipEntries.slice(0, 3).map((e) => e.name).join() === 'mimetype,manifest.json,signature.json' && !m.files.some((f) => f.path === 'signature.json'), zipEntries.slice(0, 3).map((e) => e.name).join());
+  check('signed: format_version is "1.1"', m.format_version === '1.1', m.format_version);
+  const sigText = Buffer.from(zipEntries[2].read()).toString('utf8');
+  const sigRecord = JSON.parse(sigText);
+  const manifestBytes = zipEntries[1].read();
+  const verdict = checkSignature(manifestBytes, zipEntries[2].read());
+  check('signed: the signature verifies', verdict.state === 'valid', JSON.stringify(verdict));
+  console.log(`   (algorithm the browser used: ${sigRecord.algorithm}, signer ${verdict.fingerprintShort})`);
+  check('signed: signature.json has exactly the specified fields', Object.keys(sigRecord).join() === 'signature_version,algorithm,public_key,signed,manifest_sha256,signature' && sigRecord.signature_version === '1.0' && sigRecord.signed === 'manifest.json', Object.keys(sigRecord).join());
+  check('signed: the manifest SHA-256 is the stored manifest\'s', sigRecord.manifest_sha256 === crypto.createHash('sha256').update(manifestBytes).digest('hex'));
+  check('signed: no private key material in the file', !/PRIVATE|pkcs8|"d"\s*:/i.test(Buffer.from(bytes).toString('latin1')));
+  const edited = Buffer.from(manifestBytes).toString('utf8').replace('Carousel test', 'Carousel tesT');
+  const editedVerdict = checkSignature(Buffer.from(edited), zipEntries[2].read());
+  check('signed: editing the manifest afterwards breaks the signature', editedVerdict.state === 'invalid' && editedVerdict.reason === 'manifest-mismatch', JSON.stringify(editedVerdict));
+  const fixed = JSON.stringify({ ...sigRecord, manifest_sha256: crypto.createHash('sha256').update(edited).digest('hex') });
+  const fixedVerdict = checkSignature(Buffer.from(edited), Buffer.from(fixed));
+  check('signed: editing the manifest and fixing the hash still breaks the signature', fixedVerdict.state === 'invalid' && fixedVerdict.reason === 'bad-signature', JSON.stringify(fixedVerdict));
+
   // Served like a web app would: files read straight from the archive by its central directory,
   // with the manifest's types, under a strict security policy (no inline script, nothing from
   // outside the server).
@@ -364,8 +386,46 @@ try {
   check('renamed to .zip and unzipped: the page works offline, no network request', (await opened.textContent('h2')) === 'Item 2' && went.length === 0, went.join(' '));
   await opened.close();
   fs.rmSync(wsnpDir, { recursive: true, force: true });
+
+  // A second capture (a new offscreen document) is signed by the same key: it was kept. The key is a
+  // non-extractable CryptoKey in the extension's IndexedDB, and the popup's Help shows its fingerprint.
+  await popup.click('#snapshot');
+  j = await waitJob((x) => x && x.phase !== 'running');
+  check('second capture finished', j.phase === 'done', JSON.stringify(j.error || j.status));
+  await popup.click('#download');
+  await waitJob((x) => x === null, 20000);
+  const [secondFile] = await worker.evaluate(() => chrome.downloads.search({ orderBy: ['-startTime'], limit: 1 }));
+  const second = readZip(fs.readFileSync(secondFile.filename));
+  const secondVerdict = checkSignature(second[1].read(), second[2]?.name === 'signature.json' ? second[2].read() : undefined);
+  check('second capture: signed, and by the same fingerprint (the key persisted)', secondVerdict.state === 'valid' && secondVerdict.fingerprint === verdict.fingerprint, JSON.stringify(secondVerdict));
+  const stored = await popup.evaluate(() => new Promise((resolve, reject) => {
+    const open = indexedDB.open('pagekeep-signing');
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const get = open.result.transaction('keys').objectStore('keys').get('installation');
+      get.onsuccess = () => resolve({ algorithm: get.result.algorithm, extractable: get.result.privateKey.extractable, type: get.result.privateKey.type, usages: get.result.privateKey.usages });
+      get.onerror = () => reject(get.error);
+    };
+  }));
+  check('the private key is kept as a non-extractable CryptoKey in IndexedDB', stored.extractable === false && stored.type === 'private' && stored.algorithm === sigRecord.algorithm, JSON.stringify(stored));
+  await popup.click('#help summary');
+  await popup.waitForSelector('#signing:not([hidden])', { timeout: 5000 }).catch(() => {});
+  check('the popup\'s Help shows the same fingerprint, with a Copy button', (await popup.textContent('#fingerprint')) === verdict.fingerprintShort && (await popup.textContent('#copy-fingerprint')) === 'Copy', await popup.textContent('#fingerprint'));
+  await popup.click('#help summary');
+  // The ECDSA P-256 fallback (for browsers without Ed25519), run by this Chromium's own Web Crypto:
+  // a key made in the extension's page signs bytes, and Node's crypto checks the 64-byte r‖s signature.
+  const fallbackBytes = Buffer.from('{"format":"wsnp","format_version":"1.1","title":"Fallback"}\n');
+  const fallback = await popup.evaluate(async (text) => {
+    const { makeSigner, signatureJson } = await import('./lib/signing.js');
+    const signer = await makeSigner(['ECDSA-P256-SHA256']);
+    return { json: await signatureJson(signer, new TextEncoder().encode(text)), extractable: signer.privateKey.extractable };
+  }, fallbackBytes.toString());
+  const fallbackVerdict = checkSignature(fallbackBytes, Buffer.from(fallback.json));
+  check('ECDSA P-256 fallback, made by the browser: verifies in Node, key not extractable', fallbackVerdict.state === 'valid' && fallbackVerdict.algorithm === 'ECDSA-P256-SHA256' && fallback.extractable === false, JSON.stringify(fallbackVerdict));
+
   await popup.check('input[name="format"][value="zip"]');
   await pause(300);
+  check('the plain .zip is not signed (no signature.json)', !fs.existsSync(path.join(unzipDir, 'signature.json')) && fs.existsSync(path.join(unzipDir, 'snapshot.json')));
 
   console.log('4. The option switched off');
   check('the option "Load the whole page first" starts on', await popup.isChecked('#opt-reveal'));
