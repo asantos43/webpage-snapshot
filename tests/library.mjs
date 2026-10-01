@@ -4,7 +4,10 @@
 //   - a Bootstrap-style carousel that switches items by class, with indicators (dots);
 //   - a Swiper-style carousel that moves a strip, with bullets;
 //   - a photo gallery (thumbnails linking to large pictures, Fancybox-style);
-//   - a Bootstrap modal, a <dialog>, a drop-down menu, an accordion (collapse) and tabs.
+//   - a Bootstrap modal, a <dialog>, a drop-down menu, an accordion (collapse) and tabs;
+//   - links to places in the page itself, written as the page's address: with a #fragment, and with
+//     a parameter the site's script reads to scroll (?jumpTo=bookmark:…), the bookmark standing
+//     before a closed section (Headless UI style) or inside one.
 // Exit code 1 if any check fails.
 // Usage: node library.mjs [path-to-extension]   (default: ../page-snapshot-extension)
 //
@@ -67,6 +70,20 @@ body{font:16px sans-serif;margin:20px}
   </ul>
   <div class="tab-content"><div class="tab-pane active" id="p1" role="tabpanel">Pane one</div><div class="tab-pane" id="p2" role="tabpanel">Pane two</div></div>
 </section>
+<section id="quick">
+  <a id="jump-overview" href="/?jumpTo=bookmark%3Aoverview_ref">Overview</a> |
+  <a id="jump-deep" href="/?jumpTo=bookmark%3Adeep_ref">Deep</a> |
+  <a id="jump-faq" href="/#faq">FAQ</a> |
+  <a id="next-page" href="/?page=2">Page 2</a> |
+  <a id="other-page" href="/other?jumpTo=bookmark%3Aoverview_ref">Another page</a>
+</section>
+<div style="height:1500px">(a long page)</div>
+<p><span data-bookmark-id="overview_ref"></span></p>
+<div><button id="ov-b" type="button" aria-expanded="false">Overview</button><div id="ov-p" hidden>Overview body</div></div>
+<div><button id="more-b" type="button" aria-expanded="false">More</button><div id="more-p" hidden><p><span data-bookmark-id="deep_ref">Deep text</span></p></div></div>
+<div style="height:1500px">(more page)</div>
+<h2 id="faq">FAQ</h2>
+<div style="height:1500px">(the end)</div>
 <script>
 // Bootstrap-style: the "active" class moves (and wraps around), on the items and the indicators.
 {
@@ -243,6 +260,25 @@ try {
   check('Question 2 opens its answer and closes the other', await shown('#c2') && !(await shown('#c1')));
   await snap.click('#t2');
   check('tabs: "Two" shows its pane and hides the first', await shown('#p2') && !(await shown('#p1')));
+
+  console.log('Links to places in the page itself');
+  const hrefs = await snap.$$eval('#quick a', (links) => Object.fromEntries(links.map((a) => [a.id, a.getAttribute('href')])));
+  const targetId = (bookmark) => snap.$eval(`[data-bookmark-id="${bookmark}"]`, (el) => el.id);
+  check('"?jumpTo=bookmark:…" becomes a link to the bookmark in the page', hrefs['jump-overview'] === `#${await targetId('overview_ref')}` && hrefs['jump-deep'] === `#${await targetId('deep_ref')}`, JSON.stringify(hrefs));
+  check('the page\'s address with #faq becomes #faq', hrefs['jump-faq'] === '#faq', hrefs['jump-faq']);
+  check('links to another page, or another view of it (?page=2), stay links to the site', hrefs['next-page'] === `${url}?page=2` && hrefs['other-page'].startsWith(`${url}other?`), JSON.stringify(hrefs));
+  const inView = (sel) => snap.$eval(sel, (el) => { const r = el.getBoundingClientRect(); return r.top >= -1 && r.top < innerHeight; });
+  await snap.click('#jump-overview');
+  await snap.waitForTimeout(300);
+  check('jumping to a bookmark opens the closed section after it, and scrolls there', await shown('#ov-p') && await inView('#ov-b'));
+  await snap.evaluate(() => scrollTo(0, 0));
+  await snap.click('#jump-deep');
+  await snap.waitForTimeout(300);
+  check('jumping to a bookmark inside a closed section opens it and shows the bookmark', await shown('#more-p') && await inView('[data-bookmark-id="deep_ref"]'));
+  await snap.evaluate(() => scrollTo(0, 0));
+  await snap.click('#jump-faq');
+  await snap.waitForTimeout(300);
+  check('#faq scrolls to the FAQ', await inView('#faq'));
 
   check('no network requests', online.length === 0, online.join(' '));
   check('no script errors in the saved page', errors.length === 0, errors.join(' | '));

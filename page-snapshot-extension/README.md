@@ -96,7 +96,7 @@ _wsnp/preview.jpg a picture of the page as it was on screen
 - Open shadow DOM (web components) and same-origin iframes.
 - Text that was cut off with "…more" by a multi-line CSS clamp (feed posts, descriptions) is shown in full, and the dead "more" button is removed. Single-line ellipsis (titles, names) is left as you saw it.
 
-Links (`<a href>`) are made absolute, so clicking one opens the real site when you are online.
+Links (`<a href>`) are made absolute, so clicking one opens the real site when you are online. Links to a place in the page itself stay in the saved page: the page's address with `#section`, and the links some sites use to jump by script (`?jumpTo=bookmark:overview` for an element marked `data-bookmark-id="overview"`, or a parameter naming an element's `id`) become `#…` links; jumping there opens the closed section it is in (or that comes right after it), below any bar pinned to the top.
 
 ## Limitations
 

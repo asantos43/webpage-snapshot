@@ -29,7 +29,7 @@ A interface (popup, ajuda do popup, página de ajuda, nome e descrição no nave
 
 ## Privacidade: o snapshot nunca acessa a rede
 
-Abrir o `index.html` não faz nenhuma requisição. Os scripts originais da página e os atributos `ping` são removidos, iframes de outros sites (anúncios, telemetria) não são carregados, e qualquer arquivo que não pôde ser salvo tem a referência removida em vez de apontar para o site ao vivo. Links (`<a href>`) continuam levando ao site real quando você está online.
+Abrir o `index.html` não faz nenhuma requisição. Os scripts originais da página e os atributos `ping` são removidos, iframes de outros sites (anúncios, telemetria) não são carregados, e qualquer arquivo que não pôde ser salvo tem a referência removida em vez de apontar para o site ao vivo. Links (`<a href>`) para outras páginas continuam levando ao site real quando você está online; links para um lugar da própria página (o endereço da página com `#seção`, ou links que o site faz pular por script, como `?jumpTo=bookmark:…`) viram links dentro da cópia e abrem a seção fechada para onde apontam.
 
 ## Estrutura
 

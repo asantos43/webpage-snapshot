@@ -6,6 +6,12 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- Links to places in the page itself now work offline instead of going to the site: the page's
+  address with `#section`, and links that the site's own script turned into a jump (such as
+  `?jumpTo=bookmark:overview`, for an element marked `data-bookmark-id="overview"`) become links
+  inside the saved copy. Jumping there opens the closed section the place is in (or that comes
+  right after it) and leaves room for a bar pinned to the top of the page, as the site does.
+
 ## [1.6.1] - 2026-09-30
 
 - The store pictures and the help pages' screenshots now show the popup's **Save as** choice with `.wsnp`
