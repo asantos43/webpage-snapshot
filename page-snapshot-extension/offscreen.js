@@ -641,20 +641,26 @@ async function restoreScroll(page) {
   await scrollTab(page.scroll.x, page.scroll.y).catch(() => {});
 }
 
-async function processFragment(html, base, page, depth) {
+// Recorded content that is swapped into the page (`outer`) offline: processed like the page,
+// links to the page itself included.
+async function processFragment(html, base, page, depth, outer) {
   const doc = new DOMParser().parseFromString(`<!doctype html><html><body>${html}</body></html>`, 'text/html');
   await processDom(doc, base, page, depth);
+  if (outer) linksWithinPage(doc, page.url, outer);
   return doc.body.innerHTML;
 }
 
 // Links to the page itself become links inside the saved page, so they never go online: the page
 // address with a #fragment, or with a query parameter naming an element of the page, which the
 // site's own script scrolled to ("?jumpTo=bookmark:intro" for <span data-bookmark-id="intro">).
-// The element gets an id if it has none. Returns how many links were turned.
+// The element gets an id if it has none, made from the name the link used, so the same element
+// gets the same id in the page and in the recorded content swapped into it (carousel items,
+// choices). In such content (`doc`, with `outer` the page), a link finds its target in the
+// content first, then in the page. Returns how many links were turned.
 const MARK_ATTR = /^data-(?:[\w-]*-)?(?:id|anchor|bookmark|bookmark-id|section|slug|target|ref)$/;
-function linksWithinPage(doc, pageUrl) {
+function elementNamed(doc) {
   let marks = null; // value of a marking data-* attribute -> its element, built on first need
-  const byName = (token) => {
+  return (token) => {
     const found = doc.getElementById(token) || doc.querySelector(`a[name="${CSS.escape(token)}"]`);
     if (found) return found;
     if (!marks) {
@@ -665,6 +671,11 @@ function linksWithinPage(doc, pageUrl) {
     }
     return marks.get(token) || null;
   };
+}
+function linksWithinPage(doc, pageUrl, outer = null) {
+  const inDoc = elementNamed(doc);
+  const inOuter = outer && elementNamed(outer);
+  const byName = (token) => inDoc(token) || inOuter?.(token) || null;
   let turned = 0;
   for (const link of doc.querySelectorAll('a[href]')) {
     const href = link.getAttribute('href');
@@ -679,8 +690,9 @@ function linksWithinPage(doc, pageUrl) {
     }
     if (!element && !target.fragment) continue;
     if (element && !element.id) {
+      const home = element.ownerDocument;
       let id = `snap-${slugify(target.tokens[0] || target.fragment, 40) || 'target'}`;
-      for (let n = 2; doc.getElementById(id); n++) id = id.replace(/(-\d+)?$/, `-${n}`);
+      for (let n = 2; home.getElementById(id); n++) id = id.replace(/(-\d+)?$/, `-${n}`);
       element.id = id;
     }
     link.setAttribute('href', `#${element ? element.id : target.fragment}`);
@@ -702,7 +714,7 @@ async function processDocument(data, page, depth = 0) {
     for (const region of doc.querySelectorAll('[data-snap-pager]')) {
       const id = region.getAttribute('data-snap-pager');
       const { pages = [], start = 0 } = page.pagers?.[id] || {};
-      recorded[id] = { pages: await Promise.all(pages.map((html) => processFragment(html, data.base, page, depth))), start };
+      recorded[id] = { pages: await Promise.all(pages.map((html) => processFragment(html, data.base, page, depth, doc))), start };
     }
     const store = doc.createElement('script');
     store.setAttribute('type', 'application/json');
@@ -717,7 +729,7 @@ async function processDocument(data, page, depth = 0) {
   if (depth === 0 && data.html.includes('data-snap-choices')) {
     const recorded = {};
     for (const [id, { pages = [], start = -1, group = {} }] of Object.entries(page.choices || {})) {
-      recorded[id] = { pages: await Promise.all(pages.map((html) => processFragment(html, data.base, page, depth))), start, group };
+      recorded[id] = { pages: await Promise.all(pages.map((html) => processFragment(html, data.base, page, depth, doc))), start, group };
     }
     const store = doc.createElement('script');
     store.setAttribute('type', 'application/json');

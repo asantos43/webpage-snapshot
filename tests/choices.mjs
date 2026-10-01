@@ -27,12 +27,15 @@ body{font:16px sans-serif;margin:20px} .step{border:1px solid #ccc;padding:8px;m
 </style></head><body>
 <p id="countdown">Expires in: 100 seconds</p>
 <main id="task">
+  <p><a id="jump-ready" href="/?jumpTo=bookmark%3Aready_ref">Go to the question</a></p>
+  <div style="height:1200px">(instructions)</div>
+  <span data-bookmark-id="ready_ref"></span>
   <div class="step"><p>I have my dev container running.</p>
     <fieldset id="ready-q"><label><input type="radio" name="ready" id="ready-yes"> Yes, I'm ready to move onto the next step</label>
     <label><input type="radio" name="ready" id="ready-no"> No, I encountered an issue</label></fieldset>
   </div>
 </main>
-<section id="plan-q"><span role="radiogroup" aria-label="Plan">
+<section id="plan-q"><span data-bookmark-id="plans_ref"></span><span role="radiogroup" aria-label="Plan">
   <span role="radio" id="plan-a" aria-checked="false" tabindex="0">Plan A</span>
   <span role="radio" id="plan-b" aria-checked="true" tabindex="0">Plan B</span></span>
   <div id="plan-details">Plan B: two seats</div>
@@ -53,7 +56,7 @@ document.querySelectorAll('input[name="ready"]').forEach((r) => r.addEventListen
     const next = document.createElement('div');
     next.className = 'step next';
     next.innerHTML = chosen.id === 'ready-yes'
-      ? '<h3 id="next-yes">Step 2: propose your task</h3><textarea>Describe it</textarea>'
+      ? '<h3 id="next-yes">Step 2: propose your task</h3><textarea>Describe it</textarea><a id="to-plans" href="/?jumpTo=bookmark%3Aplans_ref">See the plans</a>'
         + '<fieldset><label><input type="radio" name="accepted" id="acc-yes"> Accepted</label><label><input type="radio" name="accepted" id="acc-no"> Rejected</label></fieldset>'
       : '<p id="next-no">Tell us what went wrong in #troubleshooting.</p>';
     document.getElementById('task').append(next);
@@ -186,6 +189,9 @@ try {
   await snap.click('#ready-yes');
   await snap.waitForTimeout(200);
   check('choosing "Yes" shows the next step the page built for it', (await text('#next-yes')) === 'Step 2: propose your task' && await snap.$eval('#ready-yes', (r) => r.checked));
+  const hrefs = await snap.evaluate(() => ({ ready: document.getElementById('jump-ready').getAttribute('href'), plans: document.getElementById('to-plans')?.getAttribute('href') }));
+  const ids = await snap.evaluate(() => ({ ready: document.querySelector('[data-bookmark-id="ready_ref"]').id, plans: document.querySelector('[data-bookmark-id="plans_ref"]').id }));
+  check('after a choice, links to the page itself in the swapped area still point inside the copy (to the area, and outside it)', !!ids.ready && hrefs.ready === `#${ids.ready}` && !!ids.plans && hrefs.plans === `#${ids.plans}`, JSON.stringify({ hrefs, ids }));
   await snap.click('#acc-yes');
   await snap.waitForTimeout(200);
   check('in it, choosing "Accepted" shows step 3 (a question revealed by an answer)', (await text('#step3')) === 'Step 3: implement');

@@ -17,7 +17,8 @@ publishes it as the release's notes.
   address with `#section`, and links that the site's own script turned into a jump (such as
   `?jumpTo=bookmark:overview`, for an element marked `data-bookmark-id="overview"`) become links
   inside the saved copy. Jumping there opens the closed section the place is in (or that comes
-  right after it) and leaves room for a bar pinned to the top of the page, as the site does.
+  right after it) and leaves room for a bar pinned to the top of the page, as the site does. This
+  also holds inside content swapped in offline (carousel items, what each choice shows).
 
 ## [1.6.1] - 2026-09-30
 
