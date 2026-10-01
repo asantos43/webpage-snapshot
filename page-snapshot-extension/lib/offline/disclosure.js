@@ -1,7 +1,9 @@
 // Disclosures and accordions: a button with aria-expanded and its panel, named by aria-controls
 // or the hidden element right after the button (or after its heading); plus "Expand all" /
 // "Collapse all" buttons. Keeps data-state (Radix) and data-open (Headless UI) in step with
-// aria-expanded, since sites often style the state through them.
+// aria-expanded, since sites often style the state through them. A link to a place in the page
+// opens the closed sections that place is in, or the closed section an empty marker stands
+// before (sites put bookmarks just before a collapsed section and open it when you jump there).
 export function disclosure() {
   const usesDataOpen = !!document.querySelector('[data-open]');
   const flag = (el, name, on) => (on ? el.setAttribute(name, '') : el.removeAttribute(name));
@@ -46,6 +48,69 @@ export function disclosure() {
     turnIcon(button, open);
     return true;
   };
+
+  // The button that opens `panel`, when there is one.
+  const buttonOf = (panel) => {
+    const named = panel.id && document.querySelector(`[aria-controls="${CSS.escape(panel.id)}"]`);
+    if (named) return named;
+    for (const candidate of [panel.previousElementSibling, panel.previousElementSibling?.lastElementChild]) {
+      if (candidate?.hasAttribute('aria-expanded') && panelOf(candidate) === panel) return candidate;
+    }
+    return null;
+  };
+  const reveal = (target) => {
+    for (let el = target; el && el !== document.body; el = el.parentElement) {
+      if (el.localName === 'details') el.open = true;
+      if (el.hidden) {
+        const button = buttonOf(el);
+        if (button) setOpen(button, true);
+      }
+    }
+    // An empty marker (alone in its paragraph, or not) followed by a closed section.
+    let marker = target;
+    while (marker.parentElement && marker.parentElement !== document.body && !marker.textContent.trim() && !marker.nextElementSibling) marker = marker.parentElement;
+    if (!marker.textContent.trim()) {
+      let next = marker.nextElementSibling;
+      while (next && !next.textContent.trim() && !next.querySelector('[aria-expanded]')) next = next.nextElementSibling;
+      // The section's own button: the first one in it, when closed (not one nested further in).
+      const button = next && (next.matches('[aria-expanded]') ? next : next.querySelector('[aria-expanded]'));
+      if (button?.getAttribute('aria-expanded') === 'false' && panelOf(button)) setOpen(button, true);
+      if (next?.localName === 'details') next.open = true;
+    }
+  };
+  const targetOf = (hash) => {
+    let id = hash.slice(1);
+    try { id = decodeURIComponent(id); } catch { /* keep it */ }
+    return id && (document.getElementById(id) || document.getElementsByName(id)[0]);
+  };
+  // Room for bars pinned to the top of the screen (a sticky header), so the place jumped to is not
+  // hidden under them. Measured once there: a sticky bar only sticks after the page has scrolled.
+  const pinnedHeight = () => {
+    let bottom = 0;
+    for (const el of document.elementsFromPoint(innerWidth / 2, 2)) {
+      for (let e = el; e && e !== document.body; e = e.parentElement) {
+        const { position } = getComputedStyle(e);
+        const box = e.getBoundingClientRect(); // a bar: at the top, and short (not a pinned column)
+        if ((position === 'sticky' || position === 'fixed') && box.top <= 2 && box.height < innerHeight / 4) bottom = Math.max(bottom, box.bottom);
+      }
+    }
+    return bottom;
+  };
+  document.addEventListener('click', (event) => {
+    const link = event.target.closest('a[href^="#"]');
+    const target = link && targetOf(link.getAttribute('href'));
+    if (!target) return;
+    event.preventDefault();
+    reveal(target);
+    target.scrollIntoView({ block: 'start' });
+    target.style.scrollMarginTop = `${Math.round(pinnedHeight()) + 8}px`;
+    target.scrollIntoView({ block: 'start' });
+    try { history.pushState(null, '', link.getAttribute('href')); } catch { /* not allowed here */ }
+  }, true);
+  if (location.hash && targetOf(location.hash)) {
+    reveal(targetOf(location.hash));
+    targetOf(location.hash).scrollIntoView();
+  }
 
   document.addEventListener('click', (event) => {
     const control = event.target.closest('button, [role="button"], [aria-expanded]');

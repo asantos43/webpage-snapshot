@@ -106,6 +106,39 @@ export function isSafePath(path) {
     && path.split('/').every((part) => part && part !== '.' && part !== '..');
 }
 
+/**
+ * For a link to the page itself, what in the page it points at: `{ fragment, tokens }`, or null
+ * when the link goes elsewhere (or to the page as it is, with nothing to point at).
+ * - `fragment`: the link's #fragment, when it only adds one to the page's address.
+ * - `tokens`: names to look for in the page, from the query parameters the link adds or changes
+ *   (sites that scroll by script use links like "?jumpTo=bookmark:intro" for an element marked
+ *   data-bookmark-id="intro"): each value whole, then its parts split at ":", "=", "/", "|" or
+ *   ",", the last part first.
+ */
+export function inPageTarget(href, pageUrl) {
+  let link;
+  let page;
+  try {
+    link = new URL(href, pageUrl);
+    page = new URL(pageUrl);
+  } catch {
+    return null;
+  }
+  if (!['http:', 'https:', 'file:'].includes(link.protocol) || link.origin !== page.origin || link.pathname !== page.pathname) return null;
+  let fragment = '';
+  try { fragment = decodeURIComponent(link.hash.slice(1)); } catch { fragment = link.hash.slice(1); }
+  const tokens = [];
+  for (const [key, value] of link.searchParams) {
+    if (page.searchParams.getAll(key).includes(value) || !value) continue;
+    const parts = value.split(/[:=/|,]/).map((p) => p.trim()).filter(Boolean).reverse();
+    for (const token of [value.trim(), ...parts]) if (token && !tokens.includes(token)) tokens.push(token);
+  }
+  const removed = [...page.searchParams.keys()].some((key) => !link.searchParams.has(key));
+  if (removed && !tokens.length) return null; // another view of the page (a filter undone…)
+  if (!fragment && !tokens.length) return null;
+  return { fragment, tokens };
+}
+
 /** Parses a srcset attribute the way the HTML spec does (commas inside URLs are kept). */
 export function parseSrcset(value) {
   const out = [];

@@ -11,8 +11,8 @@ import { buildZip } from './lib/zip.js';
 import { installationSigner, signatureJson } from './lib/signing.js';
 import { offlineScript } from './lib/offline/index.js';
 import {
-  assetFileName, assetFolder, fetchableUrl, isSafePath, mediaTypeOf, parseSrcset, rewriteCss,
-  serializeSrcset, slugify, textBytes,
+  assetFileName, assetFolder, fetchableUrl, inPageTarget, isSafePath, mediaTypeOf, parseSrcset,
+  rewriteCss, serializeSrcset, slugify, textBytes,
 } from './lib/helpers.js';
 
 const MAX_RESOURCE_BYTES = 30 * 1024 * 1024;
@@ -641,9 +641,53 @@ async function processFragment(html, base, page, depth) {
   return doc.body.innerHTML;
 }
 
+// Links to the page itself become links inside the saved page, so they never go online: the page
+// address with a #fragment, or with a query parameter naming an element of the page, which the
+// site's own script scrolled to ("?jumpTo=bookmark:intro" for <span data-bookmark-id="intro">).
+// The element gets an id if it has none. Returns how many links were turned.
+const MARK_ATTR = /^data-(?:[\w-]*-)?(?:id|anchor|bookmark|bookmark-id|section|slug|target|ref)$/;
+function linksWithinPage(doc, pageUrl) {
+  let marks = null; // value of a marking data-* attribute -> its element, built on first need
+  const byName = (token) => {
+    const found = doc.getElementById(token) || doc.querySelector(`a[name="${CSS.escape(token)}"]`);
+    if (found) return found;
+    if (!marks) {
+      marks = new Map();
+      for (const el of doc.body?.querySelectorAll('*') || []) {
+        for (const attr of el.attributes) if (MARK_ATTR.test(attr.name) && attr.value && !marks.has(attr.value)) marks.set(attr.value, el);
+      }
+    }
+    return marks.get(token) || null;
+  };
+  let turned = 0;
+  for (const link of doc.querySelectorAll('a[href]')) {
+    const href = link.getAttribute('href');
+    if (href.startsWith('#')) continue;
+    const target = inPageTarget(href, pageUrl);
+    if (!target) continue;
+    let element = target.fragment ? byName(target.fragment) : null;
+    // Names, not numbers: "?page=2" must stay a link to the next page.
+    for (const token of target.tokens) {
+      if (element) break;
+      if (token.length >= 2 && /[a-z]/i.test(token)) element = byName(token);
+    }
+    if (!element && !target.fragment) continue;
+    if (element && !element.id) {
+      let id = `snap-${slugify(target.tokens[0] || target.fragment, 40) || 'target'}`;
+      for (let n = 2; doc.getElementById(id); n++) id = id.replace(/(-\d+)?$/, `-${n}`);
+      element.id = id;
+    }
+    link.setAttribute('href', `#${element ? element.id : target.fragment}`);
+    link.removeAttribute('target');
+    turned++;
+  }
+  return turned;
+}
+
 async function processDocument(data, page, depth = 0) {
   const doc = new DOMParser().parseFromString(data.html, 'text/html');
   await processDom(doc, data.base, page, depth);
+  if (depth === 0) linksWithinPage(doc, page.url);
 
   // Carousels that keep one item in the page: every recorded item, processed like the page
   // itself, for lib/offline/pager.js to swap in.
