@@ -136,9 +136,10 @@ async function isCurrent(tabId) {
 
 // Same-origin files can be requested from inside the tab: that uses the page's own cookies
 // and HTTP cache, so files it already loaded are served without a network hit.
-async function fetchInTab(u) {
+async function fetchInTab(u, fresh = false) {
   try {
-    const res = await fetch(u, { credentials: 'include', cache: 'force-cache' });
+    // `fresh`: straight from the site, for a page whose copy in the cache has gone stale.
+    const res = await fetch(u, { credentials: 'include', cache: fresh ? 'no-store' : 'force-cache' });
     if (!res.ok) return { status: res.status, retryAfter: res.headers.get('retry-after') };
     const bytes = new Uint8Array(await res.arrayBuffer());
     let bin = '';
@@ -152,14 +153,14 @@ async function fetchInTab(u) {
 // Downloads a file in the tab's own context through the debugger (Network.loadNetworkResource,
 // the way DevTools loads source maps), so the extension needs no host permission. Returns the
 // body as IO.read chunks, or { status } for an HTTP error, or { error } for a network error.
-async function loadResource({ tabId, frameId, url, maxBytes, timeoutMs }) {
+async function loadResource({ tabId, frameId, url, maxBytes, timeoutMs, fresh = false }) {
   const send = (method, params) => chrome.debugger.sendCommand({ tabId }, method, params);
   let timer;
   const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('timed out')), timeoutMs); });
   let stream;
   try {
     const { resource } = await Promise.race([
-      send('Network.loadNetworkResource', { frameId, url, options: { disableCache: false, includeCredentials: true } }),
+      send('Network.loadNetworkResource', { frameId, url, options: { disableCache: fresh, includeCredentials: true } }),
       timeout,
     ]);
     stream = resource.stream;
@@ -191,7 +192,7 @@ const rpc = {
   tab: ({ tabId }) => chrome.tabs.get(tabId).then((t) => ({ url: t.url || '' })),
   readEditors: ({ tabId }) => inTab(tabId, readEditorsInMainWorld, [], 'MAIN'),
   extractPage: ({ tabId, editorTexts, options }) => inTab(tabId, extractPage, [editorTexts, options]),
-  fetchInTab: ({ tabId, url }) => inTab(tabId, fetchInTab, [url]),
+  fetchInTab: ({ tabId, url, fresh }) => inTab(tabId, fetchInTab, [url, !!fresh]),
   attach: async ({ tabId }) => {
     await chrome.debugger.attach({ tabId }, '1.3');
     if (!(await isCurrent(tabId))) { // cancelled while attaching: don't leave the debugger bar behind

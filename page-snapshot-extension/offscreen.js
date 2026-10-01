@@ -265,9 +265,9 @@ function fromWorker(err) {
 // by the tab itself through the debugger (Network.loadNetworkResource, the way DevTools loads
 // source maps; background.js `loadResource`). The extension has no host permission, only
 // activeTab on the captured tab, so it never downloads anything on its own.
-async function viaDebugger(url) {
+async function viaDebugger(url, fresh = false) {
   if (!mainFrameId) throw failure('needs the debugger, which could not be attached', msg('reason_no_debugger'));
-  const res = await call('loadResource', { frameId: mainFrameId, url, maxBytes: MAX_RESOURCE_BYTES, timeoutMs: FETCH_TIMEOUT_MS }).catch((err) => { throw fromWorker(err); });
+  const res = await call('loadResource', { frameId: mainFrameId, url, maxBytes: MAX_RESOURCE_BYTES, timeoutMs: FETCH_TIMEOUT_MS, fresh }).catch((err) => { throw fromWorker(err); });
   if (res.status && (res.status < 200 || res.status > 299)) throw httpError(res.status, res.retryAfter);
   if (res.error) throw new Error(res.error);
   const parts = res.chunks.every((c) => !c.base64) // text arrives decoded, like readFromPage's
@@ -282,10 +282,10 @@ async function viaDebugger(url) {
 // Same-origin files can be requested from inside the tab (background.js `fetchInTab`): that
 // uses the page's own cookies and HTTP cache, so files it already loaded are served without a
 // network hit. Returns null when the tab cannot do it (caller falls back to viaDebugger).
-async function viaTab(url) {
+async function viaTab(url, fresh = false) {
   let result;
   try {
-    result = await call('fetchInTab', { url });
+    result = await call('fetchInTab', { url, fresh });
   } catch {
     return null;
   }
@@ -296,19 +296,21 @@ async function viaTab(url) {
   return { bytes, type: result.type, source: 'tab' };
 }
 
-async function fetchBytes(url) {
+// `fresh`: from the site, not from what the tab or its cache already has (for a page whose
+// cached copy has gone stale, such as one holding an expired download address).
+async function fetchBytes(url, { fresh = false } = {}) {
   state.now = shortUrl(url);
-  const loaded = await readFromPage(url);
+  const loaded = fresh ? null : await readFromPage(url);
   if (loaded) return loaded;
 
   return limitedByHost(url, async () => {
     for (let attempt = 0; ; attempt++) {
       try {
         if (tabOrigin && new URL(url).origin === tabOrigin) {
-          const viaPage = await viaTab(url);
+          const viaPage = await viaTab(url, fresh);
           if (viaPage) return viaPage;
         }
-        return await viaDebugger(url);
+        return await viaDebugger(url, fresh);
       } catch (err) {
         const retryable = err.status === 429 || err.status === 503;
         if (!retryable || attempt >= MAX_RETRIES) throw err;
@@ -372,8 +374,15 @@ async function downloadAsset(url, kind, chain) {
     ({ bytes, type, source } = await limited(() => fetchBytes(url)));
     // A linked file that came back as a web page: save the file that page shows, if it can be
     // had, but never the page under the file's name (it would load things from the site).
+    // The page may be an old copy from the cache, holding an address that has expired since: if
+    // its file cannot be had, ask the site for the page again, fresh, and try its file.
     if (kind === 'file' && isWebPage(url, type, bytes)) {
-      const real = await fileInPage(url, bytes);
+      let real = await fileInPage(url, bytes);
+      if (!real) {
+        const again = await limited(() => fetchBytes(url, { fresh: true })).catch(() => null);
+        if (again && isWebPage(url, again.type, again.bytes)) real = await fileInPage(url, again.bytes);
+        else if (again) real = again; // this time the site sent the file itself
+      }
       if (!real) throw failure('the site answered with a web page, not the file', msg('reason_web_page'));
       ({ bytes, type, source } = real);
     }

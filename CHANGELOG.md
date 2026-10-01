@@ -9,7 +9,8 @@ publishes it as the release's notes.
 - Links to files saved with the page (attachments, archives, documents) open in another tab, as on
   the site, instead of always downloading. When a site answers a link to a file with a web page of
   its own (a viewer showing the file in a frame, or a sign-in page), PageKeep saves the file that
-  page shows, when it can be had, and otherwise no longer saves that page under the file's name:
+  page shows, when it can be had (asking the site for the page again, fresh, when the browser's
+  cached copy holds a download address that has expired), and otherwise no longer saves that page under the file's name:
   the link keeps pointing to the site and the popup lists it as not saved.
 
 - New popup option **Record what each choice shows**, off by default: for forms that only build
