@@ -2,9 +2,10 @@
 // script only builds the next step of a form when a radio button is chosen (as task and survey
 // sites do), with a countdown ticking elsewhere on the page.
 //   - option off (the default): the capture touches no radio button, and records nothing;
-//   - option on: every group recorded, the page put back (nothing chosen, or the user's choice), a
-//     group whose site keeps the last option reported in the popup; offline, choosing an option
-//     shows what the page showed for it, with no network request.
+//   - option on: every group recorded, including the questions an answer reveals (three levels:
+//     "ready?" → "accepted?" → "tests pass?"), the page put back (nothing chosen, or the user's
+//     choice), a group whose site keeps the last option reported in the popup; offline, choosing
+//     an option shows what the page showed for it, level after level, with no network request.
 // Exit code 1 if any check fails.
 // Usage: node choices.mjs [path-to-extension]   (default: ../page-snapshot-extension)
 //
@@ -46,17 +47,36 @@ setInterval(() => { left--; document.getElementById('countdown').textContent = '
 document.querySelectorAll('input[name="ready"]').forEach((r) => r.addEventListener('change', () => {
   window.changes++;
   setTimeout(() => {
-    document.querySelectorAll('#task .next').forEach((n) => n.remove());
+    document.querySelectorAll('#task .next, #task .next2, #task .next3').forEach((n) => n.remove());
     const chosen = document.querySelector('input[name="ready"]:checked');
     if (!chosen) return;
     const next = document.createElement('div');
     next.className = 'step next';
     next.innerHTML = chosen.id === 'ready-yes'
       ? '<h3 id="next-yes">Step 2: propose your task</h3><textarea>Describe it</textarea>'
+        + '<fieldset><label><input type="radio" name="accepted" id="acc-yes"> Accepted</label><label><input type="radio" name="accepted" id="acc-no"> Rejected</label></fieldset>'
       : '<p id="next-no">Tell us what went wrong in #troubleshooting.</p>';
     document.getElementById('task').append(next);
   }, 120);
 }));
+// The questions an answer reveals are built the same way, a level deeper each time.
+const reveal = (name, cls, build) => document.addEventListener('change', (event) => {
+  if (event.target.name !== name) return;
+  window.changes++;
+  setTimeout(() => {
+    document.querySelectorAll('#task .' + cls).forEach((n) => n.remove());
+    const chosen = document.querySelector('input[name="' + name + '"]:checked');
+    if (!chosen) return;
+    const div = document.createElement('div');
+    div.className = 'step ' + cls;
+    div.innerHTML = build(chosen.id);
+    document.getElementById('task').append(div);
+  }, 120);
+});
+reveal('accepted', 'next2', (id) => (id === 'acc-yes'
+  ? '<h3 id="step3">Step 3: implement</h3><label><input type="radio" name="tests" id="tests-ok"> Tests pass</label><label><input type="radio" name="tests" id="tests-fail"> Tests fail</label>'
+  : '<p id="revise">Revise your proposal</p>'));
+reveal('tests', 'next3', (id) => (id === 'tests-ok' ? '<p id="done-msg">Ready to submit</p>' : '<p id="fix-msg">Fix the tests</p>'));
 // An ARIA radio group (Radix-style), with a choice already made: its details follow the choice.
 document.querySelectorAll('[role="radio"]').forEach((r) => r.addEventListener('click', () => {
   window.changes++;
@@ -141,13 +161,13 @@ try {
   const { job: j } = result;
   check('capture finished', j?.phase === 'done', JSON.stringify(j?.error || j?.status));
   const choicesStep = j.steps.find((s) => s.id === 'choices');
-  check('the popup lists the step, with a warning (one group kept an option)', choicesStep?.state === 'warn' && choicesStep.text?.key === 'step_choices_done_other' && choicesStep.text.args[0] === '3', JSON.stringify(choicesStep));
-  check('the popup notes the 3 groups recorded', j.notes.some((n) => n.text.key === 'note_choices_other' && n.text.args[0] === '3'), JSON.stringify(j.notes));
+  check('the popup lists the step, with a warning (one group kept an option)', choicesStep?.state === 'warn' && choicesStep.text?.key === 'step_choices_done_other' && choicesStep.text.args[0] === '5', JSON.stringify(choicesStep));
+  check('the popup notes the 5 groups recorded (3 on the page, 2 revealed by answers)', j.notes.some((n) => n.text.key === 'note_choices_other' && n.text.args[0] === '5'), JSON.stringify(j.notes));
   const leftNote = j.notes.find((n) => n.text.key === 'note_choices_left');
   check('and warns that the page kept the option "Blue" chosen by the capture', leftNote?.warn && leftNote.text.args[0] === 'Blue', JSON.stringify(leftNote));
   const live = await tab.evaluate(() => ({
     ready: [...document.querySelectorAll('input[name="ready"]')].map((r) => r.checked),
-    next: document.querySelectorAll('#task .next').length,
+    next: document.querySelectorAll('#task .next, #task .next2, #task .next3').length,
     plan: document.querySelector('[role="radio"][aria-checked="true"]')?.id,
     details: document.getElementById('plan-details').textContent,
   }));
@@ -166,9 +186,24 @@ try {
   await snap.click('#ready-yes');
   await snap.waitForTimeout(200);
   check('choosing "Yes" shows the next step the page built for it', (await text('#next-yes')) === 'Step 2: propose your task' && await snap.$eval('#ready-yes', (r) => r.checked));
+  await snap.click('#acc-yes');
+  await snap.waitForTimeout(200);
+  check('in it, choosing "Accepted" shows step 3 (a question revealed by an answer)', (await text('#step3')) === 'Step 3: implement');
+  await snap.click('#tests-ok');
+  await snap.waitForTimeout(200);
+  check('and there, "Tests pass" shows its message (three levels deep)', (await text('#done-msg')) === 'Ready to submit');
+  await snap.click('#tests-fail');
+  await snap.waitForTimeout(200);
+  check('"Tests fail" shows the other one', (await text('#fix-msg')) === 'Fix the tests' && !(await snap.$('#done-msg')));
+  await snap.click('#acc-no');
+  await snap.waitForTimeout(200);
+  check('"Rejected" replaces step 3 with its own message', (await text('#revise')) === 'Revise your proposal' && !(await snap.$('#step3')) && (await text('#next-yes')) === 'Step 2: propose your task');
   await snap.click('#ready-no');
   await snap.waitForTimeout(200);
-  check('choosing "No" shows its message instead', (await text('#next-no'))?.startsWith('Tell us what went wrong') && !(await snap.$('#next-yes')) && await snap.$eval('#ready-no', (r) => r.checked));
+  check('choosing "No" shows its message instead, and none of the later steps', (await text('#next-no'))?.startsWith('Tell us what went wrong') && !(await snap.$('#next-yes')) && !(await snap.$('#revise')) && await snap.$eval('#ready-no', (r) => r.checked));
+  await snap.click('#ready-yes');
+  await snap.waitForTimeout(200);
+  check('back on "Yes", step 2 is there again with nothing chosen', (await text('#next-yes')) === 'Step 2: propose your task' && !(await snap.$('#step3')) && !(await snap.$eval('#acc-yes', (r) => r.checked)));
   check('the ARIA group opens on "Plan B", as the user left it', (await text('#plan-details')) === 'Plan B: two seats');
   await snap.click('#plan-a');
   await snap.waitForTimeout(200);

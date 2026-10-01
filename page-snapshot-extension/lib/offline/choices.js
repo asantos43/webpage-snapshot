@@ -3,7 +3,8 @@
 // chose each option of the group in turn and recorded the area at each (the element marked
 // data-snap-choices="<id> …", with the recordings in <script id="snap-choices">). Choosing an
 // option here swaps its recording in. The radio buttons are the ones of the recording, so the
-// chosen one is ticked; a group recorded inside another one's area is not recorded again.
+// chosen one is ticked. A question that a choice revealed was recorded while that option was
+// chosen, inside the same area (or an area within it): its recordings come in with the option's.
 export function choices() {
   let recorded = null;
   const records = () => {
@@ -13,7 +14,7 @@ export function choices() {
     return recorded;
   };
 
-  // The recorded group `option` belongs to, and its index in it: { area, record, index }.
+  // The recorded group `option` belongs to, and its index in it: { area, id, record, index }.
   const groupOf = (option) => {
     for (let area = option.closest('[data-snap-choices]'); area; area = area.parentElement?.closest('[data-snap-choices]')) {
       for (const id of area.getAttribute('data-snap-choices').split(/\s+/)) {
@@ -29,7 +30,7 @@ export function choices() {
           options = Array.from(group.querySelectorAll('[role="radio"]'));
         }
         const index = options.indexOf(option);
-        if (index >= 0 && index < record.pages.length) return { area, record, index };
+        if (index >= 0 && index < record.pages.length) return { area, id, record, index };
       }
     }
     return null;
@@ -38,9 +39,11 @@ export function choices() {
   const show = (option) => {
     const found = groupOf(option);
     if (!found) return;
-    const { area, record, index } = found;
-    if (area.__snapshotChoice === index) return;
-    area.__snapshotChoice = index;
+    const { area, id, record, index } = found;
+    // What each group of the area shows; the others sharing it start over with the new content.
+    const shown = area.__snapshotChoices || {};
+    if (shown[id] === index) return;
+    area.__snapshotChoices = { [id]: index };
     area.innerHTML = record.pages[index];
   };
 
