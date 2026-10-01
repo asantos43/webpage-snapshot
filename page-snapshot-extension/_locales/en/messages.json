@@ -287,6 +287,42 @@
     "message": "Load the whole page first: scroll to the end and press “Load more”, so everything is saved",
     "description": "Popup option (checkbox)."
   },
+  "option_choices": {
+    "message": "Record what each choice shows (radio buttons): chooses each option on the page, which may change your answers there",
+    "description": "Popup option (checkbox), off by default."
+  },
+  "help_choices_label": {
+    "message": "Record what each choice shows",
+    "description": "Help item label: the option_choices checkbox."
+  },
+  "help_choices": {
+    "message": "(off unless you turn it on): some forms only show their next step once an option is chosen. With this on, PageKeep chooses each option of every group of radio buttons in turn, records what the page shows for each, and puts your choice back, so the copy shows the right content for each option. It acts on the page like you would: a site may save those answers, or keep the last option chosen when nothing was chosen before; the popup then says which. Use it on pages where that is harmless.",
+    "description": "Help item after help_choices_label."
+  },
+  "step_choices": {
+    "message": "Recording what each choice shows: group $1 of $2…",
+    "description": "Step; $1 = group number, $2 = groups."
+  },
+  "step_choices_done_one": {
+    "message": "Recorded what each choice shows in 1 group",
+    "description": "Step done."
+  },
+  "step_choices_done_other": {
+    "message": "Recorded what each choice shows in $1 groups",
+    "description": "Step done; $1 = groups."
+  },
+  "note_choices_one": {
+    "message": "1 group of choices recorded: choosing an option shows what the page showed for it.",
+    "description": "Result note."
+  },
+  "note_choices_other": {
+    "message": "$1 groups of choices recorded: choosing an option shows what the page showed for it.",
+    "description": "Result note; $1 = groups."
+  },
+  "note_choices_left": {
+    "message": "The page kept the option “$1” that PageKeep chose: check that answer on the site before you send anything.",
+    "description": "Warning note; $1 = the option left chosen on the live page."
+  },
   "option_format": {
     "message": "Save as",
     "description": "Popup option: label of the .zip / .wsnp radio buttons."

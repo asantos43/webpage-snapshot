@@ -12,6 +12,7 @@
     "readme-images": "node readme-images.mjs",
     "publish-script": "node publish-script.mjs",
     "library": "node library.mjs",
+    "choices": "node choices.mjs",
     "wsnp": "node wsnp.mjs",
     "format-sync": "node format-sync.mjs"
   },

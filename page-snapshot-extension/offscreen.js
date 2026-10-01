@@ -47,6 +47,7 @@ const tabId = Number(params.get('tabId'));
 const jobId = params.get('job');
 const version = params.get('version'); // offscreen documents have no chrome.runtime.getManifest
 const reveal = params.get('reveal') === '1'; // the popup's "Load the whole page first" option
+const choices = params.get('choices') === '1'; // the popup's "Record what each choice shows" option
 // The popup's "Save as": a .wsnp file (docs/FORMAT.md) or a plain ZIP.
 const wsnp = params.get('format') === 'wsnp';
 const WSNP_TYPE = 'application/vnd.wsnp+zip';
@@ -119,6 +120,11 @@ chrome.runtime.onMessage.addListener((report, sender) => {
     case 'carousel-skip': dropStep(id); break;
     case 'snapshot': step('dom', msg('step_dom_copying')); break;
     case 'reveal': step('reveal', msg('step_reveal')); break;
+    case 'choices': step('choices', msg('step_choices', report.group, report.groups)); break;
+    case 'choices-done':
+      if (report.groups || report.left) step('choices', plural(report.groups, 'step_choices_done'), report.left ? 'warn' : 'done');
+      else dropStep('choices');
+      break;
     case 'reveal-done': step('reveal', [
       msg('step_reveal_done', report.screens),
       ...(report.pressed ? [plural(report.pressed, 'step_reveal_pressed')] : []),
@@ -706,6 +712,20 @@ async function processDocument(data, page, depth = 0) {
   }
 
   // Sliding carousels: where the strip sat at each step, for lib/offline/slider.js.
+  // Areas that change with a choice (radio buttons): their content for each option, processed
+  // like the page itself, for lib/offline/choices.js to swap in.
+  if (depth === 0 && data.html.includes('data-snap-choices')) {
+    const recorded = {};
+    for (const [id, { pages = [], start = -1, group = {} }] of Object.entries(page.choices || {})) {
+      recorded[id] = { pages: await Promise.all(pages.map((html) => processFragment(html, data.base, page, depth))), start, group };
+    }
+    const store = doc.createElement('script');
+    store.setAttribute('type', 'application/json');
+    store.id = 'snap-choices';
+    store.textContent = JSON.stringify(recorded).replace(/</g, '\\u003c');
+    doc.body.append(store);
+  }
+
   if (depth === 0 && data.html.includes('data-snap-slider')) {
     const store = doc.createElement('script');
     store.setAttribute('type', 'application/json');
@@ -875,7 +895,7 @@ async function main() {
     else dropStep('editors');
 
     step('read', msg('step_read'));
-    page = await call('extractPage', { editorTexts: editorTexts || {}, options: { reveal } });
+    page = await call('extractPage', { editorTexts: editorTexts || {}, options: { reveal, choices } });
     if (page?.cancelled) return; // background.js is closing this document
     if (!page) throw new Error('the page returned nothing');
     dropStep('read');
@@ -963,6 +983,10 @@ async function main() {
   if (linkedFiles.size) notes.push({ text: plural(linkedFiles.size, 'note_files') });
   if (framePictures) notes.push({ text: plural(framePictures, 'note_frame_pictures') });
   if (galleryPictures.size) notes.push({ text: plural(galleryPictures.size, 'note_gallery') });
+  const choiceGroups = Object.keys(page.choices || {}).length;
+  if (choiceGroups) notes.push({ text: plural(choiceGroups, 'note_choices') });
+  // The site kept an option the capture chose: the live page now shows an answer the user did not give.
+  for (const label of page.choicesLeft || []) notes.push({ warn: true, text: msg('note_choices_left', label) });
   state.notes = notes;
   state.failures = failures;
   state.download = { url: blobUrl, name };

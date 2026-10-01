@@ -287,6 +287,42 @@
     "message": "Carregar a página inteira antes: rolar até o fim e apertar “Carregar mais”, para salvar tudo",
     "description": "Popup option (checkbox)."
   },
+  "option_choices": {
+    "message": "Gravar o que cada escolha mostra (radio buttons): escolhe cada opção na página, o que pode mudar suas respostas nela",
+    "description": "Popup option (checkbox), off by default."
+  },
+  "help_choices_label": {
+    "message": "Gravar o que cada escolha mostra",
+    "description": "Help item label: the option_choices checkbox."
+  },
+  "help_choices": {
+    "message": "(desligada, a menos que você ligue): alguns formulários só mostram o próximo passo depois que uma opção é escolhida. Com ela ligada, o PageKeep escolhe cada opção de cada grupo de radio buttons, grava o que a página mostra para cada uma e devolve a sua escolha, para que a cópia mostre o conteúdo certo de cada opção. Ele age na página como você agiria: um site pode salvar essas respostas, ou ficar com a última opção escolhida quando nada estava escolhido antes; o popup avisa qual. Use em páginas onde isso não tem problema.",
+    "description": "Help item after help_choices_label."
+  },
+  "step_choices": {
+    "message": "Gravando o que cada escolha mostra: grupo $1 de $2…",
+    "description": "Step; $1 = group number, $2 = groups."
+  },
+  "step_choices_done_one": {
+    "message": "Gravado o que cada escolha mostra em 1 grupo",
+    "description": "Step done."
+  },
+  "step_choices_done_other": {
+    "message": "Gravado o que cada escolha mostra em $1 grupos",
+    "description": "Step done; $1 = groups."
+  },
+  "note_choices_one": {
+    "message": "1 grupo de escolhas gravado: escolher uma opção mostra o que a página mostrava para ela.",
+    "description": "Result note."
+  },
+  "note_choices_other": {
+    "message": "$1 grupos de escolhas gravados: escolher uma opção mostra o que a página mostrava para ela.",
+    "description": "Result note; $1 = groups."
+  },
+  "note_choices_left": {
+    "message": "A página ficou com a opção “$1” que o PageKeep escolheu: confira essa resposta no site antes de enviar qualquer coisa.",
+    "description": "Warning note; $1 = the option left chosen on the live page."
+  },
   "option_format": {
     "message": "Salvar como",
     "description": "Popup option: label of the .zip / .wsnp radio buttons."

@@ -15,6 +15,9 @@ export async function extractPage(editorTexts = {}, options = {}) {
   const MAX_SCREENS = 40; // endless feeds stop here…
   const MAX_REVEAL_MS = 20_000; // …or here
   const MAX_LOAD_MORE = 5;
+  const MAX_CHOICE_GROUPS = 12; // groups of radio buttons recorded (the popup's opt-in option)…
+  const MAX_CHOICE_OPTIONS = 8; // …options in each…
+  const MAX_CHOICE_HTML = 1_500_000; // …and characters of one recorded area
   // What the page says about itself, read before the capture touches anything (for the .wsnp
   // manifest): title (else its first heading), description, canonical address and language.
   const metaContent = (selector) => document.querySelector(selector)?.getAttribute('content')?.trim() || '';
@@ -694,16 +697,157 @@ export async function extractPage(editorTexts = {}, options = {}) {
     };
   }
 
+  // ---- What each choice shows (the popup's opt-in option) -------------------------------------
+  //
+  // Some forms only build the next step when an option is chosen ("Yes, I'm ready" shows the next
+  // questions): it is not in the page until then. With the option on, each visible group of radio
+  // buttons (native, or role="radio") gets each option chosen in turn, as a person would, and the
+  // area of the page that changed is recorded for each; then the original choice is put back.
+  // What changes on its own meanwhile (a countdown, a clock) is watched first and ignored. A site
+  // may keep the last option chosen (a radio cannot be unticked by a click): that group is
+  // reported, since the page now shows an answer the user did not give.
+  const radioGroups = () => {
+    const groups = new Map();
+    for (const el of document.querySelectorAll('input[type="radio"], [role="radio"]')) {
+      const native = el.localName === 'input';
+      const key = native ? (el.name ? `name:${el.form ? Array.from(document.forms).indexOf(el.form) : -1}:${el.name}` : null) : el.closest('[role="radiogroup"]');
+      if (!key) continue;
+      const shown = el.getClientRects().length > 0 || (native && el.labels?.[0]?.getClientRects().length > 0);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push({ el, shown });
+    }
+    return Array.from(groups.values())
+      .filter((options) => options.length >= 2 && options.some((o) => o.shown) && options.every((o) => !isDisabled(o.el)))
+      .map((options) => options.map((o) => o.el));
+  };
+  const isChecked = (el) => (el.localName === 'input' ? el.checked : el.getAttribute('aria-checked') === 'true');
+  // Choose an option as a person would: on its label when the input itself is hidden (custom radios).
+  const choose = (el) => {
+    const visible = el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
+    (visible || el.localName !== 'input' ? el : el.labels?.[0] || el).click();
+  };
+  const commonAncestor = (nodes) => {
+    let common = nodes[0];
+    for (const node of nodes.slice(1)) while (common && !common.contains(node)) common = common.parentElement;
+    return common;
+  };
+  // Elements that change by themselves (timers), watched for a moment before choosing anything.
+  async function restlessElements() {
+    const restless = new Set();
+    const watch = new MutationObserver((records) => records.forEach((r) => restless.add(r.target.nodeType === 1 ? r.target : r.target.parentElement)));
+    watch.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+    await sleep(1200);
+    watch.disconnect();
+    return restless;
+  }
+  // Chooses `el` and returns where the page changed (the elements whose content or attributes
+  // changed), once it has been quiet for a moment.
+  async function changesFrom(el, restless) {
+    const changed = new Set();
+    const ignore = (node) => Array.from(restless).some((r) => r && r.contains(node));
+    const watch = new MutationObserver((records) => records.forEach((r) => {
+      const target = r.target.nodeType === 1 ? r.target : r.target.parentElement;
+      if (target && !ignore(target)) changed.add(target);
+    }));
+    watch.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+    choose(el);
+    let last = -1;
+    for (let waited = 0; waited < 3000; waited += 150) {
+      await sleep(150);
+      if (changed.size === last && waited >= 450) break;
+      last = changed.size;
+    }
+    watch.disconnect();
+    return Array.from(changed);
+  }
+  // Untick every option of a group, for a site that had none chosen (and tell the page, as a
+  // person's change would).
+  function untick(options) {
+    for (const el of options) {
+      if (el.localName === 'input') {
+        if (!el.checked) continue;
+        el.checked = false;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      } else if (el.getAttribute('aria-checked') === 'true') {
+        el.setAttribute('aria-checked', 'false');
+      }
+    }
+  }
+
+  async function exploreChoices() {
+    const choices = {};
+    const left = []; // groups the page would not put back as they were: the label of the option left chosen
+    const groups = radioGroups().slice(0, MAX_CHOICE_GROUPS);
+    if (!groups.length) return { choices, left };
+    const restless = await restlessElements();
+    let recordedGroups = 0;
+    for (const [g, all] of groups.entries()) {
+      if (cancelled) break;
+      const options = all.slice(0, MAX_CHOICE_OPTIONS);
+      report({ phase: 'choices', group: g + 1, groups: groups.length });
+      const original = options.find(isChecked) || null;
+      // First pass: where does each option change the page? The area is everything that changed
+      // plus the group itself.
+      const touched = [commonAncestor(options)];
+      for (const el of options) {
+        if (cancelled) break;
+        if (!el.isConnected) break;
+        touched.push(...await changesFrom(el, restless));
+      }
+      let region = commonAncestor(touched.filter((n) => n?.isConnected));
+      if (region && (region === document.body || region === document.documentElement)) region = null;
+      // Second pass, now that the area is known: its content for each option.
+      const pages = [];
+      if (region && !cancelled) {
+        for (const el of options) {
+          if (cancelled || !el.isConnected || !region.contains(el)) { pages.length = 0; break; }
+          choose(el);
+          await settle(region);
+          const html = fragmentHtml(region);
+          if (html.length > MAX_CHOICE_HTML) { pages.length = 0; break; }
+          pages.push(html);
+        }
+      }
+      // Put the original choice back.
+      if (original?.isConnected) choose(original);
+      else untick(options);
+      if (region?.isConnected) await settle(region);
+      await sleep(150);
+      const stuck = original ? null : options.find((el) => el.isConnected && isChecked(el));
+      if ((original && !isChecked(original)) || stuck) {
+        const now = stuck || options.find((el) => el.isConnected && isChecked(el));
+        const label = now && (now.labels?.[0]?.textContent || now.getAttribute('aria-label') || now.textContent || '');
+        left.push((label || '?').trim().replace(/\s+/g, ' ').slice(0, 80));
+      }
+      if (!region?.isConnected || pages.length !== options.length) continue;
+      // How the offline script finds the group again in the area: by name, or which radiogroup.
+      const first = options[0];
+      const where = first.localName === 'input'
+        ? { name: first.name }
+        : { radiogroup: Array.from(region.querySelectorAll('[role="radiogroup"]')).indexOf(first.closest('[role="radiogroup"]')) };
+      const id = String(++recordedGroups);
+      // Two groups can share an area: it lists both.
+      region.setAttribute('data-snap-choices', `${region.getAttribute('data-snap-choices') || ''} ${id}`.trim());
+      // The copy shows the area as the page shows it now; `start` is the option chosen there.
+      choices[id] = { pages, start: options.findIndex(isChecked), group: where };
+    }
+    report({ phase: 'choices-done', groups: recordedGroups, left: left.length });
+    return { choices, left };
+  }
+
   let recorded = { pagers: {}, sliders: {} };
+  let chosen = { choices: {}, left: [] };
   // The capture's own marks on the live page, removed once it is copied.
   const unmark = () => {
-    for (const name of ['data-snap-pager', 'data-snap-slider', 'data-snap-slider-prev', 'data-snap-slider-next', 'data-snap-slider-dot', 'data-snap-part']) {
+    for (const name of ['data-snap-choices', 'data-snap-pager', 'data-snap-slider', 'data-snap-slider-prev', 'data-snap-slider-next', 'data-snap-slider-dot', 'data-snap-part']) {
       document.querySelectorAll(`[${name}]`).forEach((el) => el.removeAttribute(name));
     }
   };
   try {
     if (options.reveal) await revealAll();
     if (!cancelled) recorded = await explorePagers();
+    if (!cancelled && options.choices) chosen = await exploreChoices();
   } finally {
     try { chrome.runtime.onMessage.removeListener(onCancel); } catch { /* not in an extension */ }
   }
@@ -727,5 +871,7 @@ export async function extractPage(editorTexts = {}, options = {}) {
     viewport: { width: innerWidth, height: innerHeight },
     pixelRatio: devicePixelRatio || 1,
     sliders: recorded.sliders,
+    choices: chosen.choices,
+    choicesLeft: chosen.left,
   };
 }

@@ -6,6 +6,12 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- New popup option **Record what each choice shows**, off by default: for forms that only build
+  their next step once a radio button is chosen. The capture chooses each option of every group in
+  turn, records what the page shows for each and puts the original choice back; in the copy,
+  choosing an option shows what the page showed for it. It acts on the live page, so a site may
+  save those answers or keep the last option chosen; the popup then warns, naming the option.
+
 - Links to places in the page itself now work offline instead of going to the site: the page's
   address with `#section`, and links that the site's own script turned into a jump (such as
   `?jumpTo=bookmark:overview`, for an element marked `data-bookmark-id="overview"`) become links

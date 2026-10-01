@@ -70,6 +70,7 @@ function render(job) {
   $('failed-summary').textContent = plural(failures.length, 'failed_summary');
   fill($('failed'), failures, (li, f) => { li.textContent = `${f.url} — ${f.text ? t(f.text) : f.reason}`; });
   $('opt-reveal').disabled = phase !== 'idle';
+  $('opt-choices').disabled = phase !== 'idle';
   for (const radio of formats()) radio.disabled = phase !== 'idle';
   $('snapshot').disabled = phase !== 'idle';
   $('cancel').disabled = phase === 'idle';
@@ -110,8 +111,8 @@ $('download').onclick = async () => {
   }
 };
 
-// "Load the whole page first" and "Save as" (.zip or .wsnp): remembered, and applied by the
-// next Snapshot.
+// "Load the whole page first", "Record what each choice shows" (off unless turned on) and "Save
+// as" (.zip or .wsnp): remembered, and applied by the next Snapshot.
 function formats() { return document.querySelectorAll('input[name="format"]'); }
 async function saveSetting(change) {
   const { settings } = await chrome.storage.local.get('settings');
@@ -119,10 +120,12 @@ async function saveSetting(change) {
 }
 chrome.storage.local.get('settings').then(({ settings }) => {
   $('opt-reveal').checked = settings?.reveal !== false;
+  $('opt-choices').checked = settings?.choices === true;
   const format = settings?.format === 'wsnp' ? 'wsnp' : 'zip';
   for (const radio of formats()) radio.checked = radio.value === format;
 });
 $('opt-reveal').onchange = () => saveSetting({ reveal: $('opt-reveal').checked });
+$('opt-choices').onchange = () => saveSetting({ choices: $('opt-choices').checked });
 for (const radio of formats()) radio.onchange = () => { if (radio.checked) saveSetting({ format: radio.value }); };
 
 // The Help shows the key that signs the .wsnp files (docs/FORMAT.md section 12), so the user can
