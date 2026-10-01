@@ -27,11 +27,12 @@ export async function openPopupWindow(context, worker, extensionId, onError = ()
 }
 
 // Which of the popup's controls are enabled: { snapshot, cancel, download, option }. `option`
-// covers both options ("Load the whole page first" and the .zip / .wsnp choice): true or false
+// covers every option ("Load the whole page first", "Record what each choice shows" and the
+// .zip / .wsnp choice): true or false
 // when they agree, 'mixed' when they do not.
 export const controls = (popup) => popup.evaluate(() => {
   const on = (el) => !el.disabled;
-  const options = [document.getElementById('opt-reveal'), ...document.querySelectorAll('input[name="format"]')].map(on);
+  const options = [document.getElementById('opt-reveal'), document.getElementById('opt-choices'), ...document.querySelectorAll('input[name="format"]')].map(on);
   return {
     ...Object.fromEntries(['snapshot', 'cancel', 'download'].map((id) => [id, on(document.getElementById(id))])),
     option: options.every(Boolean) ? true : options.some(Boolean) ? 'mixed' : false,
