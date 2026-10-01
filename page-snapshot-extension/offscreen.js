@@ -328,12 +328,55 @@ function getAsset(url, kind, chain = []) {
   return assets.get(url);
 }
 
+// A web page where a file was expected: sites often answer a link to a file (a .zip, a .pdf)
+// with a page of their own that shows or downloads it, or with a sign-in page.
+const PAGE_LINK_RE = /\.(html?|xhtml|php|aspx?|jsp)$|\/[^./]*$/i;
+function isWebPage(url, type, bytes) {
+  if (PAGE_LINK_RE.test(new URL(url).pathname)) return false;
+  if (/^(text\/html|application\/xhtml\+xml)/i.test(type)) return true;
+  if (type && !/^(application\/octet-stream|text\/plain)/i.test(type)) return false;
+  const head = new TextDecoder().decode(bytes.subarray(0, 1024)).trimStart().toLowerCase();
+  return /^<(!doctype html|html|head|body|iframe|style|script|meta)\b/.test(head);
+}
+
+// The file such a page shows or links to: a frame, embed, link or redirect of the page whose
+// address ends with the same file name (or, failing that, has the same extension). Returns the
+// download of the first one that is not a web page itself, or null.
+async function fileInPage(url, bytes) {
+  const doc = new DOMParser().parseFromString(new TextDecoder().decode(bytes), 'text/html');
+  const wanted = new URL(url).pathname.split('/').pop().toLowerCase();
+  const ext = (wanted.match(/\.[a-z0-9]+$/) || [''])[0];
+  const found = [];
+  for (const [selector, attr] of [['iframe', 'src'], ['embed', 'src'], ['object', 'data'], ['a', 'href'], ['source', 'src']]) {
+    for (const el of doc.querySelectorAll(`${selector}[${attr}]`)) found.push(el.getAttribute(attr));
+  }
+  const refresh = doc.querySelector('meta[http-equiv="refresh" i]')?.getAttribute('content')?.match(/url\s*=\s*['"]?([^'"]+)/i);
+  if (refresh) found.push(refresh[1]);
+  const candidates = found.map((raw) => fetchableUrl(raw, url)).filter(Boolean).filter((u) => u.href !== url);
+  const named = (u) => u.pathname.split('/').pop().toLowerCase();
+  const ranked = [...candidates.filter((u) => named(u) === wanted), ...candidates.filter((u) => named(u) !== wanted && ext && named(u).endsWith(ext))];
+  for (const candidate of ranked.slice(0, 3)) {
+    try {
+      const got = await limited(() => fetchBytes(candidate.href));
+      if (!isWebPage(candidate.href, got.type, got.bytes)) return got;
+    } catch { /* expired, refused: try the next one */ }
+  }
+  return null;
+}
+
 async function downloadAsset(url, kind, chain) {
   let bytes;
   let type;
   let source;
   try {
     ({ bytes, type, source } = await limited(() => fetchBytes(url)));
+    // A linked file that came back as a web page: save the file that page shows, if it can be
+    // had, but never the page under the file's name (it would load things from the site).
+    if (kind === 'file' && isWebPage(url, type, bytes)) {
+      const real = await fileInPage(url, bytes);
+      if (!real) throw failure('the site answered with a web page, not the file', msg('reason_web_page'));
+      ({ bytes, type, source } = real);
+    }
   } catch (err) {
     failures.push({ url, reason: err.message || String(err), text: err.text || null });
     return null;
@@ -585,11 +628,16 @@ async function processElement(el, base, page, depth) {
         linkedFiles.add(href.href);
         step('files', msg('step_files_saving', linkedFiles.size));
       }
-      const name = fileNameFromUrl(href.href);
       const file = await getAsset(href.href, 'file');
       if (file) {
+        // As on the site: the saved file opens in another tab (a browser that cannot show it
+        // downloads it), or is downloaded when the link said so, under its original name.
         el.setAttribute('href', `assets/${file}`);
-        if (!el.hasAttribute('download')) el.setAttribute('download', name);
+        if (el.hasAttribute('download') && !el.getAttribute('download')) el.setAttribute('download', fileNameFromUrl(href.href));
+        if (!el.hasAttribute('download')) {
+          el.setAttribute('target', '_blank');
+          el.setAttribute('rel', 'noopener');
+        }
         saved = true;
       }
     }

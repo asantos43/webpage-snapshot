@@ -283,6 +283,10 @@
     "message": "precisa do debugger, que não pôde ser conectado",
     "description": "Why a file failed."
   },
+  "reason_web_page": {
+    "message": "o site respondeu com uma página da web, não com o arquivo",
+    "description": "Why a linked file failed: the site sent a web page (a viewer or sign-in page) instead of the file."
+  },
   "option_reveal": {
     "message": "Carregar a página inteira antes: rolar até o fim e apertar “Carregar mais”, para salvar tudo",
     "description": "Popup option (checkbox)."
