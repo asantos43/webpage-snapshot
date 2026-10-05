@@ -7,7 +7,12 @@
 //   - a Bootstrap modal, a <dialog>, a drop-down menu, an accordion (collapse) and tabs;
 //   - links to places in the page itself, written as the page's address: with a #fragment, and with
 //     a parameter the site's script reads to scroll (?jumpTo=bookmark:…), the bookmark standing
-//     before a closed section (Headless UI style) or inside one.
+//     before a closed section (Headless UI style) or inside one;
+//   - links to files of the site: one the site answers with a viewer page holding the real file
+//     in a frame (the file is saved, not the page), one whose viewer points to an expired address
+//     (not saved: the link stays online and the popup lists it), one whose viewer page is in the
+//     browser's cache with an address that has expired since (the page is asked again, fresh, and
+//     its new address used), and a plain one; saved files open in another tab.
 // Exit code 1 if any check fails.
 // Usage: node library.mjs [path-to-extension]   (default: ../page-snapshot-extension)
 //
@@ -77,6 +82,12 @@ body{font:16px sans-serif;margin:20px}
   <a id="next-page" href="/?page=2">Page 2</a> |
   <a id="other-page" href="/other?jumpTo=bookmark%3Aoverview_ref">Another page</a>
 </section>
+<section id="files">
+  <a id="toolkit" href="/publish/toolkit.zip" target="_blank">Download the toolkit</a>
+  <a id="expired" href="/publish/expired.pdf">Old guide</a>
+  <a id="guide" href="/docs/guide.pdf">Guide</a>
+  <a id="stale" href="/publish/stale.zip">Starter kit</a>
+</section>
 <div style="height:1500px">(a long page)</div>
 <p><span data-bookmark-id="overview_ref"></span></p>
 <div><button id="ov-b" type="button" aria-expanded="false">Overview</button><div id="ov-p" hidden>Overview body</div></div>
@@ -85,6 +96,9 @@ body{font:16px sans-serif;margin:20px}
 <h2 id="faq">FAQ</h2>
 <div style="height:1500px">(the end)</div>
 <script>
+// The page has already loaded the starter kit's viewer page once: it is in the browser's cache,
+// with the storage address it had then (which has expired since).
+fetch('/publish/stale.zip');
 // Bootstrap-style: the "active" class moves (and wraps around), on the items and the indicators.
 {
   const items = [...document.querySelectorAll('#bs .carousel-item')], dots = [...document.querySelectorAll('#bs .carousel-indicators button')];
@@ -117,7 +131,30 @@ body{font:16px sans-serif;margin:20px}
 }
 </script></body></html>`;
 
+// The toolkit's bytes (not a real zip: only their identity is checked).
+const TOOLKIT = Buffer.from('PK\u0003\u0004 toolkit bytes');
+const STARTER = Buffer.from('PK\u0003\u0004 starter kit bytes');
+let staleAnswers = 0;
+const viewer = (src) => `<style>body{margin:0}</style><div class='confidential-banner'>Confidential</div><iframe src='${src}' title='Custom File'></iframe><script src="https://cdn.example/viewer.js" type="module"></script>`;
 const server = http.createServer((req, res) => {
+  // A file link the site answers with its viewer page, the file in a frame (as a storage address).
+  if (req.url === '/publish/toolkit.zip') { res.setHeader('content-type', 'text/html; charset=utf-8'); return res.end(viewer('/storage/toolkit.zip?signature=abc')); }
+  if (req.url.startsWith('/storage/toolkit.zip')) { res.setHeader('content-type', 'application/zip'); return res.end(TOOLKIT); }
+  if (req.url === '/publish/expired.pdf') { res.setHeader('content-type', 'text/html; charset=utf-8'); return res.end(viewer('/storage/expired.pdf?signature=old')); }
+  if (req.url.startsWith('/storage/expired.pdf')) { res.statusCode = 403; return res.end('expired'); }
+  // Cached for an hour; the storage address in it is only good on the first answer.
+  if (req.url === '/publish/stale.zip') {
+    staleAnswers++;
+    res.setHeader('content-type', 'text/html; charset=utf-8');
+    res.setHeader('cache-control', 'max-age=3600');
+    return res.end(viewer(`/storage/stale.zip?signature=${staleAnswers === 1 ? 'expired' : 'fresh'}`));
+  }
+  if (req.url.startsWith('/storage/stale.zip')) {
+    if (!req.url.includes('signature=fresh')) { res.statusCode = 403; return res.end('expired'); }
+    res.setHeader('content-type', 'application/zip');
+    return res.end(STARTER);
+  }
+  if (req.url === '/docs/guide.pdf') { res.setHeader('content-type', 'application/pdf'); return res.end('%PDF-1.4 guide'); }
   const pic = req.url.match(/^\/photos\/(big|thumb)-(\d)\.svg$/);
   if (pic) {
     res.setHeader('content-type', 'image/svg+xml');
@@ -260,6 +297,18 @@ try {
   check('Question 2 opens its answer and closes the other', await shown('#c2') && !(await shown('#c1')));
   await snap.click('#t2');
   check('tabs: "Two" shows its pane and hides the first', await shown('#p2') && !(await shown('#p1')));
+
+  console.log('Links to files of the site');
+  const fileLink = (id) => snap.$eval(`#${id}`, (a) => ({ href: a.getAttribute('href'), target: a.getAttribute('target'), download: a.getAttribute('download') }));
+  const toolkit = await fileLink('toolkit');
+  check('a file the site shows in its viewer page: the file itself is saved, not the page', toolkit.href.startsWith('assets/files/') && fs.readFileSync(path.join(unzipDir, toolkit.href)).equals(TOOLKIT), JSON.stringify(toolkit));
+  check('a saved file opens in another tab (no download attribute added)', toolkit.target === '_blank' && toolkit.download === null && (await fileLink('guide')).target === '_blank' && (await fileLink('guide')).download === null, JSON.stringify([toolkit, await fileLink('guide')]));
+  const stale = await fileLink('stale');
+  check('a viewer page cached with an expired address: asked again, fresh, and its file saved', stale.href.startsWith('assets/files/') && fs.readFileSync(path.join(unzipDir, stale.href)).equals(STARTER) && staleAnswers === 2, `${JSON.stringify(stale)}; the site answered the page ${staleAnswers} times`);
+  const expired = await fileLink('expired');
+  check('a viewer page whose file cannot be had is not saved as the file: the link stays on the site', expired.href === `${url}publish/expired.pdf`, JSON.stringify(expired));
+  check('and the popup lists it, saying the site answered with a web page', job.failures.some((f) => f.url === `${url}publish/expired.pdf` && f.text?.key === 'reason_web_page'), JSON.stringify(job.failures));
+  check('no saved file is a web page', !fs.readdirSync(path.join(unzipDir, 'assets', 'files')).some((f) => /<iframe|<html|<style/i.test(fs.readFileSync(path.join(unzipDir, 'assets', 'files', f), 'utf8').slice(0, 300))));
 
   console.log('Links to places in the page itself');
   const hrefs = await snap.$$eval('#quick a', (links) => Object.fromEntries(links.map((a) => [a.id, a.getAttribute('href')])));

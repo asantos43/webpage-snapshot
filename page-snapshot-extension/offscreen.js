@@ -265,9 +265,9 @@ function fromWorker(err) {
 // by the tab itself through the debugger (Network.loadNetworkResource, the way DevTools loads
 // source maps; background.js `loadResource`). The extension has no host permission, only
 // activeTab on the captured tab, so it never downloads anything on its own.
-async function viaDebugger(url) {
+async function viaDebugger(url, fresh = false) {
   if (!mainFrameId) throw failure('needs the debugger, which could not be attached', msg('reason_no_debugger'));
-  const res = await call('loadResource', { frameId: mainFrameId, url, maxBytes: MAX_RESOURCE_BYTES, timeoutMs: FETCH_TIMEOUT_MS }).catch((err) => { throw fromWorker(err); });
+  const res = await call('loadResource', { frameId: mainFrameId, url, maxBytes: MAX_RESOURCE_BYTES, timeoutMs: FETCH_TIMEOUT_MS, fresh }).catch((err) => { throw fromWorker(err); });
   if (res.status && (res.status < 200 || res.status > 299)) throw httpError(res.status, res.retryAfter);
   if (res.error) throw new Error(res.error);
   const parts = res.chunks.every((c) => !c.base64) // text arrives decoded, like readFromPage's
@@ -282,10 +282,10 @@ async function viaDebugger(url) {
 // Same-origin files can be requested from inside the tab (background.js `fetchInTab`): that
 // uses the page's own cookies and HTTP cache, so files it already loaded are served without a
 // network hit. Returns null when the tab cannot do it (caller falls back to viaDebugger).
-async function viaTab(url) {
+async function viaTab(url, fresh = false) {
   let result;
   try {
-    result = await call('fetchInTab', { url });
+    result = await call('fetchInTab', { url, fresh });
   } catch {
     return null;
   }
@@ -296,19 +296,21 @@ async function viaTab(url) {
   return { bytes, type: result.type, source: 'tab' };
 }
 
-async function fetchBytes(url) {
+// `fresh`: from the site, not from what the tab or its cache already has (for a page whose
+// cached copy has gone stale, such as one holding an expired download address).
+async function fetchBytes(url, { fresh = false } = {}) {
   state.now = shortUrl(url);
-  const loaded = await readFromPage(url);
+  const loaded = fresh ? null : await readFromPage(url);
   if (loaded) return loaded;
 
   return limitedByHost(url, async () => {
     for (let attempt = 0; ; attempt++) {
       try {
         if (tabOrigin && new URL(url).origin === tabOrigin) {
-          const viaPage = await viaTab(url);
+          const viaPage = await viaTab(url, fresh);
           if (viaPage) return viaPage;
         }
-        return await viaDebugger(url);
+        return await viaDebugger(url, fresh);
       } catch (err) {
         const retryable = err.status === 429 || err.status === 503;
         if (!retryable || attempt >= MAX_RETRIES) throw err;
@@ -328,12 +330,62 @@ function getAsset(url, kind, chain = []) {
   return assets.get(url);
 }
 
+// A web page where a file was expected: sites often answer a link to a file (a .zip, a .pdf)
+// with a page of their own that shows or downloads it, or with a sign-in page.
+const PAGE_LINK_RE = /\.(html?|xhtml|php|aspx?|jsp)$|\/[^./]*$/i;
+function isWebPage(url, type, bytes) {
+  if (PAGE_LINK_RE.test(new URL(url).pathname)) return false;
+  if (/^(text\/html|application\/xhtml\+xml)/i.test(type)) return true;
+  if (type && !/^(application\/octet-stream|text\/plain)/i.test(type)) return false;
+  const head = new TextDecoder().decode(bytes.subarray(0, 1024)).trimStart().toLowerCase();
+  return /^<(!doctype html|html|head|body|iframe|style|script|meta)\b/.test(head);
+}
+
+// The file such a page shows or links to: a frame, embed, link or redirect of the page whose
+// address ends with the same file name (or, failing that, has the same extension). Returns the
+// download of the first one that is not a web page itself, or null.
+async function fileInPage(url, bytes) {
+  const doc = new DOMParser().parseFromString(new TextDecoder().decode(bytes), 'text/html');
+  const wanted = new URL(url).pathname.split('/').pop().toLowerCase();
+  const ext = (wanted.match(/\.[a-z0-9]+$/) || [''])[0];
+  const found = [];
+  for (const [selector, attr] of [['iframe', 'src'], ['embed', 'src'], ['object', 'data'], ['a', 'href'], ['source', 'src']]) {
+    for (const el of doc.querySelectorAll(`${selector}[${attr}]`)) found.push(el.getAttribute(attr));
+  }
+  const refresh = doc.querySelector('meta[http-equiv="refresh" i]')?.getAttribute('content')?.match(/url\s*=\s*['"]?([^'"]+)/i);
+  if (refresh) found.push(refresh[1]);
+  const candidates = found.map((raw) => fetchableUrl(raw, url)).filter(Boolean).filter((u) => u.href !== url);
+  const named = (u) => u.pathname.split('/').pop().toLowerCase();
+  const ranked = [...candidates.filter((u) => named(u) === wanted), ...candidates.filter((u) => named(u) !== wanted && ext && named(u).endsWith(ext))];
+  for (const candidate of ranked.slice(0, 3)) {
+    try {
+      const got = await limited(() => fetchBytes(candidate.href));
+      if (!isWebPage(candidate.href, got.type, got.bytes)) return got;
+    } catch { /* expired, refused: try the next one */ }
+  }
+  return null;
+}
+
 async function downloadAsset(url, kind, chain) {
   let bytes;
   let type;
   let source;
   try {
     ({ bytes, type, source } = await limited(() => fetchBytes(url)));
+    // A linked file that came back as a web page: save the file that page shows, if it can be
+    // had, but never the page under the file's name (it would load things from the site).
+    // The page may be an old copy from the cache, holding an address that has expired since: if
+    // its file cannot be had, ask the site for the page again, fresh, and try its file.
+    if (kind === 'file' && isWebPage(url, type, bytes)) {
+      let real = await fileInPage(url, bytes);
+      if (!real) {
+        const again = await limited(() => fetchBytes(url, { fresh: true })).catch(() => null);
+        if (again && isWebPage(url, again.type, again.bytes)) real = await fileInPage(url, again.bytes);
+        else if (again) real = again; // this time the site sent the file itself
+      }
+      if (!real) throw failure('the site answered with a web page, not the file', msg('reason_web_page'));
+      ({ bytes, type, source } = real);
+    }
   } catch (err) {
     failures.push({ url, reason: err.message || String(err), text: err.text || null });
     return null;
@@ -585,11 +637,16 @@ async function processElement(el, base, page, depth) {
         linkedFiles.add(href.href);
         step('files', msg('step_files_saving', linkedFiles.size));
       }
-      const name = fileNameFromUrl(href.href);
       const file = await getAsset(href.href, 'file');
       if (file) {
+        // As on the site: the saved file opens in another tab (a browser that cannot show it
+        // downloads it), or is downloaded when the link said so, under its original name.
         el.setAttribute('href', `assets/${file}`);
-        if (!el.hasAttribute('download')) el.setAttribute('download', name);
+        if (el.hasAttribute('download') && !el.getAttribute('download')) el.setAttribute('download', fileNameFromUrl(href.href));
+        if (!el.hasAttribute('download')) {
+          el.setAttribute('target', '_blank');
+          el.setAttribute('rel', 'noopener');
+        }
         saved = true;
       }
     }
@@ -641,20 +698,26 @@ async function restoreScroll(page) {
   await scrollTab(page.scroll.x, page.scroll.y).catch(() => {});
 }
 
-async function processFragment(html, base, page, depth) {
+// Recorded content that is swapped into the page (`outer`) offline: processed like the page,
+// links to the page itself included.
+async function processFragment(html, base, page, depth, outer) {
   const doc = new DOMParser().parseFromString(`<!doctype html><html><body>${html}</body></html>`, 'text/html');
   await processDom(doc, base, page, depth);
+  if (outer) linksWithinPage(doc, page.url, outer);
   return doc.body.innerHTML;
 }
 
 // Links to the page itself become links inside the saved page, so they never go online: the page
 // address with a #fragment, or with a query parameter naming an element of the page, which the
 // site's own script scrolled to ("?jumpTo=bookmark:intro" for <span data-bookmark-id="intro">).
-// The element gets an id if it has none. Returns how many links were turned.
+// The element gets an id if it has none, made from the name the link used, so the same element
+// gets the same id in the page and in the recorded content swapped into it (carousel items,
+// choices). In such content (`doc`, with `outer` the page), a link finds its target in the
+// content first, then in the page. Returns how many links were turned.
 const MARK_ATTR = /^data-(?:[\w-]*-)?(?:id|anchor|bookmark|bookmark-id|section|slug|target|ref)$/;
-function linksWithinPage(doc, pageUrl) {
+function elementNamed(doc) {
   let marks = null; // value of a marking data-* attribute -> its element, built on first need
-  const byName = (token) => {
+  return (token) => {
     const found = doc.getElementById(token) || doc.querySelector(`a[name="${CSS.escape(token)}"]`);
     if (found) return found;
     if (!marks) {
@@ -665,6 +728,11 @@ function linksWithinPage(doc, pageUrl) {
     }
     return marks.get(token) || null;
   };
+}
+function linksWithinPage(doc, pageUrl, outer = null) {
+  const inDoc = elementNamed(doc);
+  const inOuter = outer && elementNamed(outer);
+  const byName = (token) => inDoc(token) || inOuter?.(token) || null;
   let turned = 0;
   for (const link of doc.querySelectorAll('a[href]')) {
     const href = link.getAttribute('href');
@@ -679,8 +747,9 @@ function linksWithinPage(doc, pageUrl) {
     }
     if (!element && !target.fragment) continue;
     if (element && !element.id) {
+      const home = element.ownerDocument;
       let id = `snap-${slugify(target.tokens[0] || target.fragment, 40) || 'target'}`;
-      for (let n = 2; doc.getElementById(id); n++) id = id.replace(/(-\d+)?$/, `-${n}`);
+      for (let n = 2; home.getElementById(id); n++) id = id.replace(/(-\d+)?$/, `-${n}`);
       element.id = id;
     }
     link.setAttribute('href', `#${element ? element.id : target.fragment}`);
@@ -702,7 +771,7 @@ async function processDocument(data, page, depth = 0) {
     for (const region of doc.querySelectorAll('[data-snap-pager]')) {
       const id = region.getAttribute('data-snap-pager');
       const { pages = [], start = 0 } = page.pagers?.[id] || {};
-      recorded[id] = { pages: await Promise.all(pages.map((html) => processFragment(html, data.base, page, depth))), start };
+      recorded[id] = { pages: await Promise.all(pages.map((html) => processFragment(html, data.base, page, depth, doc))), start };
     }
     const store = doc.createElement('script');
     store.setAttribute('type', 'application/json');
@@ -717,7 +786,7 @@ async function processDocument(data, page, depth = 0) {
   if (depth === 0 && data.html.includes('data-snap-choices')) {
     const recorded = {};
     for (const [id, { pages = [], start = -1, group = {} }] of Object.entries(page.choices || {})) {
-      recorded[id] = { pages: await Promise.all(pages.map((html) => processFragment(html, data.base, page, depth))), start, group };
+      recorded[id] = { pages: await Promise.all(pages.map((html) => processFragment(html, data.base, page, depth, doc))), start, group };
     }
     const store = doc.createElement('script');
     store.setAttribute('type', 'application/json');

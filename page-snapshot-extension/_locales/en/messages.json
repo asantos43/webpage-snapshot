@@ -283,6 +283,10 @@
     "message": "needs the debugger, which could not be attached",
     "description": "Why a file failed."
   },
+  "reason_web_page": {
+    "message": "the site answered with a web page, not the file",
+    "description": "Why a linked file failed: the site sent a web page (a viewer or sign-in page) instead of the file."
+  },
   "option_reveal": {
     "message": "Load the whole page first: scroll to the end and press “Load more”, so everything is saved",
     "description": "Popup option (checkbox)."

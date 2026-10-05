@@ -6,17 +6,26 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- Links to files saved with the page (attachments, archives, documents) open in another tab, as on
+  the site, instead of always downloading. When a site answers a link to a file with a web page of
+  its own (a viewer showing the file in a frame, or a sign-in page), PageKeep saves the file that
+  page shows, when it can be had (asking the site for the page again, fresh, when the browser's
+  cached copy holds a download address that has expired), and otherwise no longer saves that page under the file's name:
+  the link keeps pointing to the site and the popup lists it as not saved.
+
 - New popup option **Record what each choice shows**, off by default: for forms that only build
   their next step once a radio button is chosen. The capture chooses each option of every group in
   turn, records what the page shows for each and puts the original choice back; in the copy,
-  choosing an option shows what the page showed for it. It acts on the live page, so a site may
+  choosing an option shows what the page showed for it, including the next questions an answer
+  reveals (up to 4 levels deep). It acts on the live page, so a site may
   save those answers or keep the last option chosen; the popup then warns, naming the option.
 
 - Links to places in the page itself now work offline instead of going to the site: the page's
   address with `#section`, and links that the site's own script turned into a jump (such as
   `?jumpTo=bookmark:overview`, for an element marked `data-bookmark-id="overview"`) become links
   inside the saved copy. Jumping there opens the closed section the place is in (or that comes
-  right after it) and leaves room for a bar pinned to the top of the page, as the site does.
+  right after it) and leaves room for a bar pinned to the top of the page, as the site does. This
+  also holds inside content swapped in offline (carousel items, what each choice shows).
 
 ## [1.6.1] - 2026-09-30
 
