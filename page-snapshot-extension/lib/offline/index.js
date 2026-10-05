@@ -16,6 +16,7 @@ import { lightbox } from './lightbox.js';
 import { modal } from './modal.js';
 import { pager } from './pager.js';
 import { slider } from './slider.js';
+import { splitter } from './splitter.js';
 import { tabs } from './tabs.js';
 import { toggles } from './toggles.js';
 
@@ -27,6 +28,7 @@ export const OFFLINE_MODULES = [
   { name: 'choices', needed: (html) => html.includes('data-snap-choices'), run: choices },
   { name: 'pager', needed: (html) => html.includes('data-snap-pager'), run: pager },
   { name: 'slider', needed: (html) => html.includes('data-snap-slider'), run: slider },
+  { name: 'splitter', needed: (html) => /data-resize-handle|data-panel-resize-handle-id|role="separator"[^>]*tabindex/.test(html), run: splitter },
   { name: 'editors', needed: (html) => html.includes('data-snap-editor'), run: editors },
   { name: 'lightbox', needed: (html) => html.includes('data-snap-lightbox'), run: lightbox },
   { name: 'modal', needed: (html) => /data-(bs-)?toggle="modal"|<dialog|role="(alert)?dialog"|commandfor=/.test(html), run: modal },

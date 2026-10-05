@@ -6,6 +6,10 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- Split views keep working offline: the handle between two resizable panels (react-resizable-panels
+  and other flex layouts with a `role="separator"` handle) can be dragged, or moved with the arrow
+  keys, and the panels keep their proportions when the window changes size.
+
 - **Record what each choice shows**: in the copy, every question keeps its own answer, as on the
   site. Choosing an option only changes what that question controls (its own card and what its
   answer shows or hides, including the content of the questions it revealed); the other
