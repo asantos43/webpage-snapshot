@@ -8,6 +8,8 @@
 //   - links to places in the page itself, written as the page's address: with a #fragment, and with
 //     a parameter the site's script reads to scroll (?jumpTo=bookmark:…), the bookmark standing
 //     before a closed section (Headless UI style) or inside one;
+//   - a split view (react-resizable-panels style): its handle drags and its arrow keys move the
+//     boundary between the two panels, which keep their proportions when the room changes;
 //   - links to files of the site: one the site answers with a viewer page holding the real file
 //     in a frame (the file is saved, not the page), one whose viewer points to an expired address
 //     (not saved: the link stays online and the popup lists it), one whose viewer page is in the
@@ -81,6 +83,11 @@ body{font:16px sans-serif;margin:20px}
   <a id="jump-faq" href="/#faq">FAQ</a> |
   <a id="next-page" href="/?page=2">Page 2</a> |
   <a id="other-page" href="/other?jumpTo=bookmark%3Aoverview_ref">Another page</a>
+</section>
+<section id="split" data-panel-group="" data-panel-group-direction="horizontal" style="display:flex;flex-direction:row;width:600px;height:80px">
+  <div id="pane-a" data-panel="" data-panel-size="60.0" style="flex: 60 1 0px; overflow: hidden;">Instructions</div>
+  <div id="grip" role="separator" tabindex="0" data-resize-handle="" data-resize-handle-state="inactive" data-panel-group-direction="horizontal" style="width:10px;flex:none;background:#888;touch-action:none"></div>
+  <div id="pane-b" data-panel="" data-panel-size="40.0" style="flex: 40 1 0px; overflow: hidden;">Task</div>
 </section>
 <section id="files">
   <a id="toolkit" href="/publish/toolkit.zip" target="_blank">Download the toolkit</a>
@@ -297,6 +304,25 @@ try {
   check('Question 2 opens its answer and closes the other', await shown('#c2') && !(await shown('#c1')));
   await snap.click('#t2');
   check('tabs: "Two" shows its pane and hides the first', await shown('#p2') && !(await shown('#p1')));
+
+  console.log('Split view (resizable panels)');
+  const widths = () => snap.evaluate(() => ['pane-a', 'pane-b'].map((id) => Math.round(document.getElementById(id).getBoundingClientRect().width)));
+  const [a0, b0] = await widths();
+  const grip = await snap.$eval('#grip', (g) => { g.scrollIntoView({ block: 'center' }); const r = g.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+  await snap.mouse.move(grip.x, grip.y);
+  await snap.mouse.down();
+  await snap.mouse.move(grip.x + 30, grip.y, { steps: 3 });
+  await snap.mouse.move(grip.x + 60, grip.y, { steps: 3 });
+  await snap.mouse.up();
+  let [a1, b1] = await widths();
+  check('dragging the handle 60 px to the right moves the boundary with it', Math.abs(a1 - (a0 + 60)) <= 2 && Math.abs(a1 + b1 - (a0 + b0)) <= 2, `${a0}/${b0} → ${a1}/${b1}`);
+  await snap.focus('#grip');
+  await snap.keyboard.press('ArrowLeft');
+  const [a2] = await widths();
+  check('the arrow keys move it too (Left: 20 px)', Math.abs(a2 - (a1 - 20)) <= 2, `${a1} → ${a2}`);
+  await snap.$eval('#split', (el) => { el.style.width = '900px'; });
+  const [a3, b3] = await widths();
+  check('the panels keep their proportions when the room changes', Math.abs(a3 / (a3 + b3) - a2 / (a1 + b1)) < 0.01, `${a2}/${a1 + b1 - a2} → ${a3}/${b3}`);
 
   console.log('Links to files of the site');
   const fileLink = (id) => snap.$eval(`#${id}`, (a) => ({ href: a.getAttribute('href'), target: a.getAttribute('target'), download: a.getAttribute('download') }));
