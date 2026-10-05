@@ -762,7 +762,16 @@ function linksWithinPage(doc, pageUrl, outer = null) {
 async function processDocument(data, page, depth = 0) {
   const doc = new DOMParser().parseFromString(data.html, 'text/html');
   await processDom(doc, data.base, page, depth);
-  if (depth === 0) linksWithinPage(doc, page.url);
+  // The area of a question that was on the page from the start shows what it held before the
+  // capture chose anything (the site may have kept the last option the capture chose). Done
+  // before the links, so the elements they point to keep the ids they get.
+  if (depth === 0) {
+    for (const [id, { original }] of Object.entries(page.choices || {})) {
+      const area = doc.querySelector(`[data-snap-choices~="${id}"]`);
+      if (area && typeof original === 'string') area.innerHTML = await processFragment(original, data.base, page, depth);
+    }
+    linksWithinPage(doc, page.url);
+  }
 
   // Carousels that keep one item in the page: every recorded item, processed like the page
   // itself, for lib/offline/pager.js to swap in.
@@ -782,11 +791,12 @@ async function processDocument(data, page, depth = 0) {
 
   // Sliding carousels: where the strip sat at each step, for lib/offline/slider.js.
   // Areas that change with a choice (radio buttons): their content for each option, processed
-  // like the page itself, for lib/offline/choices.js to swap in.
+  // like the page itself, for lib/offline/choices.js to bring in.
   if (depth === 0 && data.html.includes('data-snap-choices')) {
     const recorded = {};
-    for (const [id, { pages = [], start = -1, group = {} }] of Object.entries(page.choices || {})) {
-      recorded[id] = { pages: await Promise.all(pages.map((html) => processFragment(html, data.base, page, depth, doc))), start, group };
+    const fragment = (html) => processFragment(html, data.base, page, depth, doc);
+    for (const [id, { pages = [], group = {}, up = 0, parent = null }] of Object.entries(page.choices || {})) {
+      recorded[id] = { pages: await Promise.all(pages.map(fragment)), group, up, parent };
     }
     const store = doc.createElement('script');
     store.setAttribute('type', 'application/json');
