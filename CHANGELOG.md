@@ -6,6 +6,12 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- **Record what each choice shows**: in the copy, every question keeps its own answer, as on the
+  site. Choosing an option only changes what that question controls (its own card and what its
+  answer shows or hides, including the content of the questions it revealed); the other
+  questions keep the answers you gave. Questions revealed by an answer come in unanswered, and a
+  question the site kept on an option the capture chose opens as it was before the capture.
+
 - Links to files saved with the page (attachments, archives, documents) open in another tab, as on
   the site, instead of always downloading. When a site answers a link to a file with a web page of
   its own (a viewer showing the file in a frame, or a sign-in page), PageKeep saves the file that
