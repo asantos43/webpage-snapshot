@@ -48,7 +48,7 @@ const jobId = params.get('job');
 const version = params.get('version'); // offscreen documents have no chrome.runtime.getManifest
 const reveal = params.get('reveal') === '1'; // the popup's "Load the whole page first" option
 const choices = params.get('choices') === '1'; // the popup's "Record what each choice shows" option
-// The popup's "Save as": a .wsnp file (docs/FORMAT.md) or a plain ZIP.
+// The popup's "Save as": a .wsnp file (wsnp-format/FORMAT.md) or a plain ZIP.
 const wsnp = params.get('format') === 'wsnp';
 const WSNP_TYPE = 'application/vnd.wsnp+zip';
 
@@ -868,7 +868,7 @@ async function takePreview() {
 const hex = (buffer) => Array.from(new Uint8Array(buffer), (b) => b.toString(16).padStart(2, '0')).join('');
 const asBytes = (data) => (typeof data === 'string' ? new TextEncoder().encode(data) : data);
 
-// Signs the manifest with this installation's key (docs/FORMAT.md section 12). The signature is
+// Signs the manifest with this installation's key (wsnp-format/FORMAT.md section 12). The signature is
 // over the exact bytes that go into the ZIP, and the manifest says "1.1" only when it is signed.
 // Anything that goes wrong (no Web Crypto support, IndexedDB blocked or slow) gives the ordinary
 // unsigned 1.0 file: signing must never fail or hold up a capture. The reason goes to the console only.
@@ -889,7 +889,7 @@ async function signManifest(manifest) {
   }
 }
 
-// The entries of a .wsnp (docs/FORMAT.md): `mimetype` first and stored, then manifest.json, the
+// The entries of a .wsnp (wsnp-format/FORMAT.md): `mimetype` first and stored, then manifest.json, the
 // page, its assets and the format's own files, every one listed in the manifest with its type,
 // size and SHA-256.
 async function wsnpEntries({ page, html, capturedAt, preview }) {

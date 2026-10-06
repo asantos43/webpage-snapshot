@@ -37,7 +37,7 @@ Abrir o `index.html` não faz nenhuma requisição. Os scripts originais da pág
 | --- | --- |
 | `page-snapshot-extension/` | A extensão (JavaScript puro, sem etapa de build e sem dependências; a pasta mantém o nome antigo) |
 | `tests/` | Smoke test com Playwright num Chromium real |
-| `docs/` | Notas de desenvolvimento (ambiente, navegadores, versões, releases e origem do repo), a especificação do formato `.wsnp` (`FORMAT.md`) e as diretrizes do visualizador (`VIEWER-GUIDELINES.md`) |
+| `docs/` | Notas de desenvolvimento (ambiente, navegadores, versões, releases e origem do repo) e as diretrizes do visualizador (`VIEWER-GUIDELINES.md`) |
 | `.github/workflows/` | A Action que publica uma release a cada pull request mergeado |
 
 ## Instalar
@@ -70,7 +70,7 @@ Clique no botão da barra de ferramentas ou aperte **Alt+Shift+S**. O popup da e
 - **Gravar o que cada escolha mostra** (opção no popup, **desligada** a menos que você ligue; a escolha fica guardada): alguns formulários só montam o próximo passo depois que um radio button é escolhido. Com ela ligada, a captura escolhe cada opção de cada grupo, grava o que a página mostra para cada uma e devolve a escolha original; na cópia, escolher uma opção mostra o conteúdo gravado. Ela age na página ao vivo: um site pode salvar essas respostas ou ficar com a última opção escolhida, e o popup avisa qual ficou.
 - **Salvar como** `.zip` / `.wsnp` (`.zip`, a menos que você escolha o outro; a escolha fica guardada e fica travada enquanto uma captura roda):
   - `.zip` é um ZIP comum: qualquer programa de descompactar o abre, e o `index.html` funciona offline no navegador.
-  - `.wsnp` (Web SNaPshot) é a mesma página num só arquivo, um **contêiner** no formato definido em [`docs/FORMAT.md`](docs/FORMAT.md): a página e todos os arquivos de que ela precisa num único ZIP de estrutura fixa, com um manifesto que traz o endereço, o título e a descrição da página e lista cada arquivo com tipo, tamanho e SHA-256, os scripts offline em `_wsnp/` e uma prévia. Dá para guardá-lo, enviá-lo e abri-lo num visualizador de `.wsnp`; para descompactar você mesmo, renomeie-o para `.zip`.
+  - `.wsnp` (Web SNaPshot) é a mesma página num só arquivo, um **contêiner** no formato definido em [`FORMAT.md`](https://github.com/asantos43/wsnp-format/blob/main/FORMAT.md) (repositório [`wsnp-format`](https://github.com/asantos43/wsnp-format)): a página e todos os arquivos de que ela precisa num único ZIP de estrutura fixa, com um manifesto que traz o endereço, o título e a descrição da página e lista cada arquivo com tipo, tamanho e SHA-256, os scripts offline em `_wsnp/` e uma prévia. Dá para guardá-lo, enviá-lo e abri-lo num visualizador de `.wsnp`; para descompactar você mesmo, renomeie-o para `.zip`.
   - O `.wsnp` é **assinado**, para um visualizador perceber se ele foi editado depois: uma chave criada na primeira vez em que é preciso e guardada só neste navegador (Ed25519, ou ECDSA P-256 onde não há Ed25519; a chave privada é uma `CryptoKey` não exportável no IndexedDB da extensão, nunca é exportada nem enviada) assina o `manifest.json`, e a chave pública e a impressão digital vão no `signature.json`. A Ajuda do popup mostra a impressão digital, com um botão Copiar, para você dizer ao visualizador que a chave é sua. Se não der para assinar, o arquivo é salvo sem assinatura, e continua válido. O `.zip` não é assinado.
   - O visualizador é o **WSNP Viewer**, um aplicativo de desktop separado (Linux, Windows e macOS), em repositório próprio e ainda em desenvolvimento: não há versão publicada. Até lá, renomeie um `.wsnp` para `.zip` para descompactar (as diretrizes antigas dele estão em [`docs/VIEWER-GUIDELINES.md`](docs/VIEWER-GUIDELINES.md)).
 - Você pode fechar o popup ou clicar na página: a captura continua em segundo plano. Clique no ícone de novo para ver como está. O selo do ícone mostra **…** enquanto roda, **✓** quando termina e **!** se falhou.
@@ -125,7 +125,7 @@ npm install        # uma vez; o Chromium do Playwright fica em ~/.cache/ms-playw
 npm run smoke      # carrega a extensão e abre as páginas dela
 npm run carousel   # captura uma página com carrossel, de ponta a ponta
 npm run store-policy   # confere as regras da Chrome Web Store (docs/STORE-POLICY.md)
-npm run wsnp           # o validador de .wsnp e a proteção por senha (docs/FORMAT.md)
+npm run wsnp           # o validador de .wsnp e a proteção por senha (wsnp-format/FORMAT.md)
 node wsnp-check.mjs arquivo.wsnp   # valida um .wsnp
 npm run screenshots    # refaz as capturas do popup nos dois idiomas
 ```

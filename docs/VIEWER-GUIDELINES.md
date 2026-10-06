@@ -1,6 +1,6 @@
 # Guidelines for the PageKeep viewer
 
-The viewer is the application that opens `.wsnp` files ([`FORMAT.md`](FORMAT.md)). It will live in
+The viewer is the application that opens `.wsnp` files ([`FORMAT.md`](https://github.com/asantos43/wsnp-format/blob/main/FORMAT.md)). It will live in
 a repository of its own; these are the requirements it starts from, to be approved in its own
 plan. Whether it is an installable web app or a desktop app is decided there.
 

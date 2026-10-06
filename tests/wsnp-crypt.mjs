@@ -1,4 +1,4 @@
-// Reference implementation of WSNP password protection (docs/FORMAT.md → Password protection).
+// Reference implementation of WSNP password protection (wsnp-format/FORMAT.md → Password protection).
 // PageKeep never writes protected files: the viewer does. This module shows that the
 // specification works and is there for the viewer to reuse. Web Crypto only (the same code runs
 // in a browser), plus the extension's ZIP writer and wsnp-check.mjs's ZIP reader.

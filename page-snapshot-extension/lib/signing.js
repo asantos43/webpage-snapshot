@@ -1,4 +1,4 @@
-// Signing the manifest of a .wsnp (docs/FORMAT.md section 12, docs/MANIFEST-SIGNING.md).
+// Signing the manifest of a .wsnp (wsnp-format/FORMAT.md section 12, wsnp-format/MANIFEST-SIGNING.md).
 //
 // Each installation has one key pair, made the first time it is needed with Web Crypto: Ed25519
 // where the browser has it, otherwise ECDSA P-256. The private key is created NON-EXTRACTABLE and

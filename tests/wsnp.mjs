@@ -1,5 +1,5 @@
 // Checks of the WSNP reference tools, with no browser: wsnp-check.mjs accepts a well-made .wsnp
-// and refuses broken ones, and wsnp-crypt.mjs protects and opens files as docs/FORMAT.md says.
+// and refuses broken ones, and wsnp-crypt.mjs protects and opens files as wsnp-format/FORMAT.md says.
 // The .wsnp files the extension writes are checked in carousel.mjs.
 //
 // Usage: node wsnp.mjs
