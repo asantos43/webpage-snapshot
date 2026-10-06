@@ -321,7 +321,7 @@ try {
   check('manifest: a preview of the page', m.preview === '_wsnp/preview.jpg' && m.files.some((f) => f.path === m.preview && f.media_type === 'image/jpeg'));
   check('manifest: the offline scripts are a file of _wsnp/', m.files.some((f) => f.path === '_wsnp/offline.js' && f.media_type === 'text/javascript'));
 
-  // The manifest is signed (docs/FORMAT.md section 12): signature.json right after manifest.json, the
+  // The manifest is signed (wsnp-format/FORMAT.md section 12): signature.json right after manifest.json, the
   // manifest says 1.1, the signature checks with Node's crypto, and nothing but that exact manifest verifies.
   const zipEntries = readZip(bytes);
   check('signed: signature.json comes right after manifest.json, and is not listed in the manifest', zipEntries.slice(0, 3).map((e) => e.name).join() === 'mimetype,manifest.json,signature.json' && !m.files.some((f) => f.path === 'signature.json'), zipEntries.slice(0, 3).map((e) => e.name).join());

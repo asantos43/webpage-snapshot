@@ -1,4 +1,4 @@
-// Reference validator for WSNP files (docs/FORMAT.md): checks a .wsnp against the specification.
+// Reference validator for WSNP files (wsnp-format/FORMAT.md): checks a .wsnp against the specification.
 // Node only, no dependencies, so the viewer repository can reuse it.
 //
 // Usage: node wsnp-check.mjs <file.wsnp> [--password=…]

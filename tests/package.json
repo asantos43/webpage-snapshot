@@ -13,8 +13,7 @@
     "publish-script": "node publish-script.mjs",
     "library": "node library.mjs",
     "choices": "node choices.mjs",
-    "wsnp": "node wsnp.mjs",
-    "format-sync": "node format-sync.mjs"
+    "wsnp": "node wsnp.mjs"
   },
   "devDependencies": {
     "playwright": "^1.63.0"

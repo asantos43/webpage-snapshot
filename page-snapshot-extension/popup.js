@@ -128,7 +128,7 @@ $('opt-reveal').onchange = () => saveSetting({ reveal: $('opt-reveal').checked }
 $('opt-choices').onchange = () => saveSetting({ choices: $('opt-choices').checked });
 for (const radio of formats()) radio.onchange = () => { if (radio.checked) saveSetting({ format: radio.value }); };
 
-// The Help shows the key that signs the .wsnp files (docs/FORMAT.md section 12), so the user can
+// The Help shows the key that signs the .wsnp files (wsnp-format/FORMAT.md section 12), so the user can
 // tell the viewer "this key is mine". The key is made the first time it is needed, here or by the
 // first .wsnp; if the browser cannot make or keep one, the line stays hidden.
 $('help').addEventListener('toggle', async () => {
