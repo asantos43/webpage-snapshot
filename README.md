@@ -132,4 +132,4 @@ npm run screenshots    # refaz as capturas do popup nos dois idiomas
 
 ## Licença
 
-[MIT](LICENSE)
+[Mozilla Public License 2.0](LICENSE) (MPL-2.0)
