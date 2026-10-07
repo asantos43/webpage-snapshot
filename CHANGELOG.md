@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-10-07
+
 - The licence changes from MIT to the Mozilla Public License 2.0 (`LICENSE`, README).
 
 - The description of the `.wsnp` format (`FORMAT.md`, `MANIFEST-SIGNING.md`) moved to its own repository, [`wsnp-format`](https://github.com/asantos43/wsnp-format), shared with the WSNP Viewer. PageKeep keeps no copy: `docs/FORMAT.md`, `docs/MANIFEST-SIGNING.md`, `docs/FORMAT.sha256` and `npm run format-sync` are gone, and the README, the help page and the code comments point to the new repository.

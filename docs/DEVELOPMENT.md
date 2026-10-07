@@ -24,29 +24,19 @@ PageKeep is for Chromium browsers in general, for example **Google Chrome**, **O
 
 The extension is at **1.0.0**, the version it had when it moved into this repository. Raise `version` in `page-snapshot-extension/manifest.json` inside a pull request when a change deserves a minor or major number.
 
-Releases are made by the GitHub Actions workflow `.github/workflows/release.yml`. It runs:
-- every time a pull request is merged into `main`. A pull request closed without merging releases nothing, and neither does one labelled `no-release` (for documentation or a fix that belongs to the release already out; its changelog lines then go into that version's section, and the release's zip can be rebuilt from `main` and re-uploaded with `gh release upload v<version> <zip> --clobber`);
-- by hand, from Actions → Release → Run workflow, on `main`.
+Releases are made by the GitHub Actions workflow `.github/workflows/release.yml`, **by hand only**: Actions → Release → Run workflow, on `main`. Merging a pull request releases nothing, and the workflow writes nothing to `main` (the branch's rules only take pull requests).
 
-It works on the current tip of `main` and picks the version like this:
-1. When run by hand, a version typed in its `version` input wins.
-2. Otherwise, it uses the version in `manifest.json` if the tag `v<that version>` does not exist yet.
-3. Otherwise, it raises that version's last number by one (1.0.0 → 1.0.1).
-
-So every merge is a new patch release, and a minor or major one is made by raising `version` in `manifest.json` inside the pull request.
-
-The workflow writes a new version to the manifest and commits it to `main` itself ("Version 1.0.1"). These are the only commits that bypass pull requests, so run `git pull` after a merge. Runs go one at a time and GitHub keeps only the newest waiting run, so several merges made while a release is still running may come out together in a single release.
+To make a release:
+1. In a pull request, raise `version` in `page-snapshot-extension/manifest.json` (the last number for fixes, the middle one for new features) and turn `## [Unreleased]` in `CHANGELOG.md` into `## [<version>] - <date>`, keeping an empty `## [Unreleased]` above it.
+2. Merge it, then run the workflow. It releases the manifest's version, and refuses when the tag `v<version>` exists already or the changelog has no section for it.
 
 What a run does:
 1. Runs the smoke test, the carousel, offline-library and choices end-to-end tests (`tests/carousel.mjs`, `tests/library.mjs`, `tests/choices.mjs`) and the store policy checks (`tests/store-policy.mjs`) on Playwright's Chromium, tests the store upload script against a fake store (`tests/publish-script.mjs`), and checks the WSNP validator and password protection (`tests/wsnp.mjs`).
 2. Zips the git-tracked files of `page-snapshot-extension/`, plus `CHANGELOG.md`, as `pagekeep-<version>.zip`.
 3. Publishes it as the GitHub release `v<version>`, titled "PageKeep <version>". The notes are that version's section of `CHANGELOG.md`, followed by the install hints.
-4. Only when asked (the pull request has the `store` label, or a manual run ticked `store`): sends the same zip to the Chrome Web Store for review (`.github/scripts/publish-to-chrome-web-store.sh`), when the `CWS_PUBLISHER_ID`, `CWS_ITEM_ID` and `CWS_SERVICE_ACCOUNT_KEY` secrets are set and it is not a pre-release; without them it prints a notice. A release already published is sent later with the **Send to the Chrome Web Store** workflow (`.github/workflows/store.yml`, Actions → Run workflow, with its version). See `store/PUBLISHING.md`.
+4. Only when its `store` option is ticked: sends the same zip to the Chrome Web Store for review (`.github/scripts/publish-to-chrome-web-store.sh`), when the `CWS_PUBLISHER_ID`, `CWS_ITEM_ID` and `CWS_SERVICE_ACCOUNT_KEY` secrets are set and it is not a pre-release; without them it prints a notice. A release already published is sent later with the **Send to the Chrome Web Store** workflow (`.github/workflows/store.yml`, Actions → Run workflow, with its version). See `store/PUBLISHING.md`.
 
-How the changelog works:
-- Every pull request adds its user-facing changes as lines under `## [Unreleased]`.
-- The workflow moves them under a new `## [<version>] - <date>` heading, leaving Unreleased empty, and commits that together with the version.
-- If the version already has a section (for example a release re-run by hand), that section is used as it is.
+Every pull request adds its user-facing changes as lines under `## [Unreleased]` in `CHANGELOG.md`; the pull request that prepares a release gives them the version's heading.
 
 To use a release, unzip it into a fixed folder and load that folder unpacked.
 
