@@ -102,14 +102,15 @@ serviço (Google Cloud → IAM & Admin → Service accounts → a conta → Keys
 nos dois repositórios e apague o arquivo em seguida. O `.json` é uma senha: nunca envie para
 ninguém nem coloque no repositório.
 
-Cada pull request aceito gera o release no GitHub, mas **só vai para a loja quando você pedir**:
+Os releases são feitos à mão (Actions → **Release** → Run workflow, em `main`), depois do merge do
+pull request que sobe a versão e cria a seção dela no `CHANGELOG.md`. Eles **só vão para a loja
+quando você pedir**:
 
-- **Junto com o release:** coloque o rótulo `store` no pull request antes do merge (ou, na execução
-  manual da action **Release**, marque a opção `store`).
+- **Junto com o release:** na execução da action **Release**, marque a opção `store`.
 - **Um release já publicado:** Actions → **Send to the Chrome Web Store** → Run workflow, com a
   versão (vazio = o último release). Útil para esperar a revisão anterior terminar.
 
-Pré-lançamentos e pull requests com o rótulo `no-release` nunca vão para a loja. Se a loja recusar
+Pré-lançamentos nunca vão para a loja. Se a loja recusar
 o pacote (por exemplo, enquanto outra versão ainda está em revisão), o passo falha em vermelho no
 Actions, com a mensagem da loja; o release no GitHub continua publicado e pode ser enviado depois
 pela action **Send to the Chrome Web Store**.
