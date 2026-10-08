@@ -6,6 +6,9 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- The help pages and READMEs point to the WSNP Viewer, now published (0.1.0, for Linux, Windows
+  and macOS), to open `.wsnp` files, instead of saying it has no release yet.
+
 ## [1.8.1] - 2026-10-08
 
 - Image readers in the copy work as on the site: each page shows the bars the site drew for it
