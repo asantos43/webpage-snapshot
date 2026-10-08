@@ -16,6 +16,8 @@ publishes it as the release's notes.
   capture tries each and puts the original back.
 - The README is brought up to date (image readers, Settings, the manual release workflow, the
   `assets/` folders, the tests, the WSNP Viewer).
+- The help pages and READMEs point to the WSNP Viewer, now published (0.1.0, for Linux, Windows
+  and macOS), to open `.wsnp` files, instead of saying it has no release yet.
 
 ## [1.8.1] - 2026-10-08
 
