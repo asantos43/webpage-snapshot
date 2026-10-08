@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.7.4] - 2026-10-08
+
 - **Record what each choice shows** also covers checkboxes (and ARIA checkboxes and switches):
   the capture ticks and unticks each one, records what the page shows in each state (including the
   questions that state reveals) and puts it back; in the copy, ticking or unticking the box shows
