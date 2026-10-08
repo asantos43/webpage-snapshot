@@ -599,6 +599,11 @@ export async function extractPage(editorTexts = {}, options = {}) {
         if (option.selected) cloned.setAttribute('selected', '');
         else cloned.removeAttribute('selected');
       });
+    } else if (tag === 'link') {
+      // A stylesheet keeps the address it was loaded from. In a single-page app the address bar
+      // changes without a reload, and a relative link written for the first address ("_app/…")
+      // would now resolve to a wrong place (".../g/1/_app/…": HTTP 404, a copy without styles).
+      if (live.sheet?.href) clone.setAttribute('href', live.sheet.href);
     } else if (tag === 'img') {
       if (live.currentSrc) {
         clone.setAttribute('src', live.currentSrc);
@@ -939,7 +944,7 @@ export async function extractPage(editorTexts = {}, options = {}) {
   // copy then steps through them (lib/offline/sequence.js). Marks: data-snap-sequence on the main
   // picture, data-snap-seq-page="<n>" on every link to page n, data-snap-seq-current on the
   // number of the counter.
-  function detectSequence() {
+  async function detectSequence() {
     const here = new URL(location.href);
     // The pattern a link follows when it is this address with one number changed: its template
     // ("{n}" in place of the number), this page's number and the link's.
@@ -985,13 +990,18 @@ export async function extractPage(editorTexts = {}, options = {}) {
     }
     if (!main || largest < innerWidth * innerHeight * 0.2 || main.getBoundingClientRect().width < 200) return null;
     // A counter naming this page ("1 of 22", "1 / 22", "1 de 22"), near the arrows or the picture.
-    let counter = null;
+    // (Readers often have two bars, above and below the picture: every counter is kept.)
+    const counters = [];
     let total = 0;
     for (const el of document.querySelectorAll('body *')) {
-      if (el.children.length > 4) continue;
+      if (el.children.length > 4 || counters.some((c) => c.contains(el))) continue;
       const m = /^\s*(\d+)\s*(?:of|de|\/)\s*(\d+)\s*$/i.exec(el.textContent || '');
-      if (m && Number(m[1]) === current && Number(m[2]) >= current) { counter = el; total = Number(m[2]); break; }
+      if (m && Number(m[1]) === current && Number(m[2]) >= current) {
+        counters.push(el);
+        total = total || Number(m[2]);
+      }
     }
+    const counter = counters[0] || null;
     const pictureLinks = !!main.closest('a[href]') && sequence.some((l) => l.a === main.closest('a[href]'));
     if (!pictureLinks && !counter) return null;
     // How to find the main picture in the other pages: by an ancestor's id, else by its class.
@@ -1002,12 +1012,84 @@ export async function extractPage(editorTexts = {}, options = {}) {
     if (selector === 'img' && main.classList.length) selector = `img.${CSS.escape(main.classList[0])}`;
     main.setAttribute('data-snap-sequence', '');
     for (const l of sequence) l.a.setAttribute('data-snap-seq-page', String(l.page));
-    if (counter) {
-      const number = [...counter.querySelectorAll('*')].find((el) => !el.children.length && el.textContent.trim() === String(current));
-      (number || counter).setAttribute('data-snap-seq-current', '');
-      if (!number) counter.setAttribute('data-snap-seq-total', String(total));
+    for (const c of counters) {
+      const number = [...c.querySelectorAll('*')].find((el) => !el.children.length && el.textContent.trim() === String(current));
+      (number || c).setAttribute('data-snap-seq-current', '');
+      if (!number) c.setAttribute('data-snap-seq-total', String(total));
     }
-    return { template, current, total: total || 0, selector };
+    // The reader's bars: what holds its links (other than the picture's), as the site draws them on
+    // each page ("First" and "Previous" only from page 2, for instance). offscreen.js takes each
+    // page's bars from the pages it reads; they are found there by `selector`, in order.
+    const bars = [];
+    for (const l of sequence) {
+      const bar = l.a.parentElement;
+      if (!bar || l.a.contains(main) || bars.includes(bar)) continue;
+      bars.push(bar);
+    }
+    const barSelector = (bar) => (bar.id ? `#${CSS.escape(bar.id)}` : `${bar.localName}${bar.classList[0] ? `.${CSS.escape(bar.classList[0])}` : ''}`);
+    const barSpecs = bars.map((bar, i) => {
+      bar.setAttribute('data-snap-seq-bar', String(i));
+      const sel = barSelector(bar);
+      return { selector: sel, nth: Array.from(document.querySelectorAll(sel)).indexOf(bar) };
+    });
+    // "Jump to page": the counter's button, and the window it opens, recorded by opening it.
+    const jumper = counter?.closest('button, [role="button"]');
+    let jump = null;
+    if (jumper && !jumper.closest('a[href]')) {
+      document.querySelectorAll('button, [role="button"]').forEach((b) => {
+        if (b.contains(document.querySelector('[data-snap-seq-current]')) || counters.some((c) => b.contains(c))) b.setAttribute('data-snap-seq-jump', '');
+      });
+      jump = await recordJumpWindow(jumper);
+    }
+    return { template, current, total: total || 0, selector, bars: barSpecs, jump };
+  }
+
+  // Clicks the counter's button and records the window it opens (an element added with a field
+  // in it, or a <dialog> opened), then closes it as a person would (Escape, else its Cancel or
+  // close button). Null when nothing opened, the address changed, or it would not close.
+  async function recordJumpWindow(button) {
+    const before = location.href;
+    const added = [];
+    const opened = [];
+    const watch = new MutationObserver((records) => records.forEach((r) => {
+      r.addedNodes.forEach((n) => { if (n.nodeType === 1) added.push(n); });
+      if (r.type === 'attributes' && r.target.localName === 'dialog' && r.target.open) opened.push(r.target);
+    }));
+    watch.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['open'] });
+    button.click();
+    await sleep(500);
+    watch.disconnect();
+    if (location.href !== before) {
+      history.back();
+      await sleep(300);
+      return null;
+    }
+    const candidates = [...opened, ...added].filter((el) => el.isConnected && el.querySelector('input'));
+    // The outermost of them (the backdrop, when there is one).
+    const root = candidates.find((el) => !candidates.some((other) => other !== el && other.contains(el)));
+    if (!root) return null;
+    const inert = document.implementation.createHTMLDocument('');
+    const copy = inert.importNode(root, true);
+    walk(root, copy, { inert, depth: 1 });
+    copy.removeAttribute('open');
+    const html = copy.outerHTML;
+    const dialog = root.localName === 'dialog';
+    // Where it appeared: the copy puts it back there, inside what gives it its colours (a theme's
+    // CSS variables set on the app's container, for instance), not just at the end of the page.
+    if (root.parentElement && root.parentElement !== document.body) root.parentElement.setAttribute('data-snap-seq-jump-host', '');
+    // Close it.
+    const gone = () => !root.isConnected || (dialog && !root.open) || root.getClientRects().length === 0;
+    root.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await sleep(200);
+    if (!gone()) {
+      const cancel = [...root.querySelectorAll('button, [role="button"], a')].find((b) => /^(cancel|close|cancelar|fechar|cerrar|×|✕|x)$/i.test((b.textContent || b.getAttribute('aria-label') || '').trim()));
+      cancel?.click();
+      await sleep(200);
+    }
+    if (!gone() && dialog) root.close();
+    if (!gone()) return null;
+    return { html, dialog };
   }
 
   let recorded = { pagers: {}, sliders: {} };
@@ -1015,7 +1097,7 @@ export async function extractPage(editorTexts = {}, options = {}) {
   let chosen = { choices: {}, left: [] };
   // The capture's own marks on the live page, removed once it is copied.
   const unmark = () => {
-    for (const name of ['data-snap-sequence', 'data-snap-seq-page', 'data-snap-seq-current', 'data-snap-seq-total', 'data-snap-choices', 'data-snap-pager', 'data-snap-slider', 'data-snap-slider-prev', 'data-snap-slider-next', 'data-snap-slider-dot', 'data-snap-part']) {
+    for (const name of ['data-snap-sequence', 'data-snap-seq-page', 'data-snap-seq-current', 'data-snap-seq-total', 'data-snap-seq-bar', 'data-snap-seq-jump', 'data-snap-seq-jump-host', 'data-snap-choices', 'data-snap-pager', 'data-snap-slider', 'data-snap-slider-prev', 'data-snap-slider-next', 'data-snap-slider-dot', 'data-snap-part']) {
       document.querySelectorAll(`[${name}]`).forEach((el) => el.removeAttribute(name));
     }
   };
@@ -1023,7 +1105,7 @@ export async function extractPage(editorTexts = {}, options = {}) {
     if (options.reveal) await revealAll();
     if (!cancelled) recorded = await explorePagers();
     if (!cancelled && options.choices) chosen = await exploreChoices();
-    if (!cancelled) sequence = detectSequence();
+    if (!cancelled) sequence = await detectSequence();
   } finally {
     try { chrome.runtime.onMessage.removeListener(onCancel); } catch { /* not in an extension */ }
   }

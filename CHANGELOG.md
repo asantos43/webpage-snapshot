@@ -6,6 +6,20 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-10-08
+
+- Image readers in the copy work as on the site: each page shows the bars the site drew for it
+  ("First" and "Previous" appear from page 2, so a reader captured on page 1 can go back), and
+  the counter opens the site's "Jump to page" window, which the capture opens, records and closes
+  again; typing a page and pressing Jump goes there.
+- Single-page apps keep their styles: when a site changes its address without reloading (moving
+  between the pages of a reader, for example), stylesheets linked by a relative address were asked
+  for at the wrong place (HTTP 404) and the copy came out unstyled. Each stylesheet is now saved
+  from the address the browser actually loaded it from.
+- A file the site refused with "too many requests" (HTTP 429) is really asked for again: the
+  browser's cache handed back the same refusal on every retry. The pages of an image reader are
+  read one at a time, waiting as long as the site asks (up to 30 seconds) when it says so.
+
 ## [1.8.0] - 2026-10-08
 
 - Image readers (manga and gallery readers that show one picture per page, with an arrow to the

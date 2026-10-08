@@ -323,7 +323,9 @@ async function viaBlob(url) {
   throw failure('only existed in the page\'s memory, and could not be read from it', msg('reason_blob'));
 }
 
-async function fetchBytes(url, { fresh = false } = {}) {
+// `retries` and `maxWaitMs`: how patient to be with a site that answers 429 / 503 ("too many
+// requests"), waiting what it asks (Retry-After) or longer each time.
+async function fetchBytes(url, { fresh = false, retries = MAX_RETRIES, maxWaitMs = 10_000 } = {}) {
   state.now = shortUrl(url);
   if (isBlob(url)) return viaBlob(url);
   const loaded = fresh ? null : await readFromPage(url);
@@ -332,15 +334,17 @@ async function fetchBytes(url, { fresh = false } = {}) {
   return limitedByHost(url, async () => {
     for (let attempt = 0; ; attempt++) {
       try {
+        // A retry goes to the site: with the cache, Chromium would hand back the same 429.
+        const again = fresh || attempt > 0;
         if (tabOrigin && new URL(url).origin === tabOrigin) {
-          const viaPage = await viaTab(url, fresh);
+          const viaPage = await viaTab(url, again);
           if (viaPage) return viaPage;
         }
-        return await viaDebugger(url, fresh);
+        return await viaDebugger(url, again);
       } catch (err) {
         const retryable = err.status === 429 || err.status === 503;
-        if (!retryable || attempt >= MAX_RETRIES) throw err;
-        await sleep(Math.min(err.retryAfterMs || RETRY_BASE_MS * 2 ** attempt, 10_000));
+        if (!retryable || attempt >= retries) throw err;
+        await sleep(Math.min(err.retryAfterMs || RETRY_BASE_MS * 2 ** attempt, maxWaitMs));
       }
     }
   });
@@ -833,7 +837,7 @@ async function processDocument(data, page, depth = 0) {
   // Sliding carousels: where the strip sat at each step, for lib/offline/slider.js.
   // An image reader (one picture per page): the pictures of its other pages, for
   // lib/offline/sequence.js to step through.
-  if (depth === 0 && page.sequence && doc.querySelector('[data-snap-sequence]')) await readSequence(doc, page);
+  if (depth === 0 && page.sequence && doc.querySelector('[data-snap-sequence]')) await readSequence(doc, page, data.base);
 
   // Areas that change with a choice (radio buttons): their content for each option, processed
   // like the page itself, for lib/offline/choices.js to bring in.
@@ -896,19 +900,54 @@ function readerPicture(img, base) {
 // the main picture), in the background through the tab, and saves each page's main picture. Pages
 // that cannot be read, or have no picture, are listed as failed. The links to pages of the
 // sequence then lead inside the copy, and <script id="snap-sequence"> lists the pictures.
-async function readSequence(doc, page) {
-  const { template, current, total, selector } = page.sequence;
+// Next and Previous are a step from wherever the reader is (data-snap-seq-step); the others
+// (first, last, a page's thumbnail) go to their page, also when it is the page next to this one
+// ("First" on page 2), told apart by what the link says it is.
+const END_LINK = /\b(first|last|primeir[ao]|[uú]ltim[ao]|in[ií]cio|fim|end)\b|[«»⏮⏭]/i;
+function markReaderLink(a, target, from) {
+  const says = [a.textContent, a.getAttribute('class'), a.getAttribute('rel'), a.getAttribute('aria-label'), a.getAttribute('title')].join(' ');
+  a.setAttribute('data-snap-seq-page', String(target));
+  if (Math.abs(target - from) === 1 && !END_LINK.test(says)) a.setAttribute('data-snap-seq-step', String(target - from));
+  else a.removeAttribute('data-snap-seq-step');
+  a.setAttribute('href', `#page-${target}`);
+  a.removeAttribute('target');
+}
+
+async function readSequence(doc, page, base) {
+  const { template, current, total, selector, bars: barSpecs = [], jump } = page.sequence;
   const main = doc.querySelector('[data-snap-sequence]');
   const urlFor = (n) => template.replace('{n}', String(n));
   const known = total > 0;
   const last = Math.min(known ? total : MAX_SEQUENCE_PAGES, MAX_SEQUENCE_PAGES);
   const pictures = new Array(last).fill(null);
   pictures[current - 1] = main.getAttribute('src');
+  // Each page's bars (its links and counter, as the site draws them on that page).
+  const bars = new Array(last).fill(null);
+  const pageOf = new Map(Array.from({ length: last }, (_, i) => [urlFor(i + 1), i + 1]));
+  const barsOf = async (other, n) => {
+    const found = [];
+    for (const { selector: sel, nth } of barSpecs) {
+      const bar = other.querySelectorAll(sel)[nth];
+      if (!bar) { found.push(null); continue; }
+      for (const a of bar.querySelectorAll('a[href]')) {
+        const k = pageOf.get(fetchableUrl(a.getAttribute('href'), urlFor(n))?.href);
+        if (k) markReaderLink(a, k, n);
+      }
+      const number = [...bar.querySelectorAll('*')].find((el) => !el.children.length && el.textContent.trim() === String(n));
+      if (number) {
+        number.setAttribute('data-snap-seq-current', '');
+        number.closest('button, [role="button"]')?.setAttribute('data-snap-seq-jump', '');
+      }
+      found.push(await processFragment(bar.innerHTML, urlFor(n), page, 0, doc));
+    }
+    return found;
+  };
   let done = 0;
   const readPage = async (n) => {
     let found = null;
     try {
-      const { bytes } = await fetchBytes(urlFor(n));
+      // Readers limit how fast their pages are asked for: be patient with "too many requests".
+      const { bytes } = await fetchBytes(urlFor(n), { retries: 6, maxWaitMs: 30_000 });
       const other = new DOMParser().parseFromString(new TextDecoder().decode(bytes), 'text/html');
       const candidates = [...other.querySelectorAll(selector)];
       // The one that links on to the next page, else the first.
@@ -917,6 +956,7 @@ async function readSequence(doc, page) {
       if (!src) throw failure('no picture was found on that page', msg('reason_no_picture'));
       const file = await getAsset(src, 'bin');
       if (file) found = `assets/${file}`;
+      if (barSpecs.length) bars[n - 1] = await barsOf(other, n);
       // Without a counter, the reader ends where a page has no link to the next one.
       const next = [...other.querySelectorAll('a[href]')].some((a) => fetchableUrl(a.getAttribute('href'), urlFor(n))?.href === urlFor(n + 1));
       return { found, next };
@@ -930,15 +970,24 @@ async function readSequence(doc, page) {
     }
   };
   step('sequence', msg('step_sequence', 0, known ? last - 1 : '?'));
+  // One page at a time, with a pause between them: readers limit how fast their pages are asked
+  // for (HTTP 429), while their pictures, often on another host, download in parallel.
+  const PAUSE_MS = 300;
   if (known) {
-    const others = Array.from({ length: last }, (_, i) => i + 1).filter((n) => n !== current);
-    const results = await Promise.all(others.map(async (n) => [n, await readPage(n)]));
-    for (const [n, { found }] of results) pictures[n - 1] = found;
+    for (let n = 1; n <= last; n++) {
+      if (n === current) continue;
+      pictures[n - 1] = (await readPage(n)).found;
+      await sleep(PAUSE_MS);
+    }
   } else {
     // Pages before this one, then after it until the reader ends.
-    for (let n = 1; n < current; n++) pictures[n - 1] = (await readPage(n)).found;
+    for (let n = 1; n < current; n++) {
+      pictures[n - 1] = (await readPage(n)).found;
+      await sleep(PAUSE_MS);
+    }
     for (let n = current + 1; n <= last; n++) {
       const r = await readPage(n);
+      await sleep(PAUSE_MS);
       if (r.end) { pictures.length = n - 1; break; }
       pictures[n - 1] = r.found;
       if (!r.next) { pictures.length = n; break; }
@@ -947,21 +996,14 @@ async function readSequence(doc, page) {
   sequencePages = pictures.filter(Boolean).length;
   step('sequence', plural(sequencePages, 'step_sequence_done'), pictures.every(Boolean) ? 'done' : 'warn');
   // Links to a page of the reader stay in the copy.
-  // Next and Previous are a step from wherever the reader is (data-snap-seq-step); the others
-  // (first, last, a page's thumbnail) go to their page, also when it is the page next to this one
-  // ("First" on page 2), told apart by what the link says it is.
-  const END = /\b(first|last|primeir[ao]|[uú]ltim[ao]|in[ií]cio|fim|end)\b|[«»⏮⏭]/i;
-  for (const a of doc.querySelectorAll('[data-snap-seq-page]')) {
-    const n = Number(a.getAttribute('data-snap-seq-page'));
-    const says = [a.textContent, a.getAttribute('class'), a.getAttribute('rel'), a.getAttribute('aria-label'), a.getAttribute('title')].join(' ');
-    if (Math.abs(n - current) === 1 && !END.test(says)) a.setAttribute('data-snap-seq-step', String(n - current));
-    a.setAttribute('href', `#page-${n}`);
-    a.removeAttribute('target');
-  }
+  for (const a of doc.querySelectorAll('[data-snap-seq-page]')) markReaderLink(a, Number(a.getAttribute('data-snap-seq-page')), current);
+  if (barSpecs.length) bars[current - 1] = [...doc.querySelectorAll('[data-snap-seq-bar]')].map((bar) => bar.innerHTML);
+  // The "Jump to page" window the capture opened and recorded, for lib/offline/sequence.js.
+  const jumpWindow = jump ? { html: await processFragment(jump.html, base, page, 0, doc), dialog: jump.dialog } : null;
   const store = doc.createElement('script');
   store.setAttribute('type', 'application/json');
   store.id = 'snap-sequence';
-  store.textContent = JSON.stringify({ pictures, start: current - 1 }).replace(/</g, '\\u003c');
+  store.textContent = JSON.stringify({ pictures, start: current - 1, bars: barSpecs.length ? bars : null, jump: jumpWindow }).replace(/</g, '\\u003c');
   doc.body.append(store);
 }
 
