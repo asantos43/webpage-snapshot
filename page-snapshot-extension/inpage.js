@@ -1074,6 +1074,9 @@ export async function extractPage(editorTexts = {}, options = {}) {
     copy.removeAttribute('open');
     const html = copy.outerHTML;
     const dialog = root.localName === 'dialog';
+    // Where it appeared: the copy puts it back there, inside what gives it its colours (a theme's
+    // CSS variables set on the app's container, for instance), not just at the end of the page.
+    if (root.parentElement && root.parentElement !== document.body) root.parentElement.setAttribute('data-snap-seq-jump-host', '');
     // Close it.
     const gone = () => !root.isConnected || (dialog && !root.open) || root.getClientRects().length === 0;
     root.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -1094,7 +1097,7 @@ export async function extractPage(editorTexts = {}, options = {}) {
   let chosen = { choices: {}, left: [] };
   // The capture's own marks on the live page, removed once it is copied.
   const unmark = () => {
-    for (const name of ['data-snap-sequence', 'data-snap-seq-page', 'data-snap-seq-current', 'data-snap-seq-total', 'data-snap-seq-bar', 'data-snap-seq-jump', 'data-snap-choices', 'data-snap-pager', 'data-snap-slider', 'data-snap-slider-prev', 'data-snap-slider-next', 'data-snap-slider-dot', 'data-snap-part']) {
+    for (const name of ['data-snap-sequence', 'data-snap-seq-page', 'data-snap-seq-current', 'data-snap-seq-total', 'data-snap-seq-bar', 'data-snap-seq-jump', 'data-snap-seq-jump-host', 'data-snap-choices', 'data-snap-pager', 'data-snap-slider', 'data-snap-slider-prev', 'data-snap-slider-next', 'data-snap-slider-dot', 'data-snap-part']) {
       document.querySelectorAll(`[${name}]`).forEach((el) => el.removeAttribute(name));
     }
   };

@@ -70,7 +70,8 @@ export function sequence() {
     close();
     open = jumpWindow();
     if (!open) return;
-    document.body.append(open);
+    // Where the site put it (data-snap-seq-jump-host), so it keeps its colours.
+    (document.querySelector('[data-snap-seq-jump-host]') || document.body).append(open);
     if (open.localName === 'dialog') open.showModal?.();
     const field = open.querySelector('input');
     if (field) {

@@ -37,17 +37,19 @@ const bar = (n) => `<div class="reader-pagination">${n > 1 ? `<a class="first" h
 <button class="page-number" aria-label="Jump to page"><span class="current">${n}</span> of <span class="num-pages">5</span></button>
 ${n < 5 ? `<a class="next" href="/g/7/${n + 1}/">›</a><a class="last" href="/g/7/5/">»</a>` : '<span class="next invisible">›</span><span class="last invisible">»</span>'}</div>`;
 const reader = (n) => shell(`Story — page ${n}`, `
-<style>.invisible{visibility:hidden} .jump-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6)} .jump-box{background:#222;padding:16px;margin:200px auto;width:260px}</style>
+<style>.invisible{visibility:hidden} #app.theme-dark{--box:#2b2b2b} .jump-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6)} .jump-box{background:var(--box);padding:16px;margin:200px auto;width:260px}</style>
+<div id="app" class="theme-dark">
 <nav id="top-nav">${bar(n)}</nav>
 <section id="image-container">${n < 5 ? `<a href="/g/7/${n + 1}/">` : ''}${n === 3 ? '<img src="/img/blank.svg" data-src="/img/7/3.svg" alt="">' : `<img src="/img/7/${n}.svg" alt="">`}${n < 5 ? '</a>' : ''}</section>
 <nav id="bottom-nav">${bar(n)}</nav>
+</div>
 <script>
 document.addEventListener('click', (event) => {
   if (!event.target.closest('.page-number')) return;
   const w = document.createElement('div');
   w.className = 'jump-backdrop';
   w.innerHTML = '<div class="jump-box"><h2>Jump to Page</h2><input type="number" value="${n}"><button class="go">Jump</button><button class="cancel">Cancel</button></div>';
-  document.body.append(w);
+  document.getElementById('app').append(w); // inside the app, whose theme gives it its colours
   const shut = () => w.remove();
   w.querySelector('.cancel').onclick = shut;
   w.querySelector('.go').onclick = () => { location.href = '/g/7/' + w.querySelector('input').value + '/'; };
@@ -181,6 +183,8 @@ try {
   const win = async () => snap.$eval('.jump-backdrop', (w) => ({ title: w.querySelector('h2')?.textContent, value: w.querySelector('input')?.value })).catch(() => null);
   const shown = await win();
   check('the counter opens the site\'s "Jump to Page" window, recorded during the capture, on the page on screen', shown?.title === 'Jump to Page' && shown.value === '5', JSON.stringify(shown));
+  const boxColour = await snap.$eval('.jump-box', (b) => getComputedStyle(b).backgroundColor).catch(() => null);
+  check('with its colours: it is put where the site put it, inside the app whose theme defines them', boxColour === 'rgb(43, 43, 43)', boxColour);
   await snap.fill('.jump-backdrop input', '3');
   await snap.click('.jump-backdrop .go');
   check('"Jump" goes to the page typed (3) and closes the window', await at(3) && !(await win()), JSON.stringify(await showing()));
