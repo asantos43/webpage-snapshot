@@ -6,6 +6,11 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- Pictures that a site downloads by script and shows from memory (`blob:` addresses, as manga
+  readers such as MangaDex do) are now saved: PageKeep reads them from the tab. Before, they were
+  skipped without a word and the copy pointed to addresses that no longer existed. One that cannot
+  be read (the page let it go, or a video stream) is listed in the popup and left out of the copy.
+
 ## [1.7.2] - 2026-10-07
 
 - The licence changes from MIT to the Mozilla Public License 2.0 (`LICENSE`, README).
