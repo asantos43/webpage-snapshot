@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.8.2] - 2026-10-08
+
 - Image readers that turn their pages in place (one address for every page, a list "Page 1…N",
   Next and Prev without links, the site's script loading each picture, as Hitomi's reader does)
   are recognised too: the capture chooses each page in the list, as a person would, notes each
