@@ -6,6 +6,14 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.7.4] - 2026-10-08
+
+- **Record what each choice shows** also covers checkboxes (and ARIA checkboxes and switches):
+  the capture ticks and unticks each one, records what the page shows in each state (including the
+  questions that state reveals) and puts it back; in the copy, ticking or unticking the box shows
+  what the site showed. For forms where ticking a box (such as "The prompt cannot be rated")
+  builds what to fill in next.
+
 - The help pages, the README and the store texts describe what recent versions added (resizable
   columns, pictures shown from memory, files opening in another tab) and no longer say that
   carousels go back to their first item: since 1.3.3 they go back to the item you were on, which

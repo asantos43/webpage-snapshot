@@ -1,9 +1,11 @@
 // Areas that change with a choice: forms that only build their next step when a radio button is
-// chosen ("Yes, I'm ready" shows the next questions). With the popup's opt-in option, the capture
-// chose each option of every question in turn and recorded the question's area right after each
-// (<script id="snap-choices">: per question, its `pages`, how to know it (`group`: its name, or
-// the text of its options), `up` (its area is that many levels above the element holding its
-// options) and `parent` (the question and option that revealed it, or null)).
+// chosen ("Yes, I'm ready" shows the next questions), or a checkbox ticked ("The prompt cannot be
+// rated" shows what to fill in instead). With the popup's opt-in option, the capture chose each
+// state of every question in turn (each option of a radio group; unticked and ticked for a
+// checkbox) and recorded the question's area right after each (<script id="snap-choices">: per
+// question, its `pages`, how to know it (`group`: its name, the text of its options, or the
+// checkbox), `up` (its area is that many levels above the element holding its options) and
+// `parent` (the question and state that revealed it, or null)).
 //
 // Choosing an option brings in what this question controls, and only that: in its area, the
 // parts that differ between its options' recordings (its own card, the questions and texts its
@@ -33,7 +35,24 @@ export function choices() {
     }
     return [];
   };
-  const chosenIn = (options) => options.findIndex((el) => (el.localName === 'input' ? el.checked : el.getAttribute('aria-checked') === 'true'));
+  const isOn = (el) => (el.localName === 'input' ? el.checked : el.getAttribute('aria-checked') === 'true');
+  const chosenIn = (options) => options.findIndex(isOn);
+  // Checkboxes: a question of two states, unticked (0) and ticked (1).
+  const BOX = 'input[type="checkbox"], [role="checkbox"], [role="switch"]';
+  const isBox = (el) => el.matches?.(BOX);
+  const boxKey = (box) => `cb:${box.id || (box.getAttribute('name') ? `${box.getAttribute('name')}=${box.getAttribute('value') || ''}` : textOf(box))}`;
+  const sameBox = (box, recorded) => (recorded.id ? box.id === recorded.id
+    : recorded.name ? box.getAttribute('name') === recorded.name && (box.getAttribute('value') || '') === recorded.value
+      : textOf(box) === recorded.text);
+  const boxFor = (record) => Array.from(document.querySelectorAll(BOX)).find((box) => sameBox(box, record.group.checkbox)) || null;
+  // The state a recorded question is in on the page now.
+  const stateOf = (record) => {
+    if (record.group.checkbox) {
+      const box = boxFor(record);
+      return box ? (isOn(box) ? 1 : 0) : -1;
+    }
+    return chosenIn(optionsFor(record));
+  };
   const commonAncestor = (nodes) => {
     let common = nodes[0];
     for (const node of nodes.slice(1)) while (common && !common.contains(node)) common = common.parentElement;
@@ -45,7 +64,7 @@ export function choices() {
     const parent = records()[record.parent.id];
     if (!parent || seen.has(record.parent.id)) return false;
     seen.add(record.parent.id);
-    return chosenIn(optionsFor(parent)) === record.parent.option && applies(parent, seen);
+    return stateOf(parent) === record.parent.option && applies(parent, seen);
   };
 
   // The children of `parent`, each with a key that stays the same in the page and in the
@@ -56,6 +75,8 @@ export function choices() {
     if (radio) return `radio:${radio.name}`;
     const group = el.querySelector?.('[role="radiogroup"]');
     if (group) return `group:${Array.from(group.querySelectorAll('[role="radio"]')).map(textOf).join('|')}`;
+    const box = isBox(el) ? el : el.querySelector?.(BOX);
+    if (box) return boxKey(box);
     if (el.id) return `id:${el.id}`;
     return `${el.localName}.${el.getAttribute('class') || ''}:${el.textContent.trim().replace(/\s+/g, ' ').slice(0, 80)}`;
   };
@@ -70,7 +91,10 @@ export function choices() {
     }
     return map;
   };
-  const questionsIn = (el) => new Set(Array.from(el.querySelectorAll('input[type="radio"][name]'), (r) => r.name));
+  const questionsIn = (el) => new Set([
+    ...Array.from(el.querySelectorAll('input[type="radio"][name]'), (r) => r.name),
+    ...Array.from(el.querySelectorAll(BOX), boxKey),
+  ]);
 
   // Brings `next` (this option's recording, at this level) into `current` (the page), given the
   // same level in every option's recording (`variants`): what is the same in all of them is not
@@ -147,6 +171,20 @@ export function choices() {
     return keys;
   };
 
+  // A checkbox ticked or unticked: its recording for that state.
+  const showBox = (box) => {
+    const index = isOn(box) ? 1 : 0;
+    for (const [id, record] of Object.entries(records())) {
+      if (!record.group.checkbox || !sameBox(box, record.group.checkbox) || !applies(record)) continue;
+      let area = box;
+      for (let n = 0; n < record.up && area; n++) area = area.parentElement;
+      if (!area) return;
+      const pages = pagesOf(id, record);
+      bring(area, pages[index], pages, boxKey(box), below(id));
+      return;
+    }
+  };
+
   const show = (option) => {
     const options = optionsOf(option);
     const index = options.indexOf(option);
@@ -167,9 +205,16 @@ export function choices() {
 
   document.addEventListener('change', (event) => {
     if (event.target.matches?.('input[type="radio"]') && event.target.checked) show(event.target);
+    else if (event.target.matches?.('input[type="checkbox"]')) showBox(event.target);
   }, true);
   document.addEventListener('click', (event) => {
     const option = event.target.closest?.('[role="radio"]');
     if (option) show(option);
+    // An ARIA checkbox or switch: its own script is gone, so its state is turned here first.
+    const box = event.target.closest?.('[role="checkbox"], [role="switch"]');
+    if (box) {
+      box.setAttribute('aria-checked', String(!isOn(box)));
+      showBox(box);
+    }
   }, true);
 }
