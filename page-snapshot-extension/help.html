@@ -82,7 +82,7 @@
           Click the icon again to see how it is going.</li>
         <li>The icon's badge shows <strong>…</strong> while it runs, <strong>✓</strong> when it is done and
           <strong>!</strong> if it failed, so you know without opening the popup.</li>
-        <li><strong>Cancel</strong> stops the capture: carousels go back to their first item and nothing is saved.</li>
+        <li><strong>Cancel</strong> stops the capture: carousels go back to the item they were on and nothing is saved.</li>
         <li>The browser shows a bar saying the extension started debugging it. PageKeep uses the browser's debugger to
           read the files the page already loaded, the exact bytes you saw, and to download the few it had not;
           the bar goes away when the capture ends.</li>
@@ -165,15 +165,19 @@
           first, even if the carousel was on another one), puts the page back where it was, and the saved copy opens on
           the same item, with its buttons working. That goes for carousels that show one
           item at a time and for those that slide a strip of items sideways.</li>
-        <li><strong>Collapsible sections, accordions, tabs, drop-down menus, pop-up windows (modals and dialogs) and
-          "Expand all" buttons</strong> keep working in the saved copy, through small scripts packed into it that never go
-          online.</li>
+        <li><strong>Collapsible sections, accordions, tabs, drop-down menus, pop-up windows (modals and dialogs),
+          "Expand all" buttons and resizable columns</strong> (the bar between two panels still drags) keep working in the
+          saved copy, through small scripts packed into it that never go online.</li>
         <li><strong>Photo galleries</strong> whose thumbnails open a larger picture: the large pictures are saved, and a click
           on a thumbnail opens it over the page, with previous / next and close, as on the site.</li>
         <li><strong>Code editors</strong> (like the one in VS Code) become ordinary text you can scroll and select, with the
           complete file when the page links to it.</li>
         <li><strong>Files offered for download</strong> (attachments, PDFs, archives from the same site), up to 25, saved
-          next to the page so their links work offline.</li>
+          next to the page so their links work offline; they open in another tab, as on the site. When the site answers
+          such a link with a page of its own (a viewer showing the file, or a sign-in page), the file that page shows is
+          saved instead; if it cannot be had, the link keeps going to the site and the popup lists it.</li>
+        <li><strong>Pictures a site shows from memory</strong> (manga readers and some galleries download each picture by
+          script): PageKeep reads them from the tab and saves them like any other picture.</li>
         <li>Text cut short with "…more" appears in full.</li>
       </ul>
     </section>
