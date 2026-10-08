@@ -41,7 +41,7 @@ jobs:
           echo "::error::Run the release from main (was ${GITHUB_REF})."
           exit 1
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: The version, and its changelog section
         id: version
