@@ -831,6 +831,10 @@ async function processDocument(data, page, depth = 0) {
   }
 
   // Sliding carousels: where the strip sat at each step, for lib/offline/slider.js.
+  // An image reader (one picture per page): the pictures of its other pages, for
+  // lib/offline/sequence.js to step through.
+  if (depth === 0 && page.sequence && doc.querySelector('[data-snap-sequence]')) await readSequence(doc, page);
+
   // Areas that change with a choice (radio buttons): their content for each option, processed
   // like the page itself, for lib/offline/choices.js to bring in.
   if (depth === 0 && data.html.includes('data-snap-choices')) {
@@ -871,6 +875,94 @@ async function processDocument(data, page, depth = 0) {
   doc.head.prepend(charset);
 
   return (data.doctype ? data.doctype + '\n' : '') + doc.documentElement.outerHTML;
+}
+
+// ---------------------------------------------------------------- image readers
+
+const MAX_SEQUENCE_PAGES = 300;
+let sequencePages = 0; // pictures of other pages saved, for the popup's note
+
+// The address of a picture in a page of the reader: its lazy-loading address if it has one.
+function readerPicture(img, base) {
+  for (const attr of ['data-src', 'data-lazy-src', 'data-original', 'src']) {
+    const url = fetchableUrl(img.getAttribute(attr), base);
+    if (url) return url.href;
+  }
+  return null;
+}
+
+// Reads the other pages of an image reader (inpage.js detectSequence: the address `template` with
+// "{n}" for the page number, this page's number, the count if a counter gave it, and how to find
+// the main picture), in the background through the tab, and saves each page's main picture. Pages
+// that cannot be read, or have no picture, are listed as failed. The links to pages of the
+// sequence then lead inside the copy, and <script id="snap-sequence"> lists the pictures.
+async function readSequence(doc, page) {
+  const { template, current, total, selector } = page.sequence;
+  const main = doc.querySelector('[data-snap-sequence]');
+  const urlFor = (n) => template.replace('{n}', String(n));
+  const known = total > 0;
+  const last = Math.min(known ? total : MAX_SEQUENCE_PAGES, MAX_SEQUENCE_PAGES);
+  const pictures = new Array(last).fill(null);
+  pictures[current - 1] = main.getAttribute('src');
+  let done = 0;
+  const readPage = async (n) => {
+    let found = null;
+    try {
+      const { bytes } = await fetchBytes(urlFor(n));
+      const other = new DOMParser().parseFromString(new TextDecoder().decode(bytes), 'text/html');
+      const candidates = [...other.querySelectorAll(selector)];
+      // The one that links on to the next page, else the first.
+      const img = candidates.find((el) => el.closest('a[href]') && fetchableUrl(el.closest('a[href]').getAttribute('href'), urlFor(n))?.href === urlFor(n + 1)) || candidates[0];
+      const src = img && readerPicture(img, urlFor(n));
+      if (!src) throw failure('no picture was found on that page', msg('reason_no_picture'));
+      const file = await getAsset(src, 'bin');
+      if (file) found = `assets/${file}`;
+      // Without a counter, the reader ends where a page has no link to the next one.
+      const next = [...other.querySelectorAll('a[href]')].some((a) => fetchableUrl(a.getAttribute('href'), urlFor(n))?.href === urlFor(n + 1));
+      return { found, next };
+    } catch (err) {
+      if (!known && (err.status === 404 || err.status === 410)) return { found: null, next: false, end: true };
+      failures.push({ url: urlFor(n), reason: err.message || String(err), text: err.text || null });
+      return { found: null, next: !known };
+    } finally {
+      done++;
+      step('sequence', msg('step_sequence', done, known ? last - 1 : '?'));
+    }
+  };
+  step('sequence', msg('step_sequence', 0, known ? last - 1 : '?'));
+  if (known) {
+    const others = Array.from({ length: last }, (_, i) => i + 1).filter((n) => n !== current);
+    const results = await Promise.all(others.map(async (n) => [n, await readPage(n)]));
+    for (const [n, { found }] of results) pictures[n - 1] = found;
+  } else {
+    // Pages before this one, then after it until the reader ends.
+    for (let n = 1; n < current; n++) pictures[n - 1] = (await readPage(n)).found;
+    for (let n = current + 1; n <= last; n++) {
+      const r = await readPage(n);
+      if (r.end) { pictures.length = n - 1; break; }
+      pictures[n - 1] = r.found;
+      if (!r.next) { pictures.length = n; break; }
+    }
+  }
+  sequencePages = pictures.filter(Boolean).length;
+  step('sequence', plural(sequencePages, 'step_sequence_done'), pictures.every(Boolean) ? 'done' : 'warn');
+  // Links to a page of the reader stay in the copy.
+  // Next and Previous are a step from wherever the reader is (data-snap-seq-step); the others
+  // (first, last, a page's thumbnail) go to their page, also when it is the page next to this one
+  // ("First" on page 2), told apart by what the link says it is.
+  const END = /\b(first|last|primeir[ao]|[uú]ltim[ao]|in[ií]cio|fim|end)\b|[«»⏮⏭]/i;
+  for (const a of doc.querySelectorAll('[data-snap-seq-page]')) {
+    const n = Number(a.getAttribute('data-snap-seq-page'));
+    const says = [a.textContent, a.getAttribute('class'), a.getAttribute('rel'), a.getAttribute('aria-label'), a.getAttribute('title')].join(' ');
+    if (Math.abs(n - current) === 1 && !END.test(says)) a.setAttribute('data-snap-seq-step', String(n - current));
+    a.setAttribute('href', `#page-${n}`);
+    a.removeAttribute('target');
+  }
+  const store = doc.createElement('script');
+  store.setAttribute('type', 'application/json');
+  store.id = 'snap-sequence';
+  store.textContent = JSON.stringify({ pictures, start: current - 1 }).replace(/</g, '\\u003c');
+  doc.body.append(store);
 }
 
 // The offline scripts of a .wsnp: `_wsnp/offline.js` for the page, and another file only for a
@@ -1103,6 +1195,7 @@ async function main() {
   if (linkedFiles.size) notes.push({ text: plural(linkedFiles.size, 'note_files') });
   if (framePictures) notes.push({ text: plural(framePictures, 'note_frame_pictures') });
   if (galleryPictures.size) notes.push({ text: plural(galleryPictures.size, 'note_gallery') });
+  if (sequencePages) notes.push({ text: plural(sequencePages, 'note_sequence') });
   const choiceGroups = Object.keys(page.choices || {}).length;
   if (choiceGroups) notes.push({ text: plural(choiceGroups, 'note_choices') });
   // The site kept an option the capture chose: the live page now shows an answer the user did not give.
