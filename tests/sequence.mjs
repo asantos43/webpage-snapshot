@@ -66,31 +66,49 @@ const plain = (n) => shell(`Comic ${n}`, `<section id="image-container">${n < 3 
 const blog = (n) => shell(`Blog ${n}`, `<article><h1>Posts, page ${n}</h1><p>Some text.</p><img src="/img/blank.svg" width="40" height="40" alt=""></article><nav><a href="/blog/page/${n + 1}/">Next page ›</a></nav>`);
 
 // A reader that turns its pages in place: one address, a list of pages, Next / Prev with no link,
-// greyed out (li.disabled) on the first and the last page; a click on the picture turns the page;
-// Fit ↕ / Fit ↔ switch the picture's class (and the active button); Full Spread builds a second
-// picture (not a view mode); a link to the gallery's other page sits in the same bar.
+// greyed out (li.disabled) on the first and the last page, Prev's arrow white only when it works; a click on the picture turns the page;
+// Fit ↕ / Fit ↔ switch the picture's class (and the active button); a link to the gallery's other
+// page sits in the same bar. Full Spread shows two pages at a time (a second picture and another
+// list, "Pages 2-3"; an address with "-" (#2-3, #1-) opens it so), Single Page one at a time again.
 const inPlace = shell('Reader', `
-<style>#comicImages.fitVertical img{height:700px;width:auto} #comicImages.fitHorizontal img{width:900px;height:auto} li.active a{font-weight:bold} li.disabled a{opacity:.4}</style>
+<style>#comicImages.fitVertical img{height:700px;width:auto} #comicImages.fitHorizontal img{width:900px;height:auto} li.active a{font-weight:bold} li.disabled a{opacity:.4} .hidden{display:none}</style>
 <nav><ul id="bar"><li><a href="/g/info/" id="info">Gallery Info</a></li>
-<li id="next-li"><a id="nextPanel">Next</a></li> <li id="prev-li"><a id="prevPanel">Prev</a></li>
+<li id="next-li"><a id="nextPanel">Next</a></li> <li id="prev-li"><a id="prevPanel">Prev <i id="prev-icon" class="icon-chevron-right"></i></a></li>
 <li id="fitv-li" class="active"><a id="fitVertical">Fit ↕</a></li> <li id="fith-li"><a id="fitHorizontal">Fit ↔</a></li>
-<li><a id="spread">Full Spread</a></li></ul>
-<select id="single-page-select">${[1, 2, 3, 4, 5, 6].map((k) => `<option value="${k}">Page ${k}</option>`).join('')}</select></nav>
+<li id="spread-li"><a id="fullSpread">Full Spread</a></li> <li id="single-li"><a id="singlePage">Single Page</a></li>
+<li id="single-sel-li"><select id="single-page-select">${[1, 2, 3, 4, 5, 6].map((k) => `<option value="${k}">Page ${k}</option>`).join('')}</select></li>
+<li id="two-sel-li"><select id="two-page-select"><option value="1-">Page 1</option><option value="2-3">Pages 2-3</option><option value="4-5">Pages 4-5</option><option value="6-">Page 6</option></select></li></ul></nav>
 <div id="comicImages" class="fitVertical"><picture><img class="lillie" alt=""></picture></div>
 <script>
 const select = document.getElementById('single-page-select');
+const two = document.getElementById('two-page-select');
+let spread = location.hash.includes('-');
+let page = 1;
 const show = (k) => {
-  k = Math.max(1, Math.min(6, k));
+  page = k = Math.max(1, Math.min(6, k));
   select.value = String(k);
-  location.hash = String(k);
+  two.value = Array.from(two.options).find((o) => o.value.split('-').map(Number).includes(k)).value;
+  location.hash = spread ? two.value : String(k);
   document.getElementById('prev-li').className = k === 1 ? 'disabled' : '';
+  document.getElementById('prev-icon').className = k === 1 ? 'icon-chevron-right' : 'icon-chevron-right icon-white';
   document.getElementById('next-li').className = k === 6 ? 'disabled' : '';
-  setTimeout(() => { document.querySelector('#comicImages img').src = '/img/h/' + k + '.svg'; }, 150);
+  document.getElementById('spread-li').className = spread ? 'hidden' : '';
+  document.getElementById('single-li').className = spread ? '' : 'hidden';
+  document.getElementById('single-sel-li').className = spread ? 'hidden' : '';
+  document.getElementById('two-sel-li').className = spread ? '' : 'hidden';
+  const pages = spread ? two.value.split('-').filter(Boolean).map(Number) : [k];
+  setTimeout(() => {
+    const holder = document.querySelector('#comicImages picture');
+    while (holder.children.length < pages.length) holder.append(document.createElement('img'));
+    while (holder.children.length > pages.length) holder.lastElementChild.remove();
+    pages.forEach((p, i) => { holder.children[i].src = '/img/h/' + p + '.svg'; });
+  }, 150);
 };
 select.addEventListener('change', () => show(Number(select.value)));
-document.getElementById('nextPanel').onclick = () => show(Number(select.value) + 1);
-document.getElementById('prevPanel').onclick = () => show(Number(select.value) - 1);
-document.getElementById('comicImages').onclick = () => show(Number(select.value) + 1);
+two.addEventListener('change', () => show(Number(two.value.split('-')[0])));
+document.getElementById('nextPanel').onclick = () => show(page + 1);
+document.getElementById('prevPanel').onclick = () => show(page - 1);
+document.getElementById('comicImages').onclick = () => show(page + 1);
 const fit = (mode) => {
   document.getElementById('comicImages').className = mode;
   document.getElementById('fitv-li').className = mode === 'fitVertical' ? 'active' : '';
@@ -98,8 +116,9 @@ const fit = (mode) => {
 };
 document.getElementById('fitVertical').onclick = () => fit('fitVertical');
 document.getElementById('fitHorizontal').onclick = () => fit('fitHorizontal');
-document.getElementById('spread').onclick = () => { const extra = document.createElement('img'); extra.src = '/img/h/2.svg'; document.getElementById('comicImages').append(extra); };
-show(Number(location.hash.slice(1)) || 1);
+document.getElementById('fullSpread').onclick = () => { spread = true; show(page); };
+document.getElementById('singlePage').onclick = () => { spread = false; show(page); };
+show(parseInt(location.hash.slice(1), 10) || 1);
 </script>`);
 const asked = [];
 let throttled = false; // page 4 of the reader answers 429 the first time
@@ -108,7 +127,7 @@ const server = http.createServer((req, res) => {
   asked.push(req.url);
   let m;
   if (req.url === '/g/7/4/' && !throttled) { throttled = true; res.statusCode = 429; res.setHeader('retry-after', '1'); return res.end('slow down'); }
-  if (req.url === '/reader/9.html') { res.setHeader('content-type', 'text/html; charset=utf-8'); return res.end(inPlace); }
+  if (req.url.split('?')[0] === '/reader/9.html') { res.setHeader('content-type', 'text/html; charset=utf-8'); return res.end(inPlace); }
   if ((m = req.url.match(/^\/img\/h\/(\d)\.svg$/))) { res.setHeader('content-type', 'image/svg+xml'); return res.end(picture(`Page ${m[1]}`, COLOURS[(m[1] - 1) % 5])); }
   if (req.url === '/spa/') { res.setHeader('content-type', 'text/html; charset=utf-8'); return res.end(spa); }
   if (req.url === '/spa/assets/app.css') { res.setHeader('content-type', 'text/css'); return res.end('#app-title{color:rgb(200, 30, 90)}'); }
@@ -282,7 +301,8 @@ try {
   const placeAt = async (n) => { const s = await placeShowing(); return s.picture === n && s.list === n; };
   check('the copy opens on page 3, the list on "Page 3"', await placeAt(3), JSON.stringify(await placeShowing()));
   const greyed = () => place.evaluate(() => [document.getElementById('prev-li').className, document.getElementById('next-li').className]);
-  check('on page 3 neither Prev nor Next is greyed out', JSON.stringify(await greyed()) === '["",""]', JSON.stringify(await greyed()));
+  const arrow = () => place.$eval('#prev-icon', (i) => i.className);
+  check('on page 3 neither Prev nor Next is greyed out, and Prev\'s arrow is white', JSON.stringify(await greyed()) === '["",""]' && await arrow() === 'icon-chevron-right icon-white', JSON.stringify([await greyed(), await arrow()]));
   await place.click('#comicImages img');
   check('a click on the picture goes on to page 4, as on the site', await placeAt(4), JSON.stringify(await placeShowing()));
   await place.click('#prevPanel');
@@ -294,7 +314,9 @@ try {
   await place.selectOption('#single-page-select', '6');
   check('choosing "Page 6" in the list shows it, with Next greyed out (the last page)', await placeAt(6) && JSON.stringify(await greyed()) === '["","disabled"]', JSON.stringify(await greyed()));
   await place.selectOption('#single-page-select', '1');
-  check('on page 1 Prev is greyed out, as on the site', await placeAt(1) && JSON.stringify(await greyed()) === '["disabled",""]', JSON.stringify(await greyed()));
+  check('on page 1 Prev is greyed out, its arrow too, as on the site', await placeAt(1) && JSON.stringify(await greyed()) === '["disabled",""]' && await arrow() === 'icon-chevron-right', JSON.stringify([await greyed(), await arrow()]));
+  await place.selectOption('#single-page-select', '2');
+  check('on page 2 Prev\'s arrow is white again', await arrow() === 'icon-chevron-right icon-white', await arrow());
   await place.selectOption('#single-page-select', '6');
   await place.keyboard.press('ArrowLeft');
   check('the Left arrow key goes back to page 5', await placeAt(5), JSON.stringify(await placeShowing()));
@@ -307,6 +329,30 @@ try {
   check('Fit ↕ puts it back', tall.fit === 'fitVertical' && tall.v === 'active' && tall.h === '' && tall.width === 525, JSON.stringify(tall));
   check('no network requests', placeOnline.length === 0, placeOnline.join(' '));
   await place.close();
+
+  console.log('4b. The same reader left showing two pages at a time, captured on its page 1');
+  // Another address (a query), so the tab loads the page again rather than only changing its #fragment.
+  const spreadRun = await capture(`${origin}/reader/9.html?spread#1-`);
+  await tab.waitForTimeout(400);
+  const spreadLive = await tab.evaluate(() => ({ list: document.getElementById('two-page-select').value, shown: !document.getElementById('two-sel-li').classList.contains('hidden'), pictures: Array.from(document.querySelectorAll('#comicImages img'), (i) => i.getAttribute('src')) }));
+  check('the reader is put back showing two pages, on page 1', spreadLive.shown && spreadLive.list === '1-' && JSON.stringify(spreadLive.pictures) === '["/img/h/1.svg"]', JSON.stringify(spreadLive));
+  check('every page was recorded one at a time (6 pages)', spreadRun.job.notes.some((n) => n.text.key === 'note_sequence_other' && n.text.args[0] === '6') && spreadRun.job.failures.length === 0, JSON.stringify([spreadRun.job.notes, spreadRun.job.failures]));
+  const spreadCopy = await context.newPage();
+  await spreadCopy.goto(`file://${path.join(spreadRun.dir, 'index.html')}`);
+  const copyPage = async () => {
+    await spreadCopy.waitForTimeout(200);
+    const src = await spreadCopy.$eval('#comicImages img', (i) => i.getAttribute('src'));
+    return { picture: Number(fs.readFileSync(path.join(spreadRun.dir, src), 'utf8').match(/Page (\d)/)?.[1]), list: Number(await spreadCopy.$eval('#single-page-select', (el) => el.value)), visible: await spreadCopy.isVisible('#single-page-select') };
+  };
+  const copyStart = await copyPage();
+  check('the copy shows one page at a time, with its list of pages', copyStart.visible && copyStart.picture === 1 && copyStart.list === 1, JSON.stringify(copyStart));
+  await spreadCopy.click('#nextPanel');
+  const copyNext = await copyPage();
+  check('and Next turns to the following page', copyNext.picture === copyStart.picture + 1 && copyNext.list === copyNext.picture, JSON.stringify(copyNext));
+  await spreadCopy.click('#nextPanel');
+  const copyThird = await copyPage();
+  check('page 3 too, where the click on the picture had taken the reader during the capture', copyThird.picture === 3 && copyThird.list === 3, JSON.stringify(copyThird));
+  await spreadCopy.close();
 
   console.log('5. A single-page app that changed its address without reloading');
   const spaRun = await capture(`${origin}/spa/`);
