@@ -1177,8 +1177,10 @@ export async function extractPage(editorTexts = {}, options = {}) {
       if (step) controls.push({ el, step });
     }
     // How each control looks on a page (greyed out on the first or the last, for instance): its
-    // class and its holder's, and whether it is disabled.
-    const looks = () => controls.map(({ el }) => [el.getAttribute('class'), el.parentElement?.getAttribute('class') ?? null, el.hasAttribute('disabled'), el.getAttribute('aria-disabled')]);
+    // class and its holder's, whether it is disabled, and the classes of what it holds (an arrow
+    // icon drawn white only when the control works, or the pictures of its two looks).
+    const looks = () => controls.map(({ el }) => [el.getAttribute('class'), el.parentElement?.getAttribute('class') ?? null, el.hasAttribute('disabled'), el.getAttribute('aria-disabled'),
+      Array.from(el.querySelectorAll('*'), (inner) => inner.getAttribute('class')).slice(0, 12)]);
     const choose = async (i, before) => {
       list.value = list.options[i].value;
       list.dispatchEvent(new Event('input', { bubbles: true }));

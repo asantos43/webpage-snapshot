@@ -38,12 +38,14 @@ export function sequence() {
     document.querySelectorAll('[data-snap-seq-control]').forEach((el) => {
       const look = data.states?.[at]?.[Number(el.getAttribute('data-snap-seq-control'))];
       if (!look) return;
-      const [cls, holder, disabled, ariaDisabled] = look;
+      const [cls, holder, disabled, ariaDisabled, inside] = look;
       const put = (node, name, value) => (value === null || value === false ? node.removeAttribute(name) : node.setAttribute(name, value === true ? '' : value));
       put(el, 'class', cls);
       if (el.parentElement) put(el.parentElement, 'class', holder);
       put(el, 'disabled', disabled);
       put(el, 'aria-disabled', ariaDisabled);
+      const held = el.querySelectorAll('*');
+      inside?.forEach((value, k) => { if (held[k]) put(held[k], 'class', value); });
     });
     // A reader's list of pages ("Page 1", "Page 2"…) follows too.
     document.querySelectorAll('[data-snap-seq-select]').forEach((list) => { if (list.options[at]) list.selectedIndex = at; });

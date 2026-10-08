@@ -66,14 +66,14 @@ const plain = (n) => shell(`Comic ${n}`, `<section id="image-container">${n < 3 
 const blog = (n) => shell(`Blog ${n}`, `<article><h1>Posts, page ${n}</h1><p>Some text.</p><img src="/img/blank.svg" width="40" height="40" alt=""></article><nav><a href="/blog/page/${n + 1}/">Next page ›</a></nav>`);
 
 // A reader that turns its pages in place: one address, a list of pages, Next / Prev with no link,
-// greyed out (li.disabled) on the first and the last page; a click on the picture turns the page;
+// greyed out (li.disabled) on the first and the last page, Prev's arrow white only when it works; a click on the picture turns the page;
 // Fit ↕ / Fit ↔ switch the picture's class (and the active button); a link to the gallery's other
 // page sits in the same bar. Full Spread shows two pages at a time (a second picture and another
 // list, "Pages 2-3"; an address with "-" (#2-3, #1-) opens it so), Single Page one at a time again.
 const inPlace = shell('Reader', `
 <style>#comicImages.fitVertical img{height:700px;width:auto} #comicImages.fitHorizontal img{width:900px;height:auto} li.active a{font-weight:bold} li.disabled a{opacity:.4} .hidden{display:none}</style>
 <nav><ul id="bar"><li><a href="/g/info/" id="info">Gallery Info</a></li>
-<li id="next-li"><a id="nextPanel">Next</a></li> <li id="prev-li"><a id="prevPanel">Prev</a></li>
+<li id="next-li"><a id="nextPanel">Next</a></li> <li id="prev-li"><a id="prevPanel">Prev <i id="prev-icon" class="icon-chevron-right"></i></a></li>
 <li id="fitv-li" class="active"><a id="fitVertical">Fit ↕</a></li> <li id="fith-li"><a id="fitHorizontal">Fit ↔</a></li>
 <li id="spread-li"><a id="fullSpread">Full Spread</a></li> <li id="single-li"><a id="singlePage">Single Page</a></li>
 <li id="single-sel-li"><select id="single-page-select">${[1, 2, 3, 4, 5, 6].map((k) => `<option value="${k}">Page ${k}</option>`).join('')}</select></li>
@@ -90,6 +90,7 @@ const show = (k) => {
   two.value = Array.from(two.options).find((o) => o.value.split('-').map(Number).includes(k)).value;
   location.hash = spread ? two.value : String(k);
   document.getElementById('prev-li').className = k === 1 ? 'disabled' : '';
+  document.getElementById('prev-icon').className = k === 1 ? 'icon-chevron-right' : 'icon-chevron-right icon-white';
   document.getElementById('next-li').className = k === 6 ? 'disabled' : '';
   document.getElementById('spread-li').className = spread ? 'hidden' : '';
   document.getElementById('single-li').className = spread ? '' : 'hidden';
@@ -300,7 +301,8 @@ try {
   const placeAt = async (n) => { const s = await placeShowing(); return s.picture === n && s.list === n; };
   check('the copy opens on page 3, the list on "Page 3"', await placeAt(3), JSON.stringify(await placeShowing()));
   const greyed = () => place.evaluate(() => [document.getElementById('prev-li').className, document.getElementById('next-li').className]);
-  check('on page 3 neither Prev nor Next is greyed out', JSON.stringify(await greyed()) === '["",""]', JSON.stringify(await greyed()));
+  const arrow = () => place.$eval('#prev-icon', (i) => i.className);
+  check('on page 3 neither Prev nor Next is greyed out, and Prev\'s arrow is white', JSON.stringify(await greyed()) === '["",""]' && await arrow() === 'icon-chevron-right icon-white', JSON.stringify([await greyed(), await arrow()]));
   await place.click('#comicImages img');
   check('a click on the picture goes on to page 4, as on the site', await placeAt(4), JSON.stringify(await placeShowing()));
   await place.click('#prevPanel');
@@ -312,7 +314,9 @@ try {
   await place.selectOption('#single-page-select', '6');
   check('choosing "Page 6" in the list shows it, with Next greyed out (the last page)', await placeAt(6) && JSON.stringify(await greyed()) === '["","disabled"]', JSON.stringify(await greyed()));
   await place.selectOption('#single-page-select', '1');
-  check('on page 1 Prev is greyed out, as on the site', await placeAt(1) && JSON.stringify(await greyed()) === '["disabled",""]', JSON.stringify(await greyed()));
+  check('on page 1 Prev is greyed out, its arrow too, as on the site', await placeAt(1) && JSON.stringify(await greyed()) === '["disabled",""]' && await arrow() === 'icon-chevron-right', JSON.stringify([await greyed(), await arrow()]));
+  await place.selectOption('#single-page-select', '2');
+  check('on page 2 Prev\'s arrow is white again', await arrow() === 'icon-chevron-right icon-white', await arrow());
   await place.selectOption('#single-page-select', '6');
   await place.keyboard.press('ArrowLeft');
   check('the Left arrow key goes back to page 5', await placeAt(5), JSON.stringify(await placeShowing()));
