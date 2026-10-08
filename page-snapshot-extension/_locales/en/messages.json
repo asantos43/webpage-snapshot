@@ -287,6 +287,10 @@
     "message": "the site answered with a web page, not the file",
     "description": "Why a linked file failed: the site sent a web page (a viewer or sign-in page) instead of the file."
   },
+  "reason_blob": {
+    "message": "only existed in the page’s memory, and could not be read from it",
+    "description": "Why a picture or file failed: it had a blob: address (held in the page’s memory) that could not be read, e.g. the page had let it go, or it is a video stream."
+  },
   "option_reveal": {
     "message": "Load the whole page first: scroll to the end and press “Load more”, so everything is saved",
     "description": "Popup option (checkbox)."

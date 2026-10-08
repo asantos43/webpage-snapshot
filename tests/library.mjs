@@ -10,6 +10,9 @@
 //     before a closed section (Headless UI style) or inside one;
 //   - a split view (react-resizable-panels style): its handle drags and its arrow keys move the
 //     boundary between the two panels, which keep their proportions when the room changes;
+//   - pictures a script downloads and shows from memory (blob: addresses, as manga readers do):
+//     saved; one whose address the page has let go of is listed as not saved, and no blob:
+//     address is left in the copy;
 //   - links to files of the site: one the site answers with a viewer page holding the real file
 //     in a frame (the file is saved, not the page), one whose viewer points to an expired address
 //     (not saved: the link stays online and the popup lists it), one whose viewer page is in the
@@ -89,6 +92,7 @@ body{font:16px sans-serif;margin:20px}
   <div id="grip" role="separator" tabindex="0" data-resize-handle="" data-resize-handle-state="inactive" data-panel-group-direction="horizontal" style="width:10px;flex:none;background:#888;touch-action:none"></div>
   <div id="pane-b" data-panel="" data-panel-size="40.0" style="flex: 40 1 0px; overflow: hidden;">Task</div>
 </section>
+<section id="blobs"><img id="blob-pic" alt="page 1"><img id="blob-gone" alt="page 2"></section>
 <section id="files">
   <a id="toolkit" href="/publish/toolkit.zip" target="_blank">Download the toolkit</a>
   <a id="expired" href="/publish/expired.pdf">Old guide</a>
@@ -103,6 +107,15 @@ body{font:16px sans-serif;margin:20px}
 <h2 id="faq">FAQ</h2>
 <div style="height:1500px">(the end)</div>
 <script>
+// A reader that downloads its pages by script and shows them from memory; the second page's
+// address is let go of once it is drawn.
+fetch('/photos/big-1.svg').then((r) => r.blob()).then((blob) => {
+  document.getElementById('blob-pic').src = URL.createObjectURL(blob);
+  const gone = document.getElementById('blob-gone');
+  const url = URL.createObjectURL(blob);
+  gone.onload = () => URL.revokeObjectURL(url);
+  gone.src = url;
+});
 // The page has already loaded the starter kit's viewer page once: it is in the browser's cache,
 // with the storage address it had then (which has expired since).
 fetch('/publish/stale.zip');
@@ -323,6 +336,14 @@ try {
   await snap.$eval('#split', (el) => { el.style.width = '900px'; });
   const [a3, b3] = await widths();
   check('the panels keep their proportions when the room changes', Math.abs(a3 / (a3 + b3) - a2 / (a1 + b1)) < 0.01, `${a2}/${a1 + b1 - a2} → ${a3}/${b3}`);
+
+  console.log('Pictures shown from memory (blob: addresses)');
+  const blobPic = await snap.$eval('#blob-pic', (i) => ({ src: i.getAttribute('src'), ok: i.complete && i.naturalWidth > 0 }));
+  check('a picture the page showed from memory is saved and shows offline', blobPic.src?.startsWith('assets/images/') && blobPic.ok, JSON.stringify(blobPic));
+  const gone = await snap.$eval('#blob-gone', (i) => i.getAttribute('src'));
+  check('one whose address the page let go of is not left pointing to it', gone === null, String(gone));
+  check('and the popup lists it, saying it could not be read from the page\'s memory', job.failures.some((f) => f.url.startsWith('blob:') && f.text?.key === 'reason_blob'), JSON.stringify(job.failures.map((f) => [f.url.slice(0, 40), f.text?.key])));
+  check('no blob: address is left in the copy', !fs.readFileSync(path.join(unzipDir, 'index.html'), 'utf8').includes('blob:'));
 
   console.log('Links to files of the site');
   const fileLink = (id) => snap.$eval(`#${id}`, (a) => ({ href: a.getAttribute('href'), target: a.getAttribute('target'), download: a.getAttribute('download') }));

@@ -287,6 +287,10 @@
     "message": "o site respondeu com uma página da web, não com o arquivo",
     "description": "Why a linked file failed: the site sent a web page (a viewer or sign-in page) instead of the file."
   },
+  "reason_blob": {
+    "message": "só existia na memória da página e não pôde ser lido dela",
+    "description": "Why a picture or file failed: it had a blob: address (held in the page’s memory) that could not be read, e.g. the page had let it go, or it is a video stream."
+  },
   "option_reveal": {
     "message": "Carregar a página inteira antes: rolar até o fim e apertar “Carregar mais”, para salvar tudo",
     "description": "Popup option (checkbox)."

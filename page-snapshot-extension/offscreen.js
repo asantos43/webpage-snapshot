@@ -298,8 +298,34 @@ async function viaTab(url, fresh = false) {
 
 // `fresh`: from the site, not from what the tab or its cache already has (for a page whose
 // cached copy has gone stale, such as one holding an expired download address).
+// The content of a blob: address, which only the tab can read: from the tab's own context (as a
+// content script), else from the page's world through the debugger. A blob the page has already
+// let go of, or a stream (a video fed by script), cannot be read.
+async function viaBlob(url) {
+  const fromTab = await viaTab(url).catch(() => null);
+  if (fromTab) return { ...fromTab, source: 'page' };
+  if (mainFrameId) {
+    const expression = `(async () => {
+      const blob = await (await fetch(${JSON.stringify(url)})).blob();
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      let bin = '';
+      for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+      return { b64: btoa(bin), type: blob.type };
+    })()`;
+    const res = await call('command', { method: 'Runtime.evaluate', params: { expression, awaitPromise: true, returnByValue: true } }).catch(() => null);
+    const value = res?.result?.value;
+    if (value?.b64 !== undefined) {
+      const bytes = base64ToBytes(value.b64);
+      admit(bytes.length);
+      return { bytes, type: value.type || '', source: 'page' };
+    }
+  }
+  throw failure('only existed in the page\'s memory, and could not be read from it', msg('reason_blob'));
+}
+
 async function fetchBytes(url, { fresh = false } = {}) {
   state.now = shortUrl(url);
+  if (isBlob(url)) return viaBlob(url);
   const loaded = fresh ? null : await readFromPage(url);
   if (loaded) return loaded;
 
@@ -498,8 +524,19 @@ function* allElements(root) {
   }
 }
 
+// A blob: address only exists inside the tab (sites that download a picture by script and show it
+// from memory, such as manga readers): its content is asked of the tab itself (see viaBlob).
+const isBlob = (raw) => /^blob:/i.test((raw || '').trim());
+
 async function localizeAttr(el, name, kind, base) {
-  const url = fetchableUrl(el.getAttribute(name), base);
+  const raw = el.getAttribute(name);
+  if (isBlob(raw)) {
+    const file = await getAsset(raw.trim(), kind);
+    if (file) el.setAttribute(name, `assets/${file}`);
+    else el.removeAttribute(name); // never leave an address that leads nowhere
+    return;
+  }
+  const url = fetchableUrl(raw, base);
   if (!url) return;
   const hash = url.hash;
   url.hash = '';
@@ -599,6 +636,10 @@ async function processElement(el, base, page, depth) {
     const candidates = parseSrcset(el.getAttribute('srcset'));
     tasks.push(
       Promise.all(candidates.map(async (c) => {
+        if (isBlob(c.url)) {
+          const file = await getAsset(c.url.trim(), 'bin');
+          return file ? { ...c, url: `assets/${file}` } : null;
+        }
         const url = fetchableUrl(c.url, base);
         if (!url) return c;
         url.hash = '';
@@ -902,7 +943,7 @@ async function wsnpEntries({ page, html, capturedAt, preview }) {
   ];
   const files = await Promise.all(content.map(async (e) => ({
     path: e.name,
-    ...(e.source !== 'generated' && e.source !== 'picture' ? { original_url: e.url } : {}),
+    ...(e.source !== 'generated' && e.source !== 'picture' && !isBlob(e.url) ? { original_url: e.url } : {}),
     media_type: e.type,
     bytes: e.data.length,
     sha256: hex(await crypto.subtle.digest('SHA-256', e.data)),
