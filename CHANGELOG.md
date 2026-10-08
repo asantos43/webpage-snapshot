@@ -15,7 +15,9 @@ publishes it as the release's notes.
   where the site greys them out. Its fit modes ("Fit ↕", "Fit ↔") work in the copy too: the
   capture tries each and puts the original back. A reader left showing two pages at a time (its
   list reading "Pages 2-3") is switched to one page at a time by its own "Single Page" button for
-  the capture, and back to two pages once the copy is made.
+  the capture, and back to two pages once the copy is made. The page a click on the picture
+  turned to while the capture tried it (page 3, on a capture made from page 1) is recorded too;
+  it was missing from the copy.
 - The README is brought up to date (image readers, Settings, the manual release workflow, the
   `assets/` folders, the tests, the WSNP Viewer).
 - The help pages and READMEs point to the WSNP Viewer, now published (0.1.0, for Linux, Windows

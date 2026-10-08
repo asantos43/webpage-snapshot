@@ -326,12 +326,12 @@ try {
   check('no network requests', placeOnline.length === 0, placeOnline.join(' '));
   await place.close();
 
-  console.log('4b. The same reader left showing two pages at a time ("Pages 2-3")');
+  console.log('4b. The same reader left showing two pages at a time, captured on its page 1');
   // Another address (a query), so the tab loads the page again rather than only changing its #fragment.
-  const spreadRun = await capture(`${origin}/reader/9.html?spread#2-3`);
+  const spreadRun = await capture(`${origin}/reader/9.html?spread#1-`);
   await tab.waitForTimeout(400);
   const spreadLive = await tab.evaluate(() => ({ list: document.getElementById('two-page-select').value, shown: !document.getElementById('two-sel-li').classList.contains('hidden'), pictures: Array.from(document.querySelectorAll('#comicImages img'), (i) => i.getAttribute('src')) }));
-  check('the reader is put back showing two pages ("Pages 2-3", both pictures)', spreadLive.shown && spreadLive.list === '2-3' && JSON.stringify(spreadLive.pictures) === '["/img/h/2.svg","/img/h/3.svg"]', JSON.stringify(spreadLive));
+  check('the reader is put back showing two pages, on page 1', spreadLive.shown && spreadLive.list === '1-' && JSON.stringify(spreadLive.pictures) === '["/img/h/1.svg"]', JSON.stringify(spreadLive));
   check('every page was recorded one at a time (6 pages)', spreadRun.job.notes.some((n) => n.text.key === 'note_sequence_other' && n.text.args[0] === '6') && spreadRun.job.failures.length === 0, JSON.stringify([spreadRun.job.notes, spreadRun.job.failures]));
   const spreadCopy = await context.newPage();
   await spreadCopy.goto(`file://${path.join(spreadRun.dir, 'index.html')}`);
@@ -341,10 +341,13 @@ try {
     return { picture: Number(fs.readFileSync(path.join(spreadRun.dir, src), 'utf8').match(/Page (\d)/)?.[1]), list: Number(await spreadCopy.$eval('#single-page-select', (el) => el.value)), visible: await spreadCopy.isVisible('#single-page-select') };
   };
   const copyStart = await copyPage();
-  check('the copy shows one page at a time, with its list of pages', copyStart.visible && copyStart.picture === copyStart.list && copyStart.picture >= 2 && copyStart.picture <= 3, JSON.stringify(copyStart));
+  check('the copy shows one page at a time, with its list of pages', copyStart.visible && copyStart.picture === 1 && copyStart.list === 1, JSON.stringify(copyStart));
   await spreadCopy.click('#nextPanel');
   const copyNext = await copyPage();
   check('and Next turns to the following page', copyNext.picture === copyStart.picture + 1 && copyNext.list === copyNext.picture, JSON.stringify(copyNext));
+  await spreadCopy.click('#nextPanel');
+  const copyThird = await copyPage();
+  check('page 3 too, where the click on the picture had taken the reader during the capture', copyThird.picture === 3 && copyThird.list === 3, JSON.stringify(copyThird));
   await spreadCopy.close();
 
   console.log('5. A single-page app that changed its address without reloading');

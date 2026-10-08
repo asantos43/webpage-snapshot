@@ -1206,8 +1206,14 @@ export async function extractPage(editorTexts = {}, options = {}) {
       const box = pic.getBoundingClientRect();
       const at = { bubbles: true, cancelable: true, clientX: box.left + box.width / 2, clientY: box.top + Math.min(box.height, innerHeight) / 2, view: window };
       for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) pic.dispatchEvent(new (type.startsWith('pointer') ? PointerEvent : MouseEvent)(type, at));
-      const after = await pictureAfterTurning(probed, 2000);
-      if (after) pictureStep = Math.sign(list.selectedIndex - probe);
+      let after = await pictureAfterTurning(probed, 2000);
+      const landed = list.selectedIndex;
+      if (after || landed !== probe) pictureStep = Math.sign(landed - probe);
+      // The page the click turned to is recorded now: choosing it in the list later changes nothing.
+      if (landed !== probe && landed >= 0 && landed < count) {
+        if (!after) after = await pictureAfterTurning(probed);
+        if (after) { pictures[landed] = after; states[landed] = looks(); }
+      }
     }
     let last = largestPicture()?.currentSrc || probed;
     for (let i = 0; i < count && !cancelled; i++) {
