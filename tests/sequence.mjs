@@ -1,9 +1,12 @@
 // End-to-end test of image readers (one picture per page, an arrow to the next page, as manga and
 // gallery readers are), recognised automatically:
-//   - a reader with a counter ("2 of 5"), captured on its second page: every page's picture saved
-//     (one of them lazy-loaded), the tab never leaving its page; offline, Next, Previous, First,
-//     Last, a click on the picture and the arrow keys step through the pictures, the counter
-//     follows, with no network request;
+//   - a reader with a counter ("1 of 5") and two bars, captured on its first page, where "First" and
+//     "Previous" are invisible placeholders: every page's picture saved (one of them lazy-loaded),
+//     the tab never leaving its page; offline, each page shows its own bars (First / Previous from
+//     page 2, no Next / Last on the last), the picture, Next, Previous, First, Last and the arrow
+//     keys step through the pictures, the counter follows, and the counter's button opens the
+//     site's "Jump to page" window, recorded during the capture (Jump, Cancel, Escape), with no
+//     network request;
 //   - a reader without a counter: it ends where a page has no link to the next one;
 //   - a blog's pagination (no main picture): not taken for a reader, its other pages not read;
 //   - the reader's site answering "too many requests" (429) once: the page is asked again;
@@ -27,12 +30,30 @@ const picture = (label, colour) => `<svg xmlns="http://www.w3.org/2000/svg" widt
 const COLOURS = ['#264653', '#2a9d8f', '#e9c46a', '#f4a261', '#e76f51'];
 const shell = (title, body) => `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>body{margin:0;font:16px sans-serif;background:#111;color:#eee} nav{padding:8px;text-align:center} nav a{color:#eee;margin:0 8px} #image-container img{display:block;margin:auto;width:600px;height:800px}</style></head><body>${body}</body></html>`;
 
-// A reader with a counter: /g/7/<n>/, five pages; page 3's picture is lazy-loaded.
+// A reader with a counter: /g/7/<n>/, five pages; page 3's picture is lazy-loaded. Two bars, as
+// the site draws them: on page 1, First and Previous are invisible placeholders; on the last, no
+// Next or Last. The counter is a button whose script builds a "Jump to Page" window.
+const bar = (n) => `<div class="reader-pagination">${n > 1 ? `<a class="first" href="/g/7/1/">«</a><a class="previous" href="/g/7/${n - 1}/">‹</a>` : '<span class="first invisible">«</span><span class="previous invisible">‹</span>'}
+<button class="page-number" aria-label="Jump to page"><span class="current">${n}</span> of <span class="num-pages">5</span></button>
+${n < 5 ? `<a class="next" href="/g/7/${n + 1}/">›</a><a class="last" href="/g/7/5/">»</a>` : '<span class="next invisible">›</span><span class="last invisible">»</span>'}</div>`;
 const reader = (n) => shell(`Story — page ${n}`, `
-<nav id="top-nav"><a class="first" href="/g/7/1/">«</a> ${n > 1 ? `<a class="previous" href="/g/7/${n - 1}/">‹</a>` : ''}
-<span class="num"><span class="current">${n}</span> of <span class="num-pages">5</span></span>
-${n < 5 ? `<a class="next" href="/g/7/${n + 1}/">›</a>` : ''} <a class="last" href="/g/7/5/">»</a></nav>
-<section id="image-container">${n < 5 ? `<a href="/g/7/${n + 1}/">` : ''}${n === 3 ? '<img src="/img/blank.svg" data-src="/img/7/3.svg" alt="">' : `<img src="/img/7/${n}.svg" alt="">`}${n < 5 ? '</a>' : ''}</section>`);
+<style>.invisible{visibility:hidden} .jump-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6)} .jump-box{background:#222;padding:16px;margin:200px auto;width:260px}</style>
+<nav id="top-nav">${bar(n)}</nav>
+<section id="image-container">${n < 5 ? `<a href="/g/7/${n + 1}/">` : ''}${n === 3 ? '<img src="/img/blank.svg" data-src="/img/7/3.svg" alt="">' : `<img src="/img/7/${n}.svg" alt="">`}${n < 5 ? '</a>' : ''}</section>
+<nav id="bottom-nav">${bar(n)}</nav>
+<script>
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('.page-number')) return;
+  const w = document.createElement('div');
+  w.className = 'jump-backdrop';
+  w.innerHTML = '<div class="jump-box"><h2>Jump to Page</h2><input type="number" value="${n}"><button class="go">Jump</button><button class="cancel">Cancel</button></div>';
+  document.body.append(w);
+  const shut = () => w.remove();
+  w.querySelector('.cancel').onclick = shut;
+  w.querySelector('.go').onclick = () => { location.href = '/g/7/' + w.querySelector('input').value + '/'; };
+  document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { shut(); document.removeEventListener('keydown', esc); } });
+});
+</script>`);
 // A reader without a counter: /r/<n>/, three pages, the picture linking on.
 const plain = (n) => shell(`Comic ${n}`, `<section id="image-container">${n < 3 ? `<a href="/r/${n + 1}/">` : ''}<img src="/img/r/${n}.svg" alt="">${n < 3 ? '</a>' : ''}</section>`);
 // A blog's pagination: text, small pictures, "next page" links.
@@ -111,12 +132,13 @@ try {
     return { job: j, dir };
   };
 
-  console.log('1. A reader with a counter, captured on its page 2');
-  const { job: j, dir } = await capture(`${origin}/g/7/2/`);
+  console.log('1. A reader with a counter and two bars, captured on its page 1');
+  const { job: j, dir } = await capture(`${origin}/g/7/1/`);
   check('capture finished', j?.phase === 'done', JSON.stringify(j?.error || j?.status));
   check('the popup notes the 5 pages of the reader', j.notes.some((n) => n.text.key === 'note_sequence_other' && n.text.args[0] === '5'), JSON.stringify(j.notes));
-  check('the tab never left its page', tab.url() === `${origin}/g/7/2/`, tab.url());
-  check('every page of the reader was read, and every picture saved (the lazy one by its real address)', [1, 3, 4, 5].every((n) => asked.includes(`/g/7/${n}/`)) && [1, 2, 3, 4, 5].every((n) => asked.includes(`/img/7/${n}.svg`)), asked.filter((u) => u.startsWith('/g/') || u.startsWith('/img/7')).join(' '));
+  check('the tab never left its page', tab.url() === `${origin}/g/7/1/`, tab.url());
+  check('the "Jump to page" window the capture opened on the live page is closed again', !(await tab.$('.jump-backdrop')));
+  check('every page of the reader was read, and every picture saved (the lazy one by its real address)', [2, 3, 4, 5].every((n) => asked.includes(`/g/7/${n}/`)) && [1, 2, 3, 4, 5].every((n) => asked.includes(`/img/7/${n}.svg`)), asked.filter((u) => u.startsWith('/g/') || u.startsWith('/img/7')).join(' '));
   check('nothing failed', j.failures.length === 0, JSON.stringify(j.failures));
   check('a page the site refused once with "too many requests" was asked again, and saved', asked.filter((u) => u === '/g/7/4/').length === 2, String(asked.filter((u) => u === '/g/7/4/').length));
 
@@ -139,19 +161,35 @@ try {
     const s = await showing();
     return s.picture === n && s.counter === n && s.loaded;
   };
-  check('the copy opens on page 2, as the tab was', await at(2), JSON.stringify(await showing()));
-  await snap.click('nav a.next');
-  check('Next shows page 3 (the lazy-loaded picture) and the counter follows', await at(3), JSON.stringify(await showing()));
+  const links = () => snap.$$eval('#top-nav a', (as) => as.map((x) => x.className).join(' '));
+  check('the copy opens on page 1, as the tab was, with no First or Previous (as on the site)', await at(1) && (await links()) === 'next last', await links());
+  await snap.click('#top-nav a.next');
+  check('Next shows page 2, and its bar now has First and Previous', await at(2) && (await links()) === 'first previous next last', await links());
+  await snap.click('#bottom-nav a.next');
+  check('the bottom bar works too (page 3, the lazy-loaded picture)', await at(3), JSON.stringify(await showing()));
   await snap.click('#image-container img');
   check('a click on the picture goes on to page 4', await at(4), JSON.stringify(await showing()));
   await snap.keyboard.press('ArrowLeft');
   check('the Left arrow key goes back to page 3', await at(3), JSON.stringify(await showing()));
-  await snap.click('nav a.first');
-  check('First goes to page 1', await at(1), JSON.stringify(await showing()));
-  await snap.click('nav a.last');
-  check('Last goes to page 5', await at(5), JSON.stringify(await showing()));
-  await snap.click('nav a.previous');
-  check('Previous goes back from wherever the reader is (page 4)', await at(4), JSON.stringify(await showing()));
+  await snap.click('#top-nav a.previous');
+  check('Previous goes back to page 2', await at(2), JSON.stringify(await showing()));
+  await snap.click('#top-nav a.first');
+  check('First goes back to page 1, whose bar has no First or Previous again', await at(1) && (await links()) === 'next last', await links());
+  await snap.click('#top-nav a.last');
+  check('Last goes to page 5, whose bar has no Next or Last', await at(5) && (await links()) === 'first previous', await links());
+  await snap.click('#top-nav .page-number');
+  const win = async () => snap.$eval('.jump-backdrop', (w) => ({ title: w.querySelector('h2')?.textContent, value: w.querySelector('input')?.value })).catch(() => null);
+  const shown = await win();
+  check('the counter opens the site\'s "Jump to Page" window, recorded during the capture, on the page on screen', shown?.title === 'Jump to Page' && shown.value === '5', JSON.stringify(shown));
+  await snap.fill('.jump-backdrop input', '3');
+  await snap.click('.jump-backdrop .go');
+  check('"Jump" goes to the page typed (3) and closes the window', await at(3) && !(await win()), JSON.stringify(await showing()));
+  await snap.click('#bottom-nav .page-number');
+  await snap.click('.jump-backdrop .cancel');
+  check('"Cancel" closes it and stays on the page', !(await win()) && await at(3));
+  await snap.click('#top-nav .page-number');
+  await snap.keyboard.press('Escape');
+  check('Escape closes it too', !(await win()));
   const hrefs = await snap.$$eval('nav a, #image-container a', (as) => as.map((a) => a.getAttribute('href')));
   check('no link of the reader leads to the site', hrefs.every((h) => h.startsWith('#')), hrefs.join(' '));
   check('no network requests', online.length === 0, online.join(' '));

@@ -837,7 +837,7 @@ async function processDocument(data, page, depth = 0) {
   // Sliding carousels: where the strip sat at each step, for lib/offline/slider.js.
   // An image reader (one picture per page): the pictures of its other pages, for
   // lib/offline/sequence.js to step through.
-  if (depth === 0 && page.sequence && doc.querySelector('[data-snap-sequence]')) await readSequence(doc, page);
+  if (depth === 0 && page.sequence && doc.querySelector('[data-snap-sequence]')) await readSequence(doc, page, data.base);
 
   // Areas that change with a choice (radio buttons): their content for each option, processed
   // like the page itself, for lib/offline/choices.js to bring in.
@@ -900,14 +900,48 @@ function readerPicture(img, base) {
 // the main picture), in the background through the tab, and saves each page's main picture. Pages
 // that cannot be read, or have no picture, are listed as failed. The links to pages of the
 // sequence then lead inside the copy, and <script id="snap-sequence"> lists the pictures.
-async function readSequence(doc, page) {
-  const { template, current, total, selector } = page.sequence;
+// Next and Previous are a step from wherever the reader is (data-snap-seq-step); the others
+// (first, last, a page's thumbnail) go to their page, also when it is the page next to this one
+// ("First" on page 2), told apart by what the link says it is.
+const END_LINK = /\b(first|last|primeir[ao]|[uú]ltim[ao]|in[ií]cio|fim|end)\b|[«»⏮⏭]/i;
+function markReaderLink(a, target, from) {
+  const says = [a.textContent, a.getAttribute('class'), a.getAttribute('rel'), a.getAttribute('aria-label'), a.getAttribute('title')].join(' ');
+  a.setAttribute('data-snap-seq-page', String(target));
+  if (Math.abs(target - from) === 1 && !END_LINK.test(says)) a.setAttribute('data-snap-seq-step', String(target - from));
+  else a.removeAttribute('data-snap-seq-step');
+  a.setAttribute('href', `#page-${target}`);
+  a.removeAttribute('target');
+}
+
+async function readSequence(doc, page, base) {
+  const { template, current, total, selector, bars: barSpecs = [], jump } = page.sequence;
   const main = doc.querySelector('[data-snap-sequence]');
   const urlFor = (n) => template.replace('{n}', String(n));
   const known = total > 0;
   const last = Math.min(known ? total : MAX_SEQUENCE_PAGES, MAX_SEQUENCE_PAGES);
   const pictures = new Array(last).fill(null);
   pictures[current - 1] = main.getAttribute('src');
+  // Each page's bars (its links and counter, as the site draws them on that page).
+  const bars = new Array(last).fill(null);
+  const pageOf = new Map(Array.from({ length: last }, (_, i) => [urlFor(i + 1), i + 1]));
+  const barsOf = async (other, n) => {
+    const found = [];
+    for (const { selector: sel, nth } of barSpecs) {
+      const bar = other.querySelectorAll(sel)[nth];
+      if (!bar) { found.push(null); continue; }
+      for (const a of bar.querySelectorAll('a[href]')) {
+        const k = pageOf.get(fetchableUrl(a.getAttribute('href'), urlFor(n))?.href);
+        if (k) markReaderLink(a, k, n);
+      }
+      const number = [...bar.querySelectorAll('*')].find((el) => !el.children.length && el.textContent.trim() === String(n));
+      if (number) {
+        number.setAttribute('data-snap-seq-current', '');
+        number.closest('button, [role="button"]')?.setAttribute('data-snap-seq-jump', '');
+      }
+      found.push(await processFragment(bar.innerHTML, urlFor(n), page, 0, doc));
+    }
+    return found;
+  };
   let done = 0;
   const readPage = async (n) => {
     let found = null;
@@ -922,6 +956,7 @@ async function readSequence(doc, page) {
       if (!src) throw failure('no picture was found on that page', msg('reason_no_picture'));
       const file = await getAsset(src, 'bin');
       if (file) found = `assets/${file}`;
+      if (barSpecs.length) bars[n - 1] = await barsOf(other, n);
       // Without a counter, the reader ends where a page has no link to the next one.
       const next = [...other.querySelectorAll('a[href]')].some((a) => fetchableUrl(a.getAttribute('href'), urlFor(n))?.href === urlFor(n + 1));
       return { found, next };
@@ -961,21 +996,14 @@ async function readSequence(doc, page) {
   sequencePages = pictures.filter(Boolean).length;
   step('sequence', plural(sequencePages, 'step_sequence_done'), pictures.every(Boolean) ? 'done' : 'warn');
   // Links to a page of the reader stay in the copy.
-  // Next and Previous are a step from wherever the reader is (data-snap-seq-step); the others
-  // (first, last, a page's thumbnail) go to their page, also when it is the page next to this one
-  // ("First" on page 2), told apart by what the link says it is.
-  const END = /\b(first|last|primeir[ao]|[uú]ltim[ao]|in[ií]cio|fim|end)\b|[«»⏮⏭]/i;
-  for (const a of doc.querySelectorAll('[data-snap-seq-page]')) {
-    const n = Number(a.getAttribute('data-snap-seq-page'));
-    const says = [a.textContent, a.getAttribute('class'), a.getAttribute('rel'), a.getAttribute('aria-label'), a.getAttribute('title')].join(' ');
-    if (Math.abs(n - current) === 1 && !END.test(says)) a.setAttribute('data-snap-seq-step', String(n - current));
-    a.setAttribute('href', `#page-${n}`);
-    a.removeAttribute('target');
-  }
+  for (const a of doc.querySelectorAll('[data-snap-seq-page]')) markReaderLink(a, Number(a.getAttribute('data-snap-seq-page')), current);
+  if (barSpecs.length) bars[current - 1] = [...doc.querySelectorAll('[data-snap-seq-bar]')].map((bar) => bar.innerHTML);
+  // The "Jump to page" window the capture opened and recorded, for lib/offline/sequence.js.
+  const jumpWindow = jump ? { html: await processFragment(jump.html, base, page, 0, doc), dialog: jump.dialog } : null;
   const store = doc.createElement('script');
   store.setAttribute('type', 'application/json');
   store.id = 'snap-sequence';
-  store.textContent = JSON.stringify({ pictures, start: current - 1 }).replace(/</g, '\\u003c');
+  store.textContent = JSON.stringify({ pictures, start: current - 1, bars: barSpecs.length ? bars : null, jump: jumpWindow }).replace(/</g, '\\u003c');
   doc.body.append(store);
 }
 
