@@ -6,11 +6,17 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-08
+
 - Image readers (manga and gallery readers that show one picture per page, with an arrow to the
   next page and often a counter such as "1 of 22") are recognised automatically: PageKeep reads
   the reader's other pages in the background, without leaving the page you are on, and saves each
   page's picture. In the copy, the arrows, a click on the picture and the arrow keys step through
   them, and the counter follows. Ordinary pagination (blogs, search results) is left alone.
+
+- The popup's capture options ("Load the whole page first" and "Record what each choice shows")
+  are grouped under a **Settings** section, closed until you open it; **Save as** (`.zip` or
+  `.wsnp`) stays in view.
 
 ## [1.7.4] - 2026-10-08
 

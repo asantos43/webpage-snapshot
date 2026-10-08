@@ -319,6 +319,14 @@
     "message": "Carregar a página inteira antes: rolar até o fim e apertar “Carregar mais”, para salvar tudo",
     "description": "Popup option (checkbox)."
   },
+  "settings": {
+    "message": "Configurações",
+    "description": "Popup: the collapsible section holding the capture options."
+  },
+  "help_settings": {
+    "message": "reúne as opções da captura, \"Carregar a página inteira antes\" e \"Gravar o que cada escolha mostra\" (fechada até você abrir). Elas ficam guardadas e valem para a próxima captura.",
+    "description": "Help item after the settings label."
+  },
   "option_choices": {
     "message": "Gravar o que cada escolha mostra (radio buttons e caixas de seleção): escolhe cada opção na página, o que pode mudar suas respostas nela",
     "description": "Popup option (checkbox), off by default."
@@ -420,7 +428,7 @@
     "description": "Status after Download is pressed."
   },
   "help_snapshot": {
-    "message": "começa a salvar esta página (a opção abaixo decide se a página inteira é carregada antes).",
+    "message": "começa a salvar esta página (as opções em Configurações decidem como).",
     "description": "Help item after the Snapshot button's name."
   },
   "help_key": {

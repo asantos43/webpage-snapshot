@@ -17,7 +17,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { openPopupWindow, popupTargets } from './popup.mjs';
+import { openPopupWindow, openSettings, popupTargets } from './popup.mjs';
 
 const extensionPath = path.resolve(process.argv[2] || '../page-snapshot-extension');
 
@@ -181,6 +181,7 @@ try {
   check('nothing recorded', !fs.readFileSync(path.join(result.dir, 'index.html'), 'utf8').includes('data-snap-choices'));
 
   console.log('2. The option on');
+  await openSettings(popup);
   await popup.check('#opt-choices');
   await pause(300);
   check('switching it on is saved', (await worker.evaluate(() => chrome.storage.local.get('settings'))).settings?.choices === true);
