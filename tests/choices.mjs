@@ -40,6 +40,7 @@ body{font:16px sans-serif;margin:20px} .step{border:1px solid #ccc;padding:8px;m
   <span role="radio" id="plan-b" aria-checked="true" tabindex="0">Plan B</span></span>
   <div id="plan-details">Plan B: two seats</div>
 </section>
+<section id="unrated-q"><label><input type="checkbox" id="unrated"> The prompt cannot be rated</label></section>
 <section id="sticky-q"><label><input class="sr-only" type="radio" name="color" id="red"><span>Red</span></label>
   <label><input class="sr-only" type="radio" name="color" id="blue"><span>Blue</span></label><p id="color-note"></p></section>
 <script>
@@ -91,6 +92,18 @@ reveal('accepted', 'next2', (id) => (id === 'acc-yes'
   : '<p id="revise">Revise your proposal</p>'));
 reveal('confident', 'next2b', (id) => (id === 'conf-sure' ? '<p id="go-msg">Go ahead</p>' : '<p id="ask-msg">Ask in Slack first</p>'));
 reveal('tests', 'next3', (id) => (id === 'tests-ok' ? '<p id="done-msg">Ready to submit</p>' : '<p id="fix-msg">Fix the tests</p>'));
+// A checkbox whose script builds what to fill in only when it is ticked.
+document.getElementById('unrated').addEventListener('change', (event) => {
+  window.changes++;
+  setTimeout(() => {
+    document.getElementById('unrated-reason')?.remove();
+    if (!event.target.checked) return;
+    const box = document.createElement('div');
+    box.id = 'unrated-reason';
+    box.innerHTML = '<p>Why can it not be rated?</p><textarea></textarea>';
+    document.getElementById('unrated-q').append(box);
+  }, 120);
+});
 // An ARIA radio group (Radix-style), with a choice already made: its details follow the choice.
 document.querySelectorAll('[role="radio"]').forEach((r) => r.addEventListener('click', () => {
   window.changes++;
@@ -175,8 +188,8 @@ try {
   const { job: j } = result;
   check('capture finished', j?.phase === 'done', JSON.stringify(j?.error || j?.status));
   const choicesStep = j.steps.find((s) => s.id === 'choices');
-  check('the popup lists the step, with a warning (one group kept an option)', choicesStep?.state === 'warn' && choicesStep.text?.key === 'step_choices_done_other' && choicesStep.text.args[0] === '6', JSON.stringify(choicesStep));
-  check('the popup notes the 6 groups recorded (3 on the page, 3 revealed by answers)', j.notes.some((n) => n.text.key === 'note_choices_other' && n.text.args[0] === '6'), JSON.stringify(j.notes));
+  check('the popup lists the step, with a warning (one group kept an option)', choicesStep?.state === 'warn' && choicesStep.text?.key === 'step_choices_done_other' && choicesStep.text.args[0] === '7', JSON.stringify(choicesStep));
+  check('the popup notes the 7 groups recorded (3 radio groups and a checkbox on the page, 3 revealed by answers)', j.notes.some((n) => n.text.key === 'note_choices_other' && n.text.args[0] === '7'), JSON.stringify(j.notes));
   const leftNote = j.notes.find((n) => n.text.key === 'note_choices_left');
   check('and warns that the page kept the option "Blue" chosen by the capture', leftNote?.warn && leftNote.text.args[0] === 'Blue', JSON.stringify(leftNote));
   const live = await tab.evaluate(() => ({
@@ -187,6 +200,7 @@ try {
   }));
   check('the live page is put back: nothing chosen in the first question, and no next step', live.ready.every((c) => !c) && live.next === 0, JSON.stringify(live));
   check('the user\'s choice "Plan B" is put back', live.plan === 'plan-b' && live.details === 'Plan B: two seats', JSON.stringify(live));
+  check('the checkbox is put back unticked, and what it builds is gone', await tab.evaluate(() => !document.getElementById('unrated').checked && !document.getElementById('unrated-reason')));
 
   console.log('3. The copy, offline');
   const snap = await context.newPage();
@@ -233,6 +247,13 @@ try {
   await snap.waitForTimeout(200);
   check('back on "Yes", step 2 is there again with nothing chosen', (await text('#next-yes')) === 'Step 2: propose your task' && !(await snap.$('#step3')) && !(await snap.$('#ask-msg')) && JSON.stringify(await ticked('acc-yes', 'acc-no', 'conf-sure', 'conf-unsure')) === '[false,false,false,false]');
   check('the ARIA group opens on "Plan B", as the user left it', (await text('#plan-details')) === 'Plan B: two seats');
+  check('the checkbox opens unticked, with nothing below it', !(await snap.$eval('#unrated', (b) => b.checked)) && !(await snap.$('#unrated-reason')));
+  await snap.click('#unrated');
+  await snap.waitForTimeout(200);
+  check('ticking it shows what the site built for it', (await text('#unrated-reason p')) === 'Why can it not be rated?' && await snap.$eval('#unrated', (b) => b.checked));
+  await snap.click('#unrated');
+  await snap.waitForTimeout(200);
+  check('unticking it takes that away again', !(await snap.$('#unrated-reason')) && !(await snap.$eval('#unrated', (b) => b.checked)));
   await snap.click('#plan-a');
   await snap.waitForTimeout(200);
   check('choosing "Plan A" shows its details', (await text('#plan-details')) === 'Plan A: one seat' && (await snap.$eval('#plan-a', (r) => r.getAttribute('aria-checked'))) === 'true');

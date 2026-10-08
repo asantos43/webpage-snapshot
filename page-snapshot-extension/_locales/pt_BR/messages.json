@@ -296,7 +296,7 @@
     "description": "Popup option (checkbox)."
   },
   "option_choices": {
-    "message": "Gravar o que cada escolha mostra (radio buttons): escolhe cada opção na página, o que pode mudar suas respostas nela",
+    "message": "Gravar o que cada escolha mostra (radio buttons e caixas de seleção): escolhe cada opção na página, o que pode mudar suas respostas nela",
     "description": "Popup option (checkbox), off by default."
   },
   "help_choices_label": {
@@ -304,7 +304,7 @@
     "description": "Help item label: the option_choices checkbox."
   },
   "help_choices": {
-    "message": "(desligada, a menos que você ligue): alguns formulários só mostram o próximo passo depois que uma opção é escolhida. Com ela ligada, o PageKeep escolhe cada opção de cada grupo de radio buttons, grava o que a página mostra para cada uma e devolve a sua escolha, para que a cópia mostre o conteúdo certo de cada opção. Ele age na página como você agiria: um site pode salvar essas respostas, ou ficar com a última opção escolhida quando nada estava escolhido antes; o popup avisa qual. Use em páginas onde isso não tem problema.",
+    "message": "(desligada, a menos que você ligue): alguns formulários só mostram o próximo passo depois que uma opção é escolhida ou uma caixa é marcada. Com ela ligada, o PageKeep escolhe cada opção de cada grupo de radio buttons, e marca e desmarca cada caixa de seleção, grava o que a página mostra para cada uma e devolve as suas escolhas, para que a cópia mostre o conteúdo certo de cada uma. Ele age na página como você agiria: um site pode salvar essas respostas, ou ficar com a última opção escolhida quando nada estava escolhido antes; o popup avisa qual. Use em páginas onde isso não tem problema.",
     "description": "Help item after help_choices_label."
   },
   "step_choices": {

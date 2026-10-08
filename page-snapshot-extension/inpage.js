@@ -708,29 +708,58 @@ export async function extractPage(editorTexts = {}, options = {}) {
   // What changes on its own meanwhile (a countdown, a clock) is watched first and ignored. A site
   // may keep the last option chosen (a radio cannot be unticked by a click): that group is
   // reported, since the page now shows an answer the user did not give.
-  // The groups of radio buttons in `scope` worth recording: { key, options }. A native group is
-  // known by its form and name, an ARIA one by its radiogroup element.
-  const groupKey = (el) => (el.localName === 'input'
-    ? (el.name ? `name:${el.form ? Array.from(document.forms).indexOf(el.form) : -1}:${el.name}` : null)
-    : el.closest('[role="radiogroup"]'));
-  const radioGroups = (scope = document) => {
-    const groups = new Map();
-    for (const el of scope.querySelectorAll('input[type="radio"], [role="radio"]')) {
-      const key = groupKey(el);
-      if (!key) continue;
-      const shown = el.getClientRects().length > 0 || (el.localName === 'input' && el.labels?.[0]?.getClientRects().length > 0);
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push({ el, shown });
-    }
-    return Array.from(groups, ([key, options]) => ({ key, options }))
-      .filter(({ options }) => options.length >= 2 && options.some((o) => o.shown) && options.every((o) => !isDisabled(o.el)))
-      .map(({ key, options }) => ({ key, options: options.map((o) => o.el) }));
-  };
   const isChecked = (el) => (el.localName === 'input' ? el.checked : el.getAttribute('aria-checked') === 'true');
+  const shownEl = (el) => el.getClientRects().length > 0 || (el.localName === 'input' && el.labels?.[0]?.getClientRects().length > 0);
   // Choose an option as a person would: on its label when the input itself is hidden (custom radios).
   const choose = (el) => {
     const visible = el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
     (visible || el.localName !== 'input' ? el : el.labels?.[0] || el).click();
+  };
+  const optionText = (el) => (el.labels?.[0]?.textContent || el.getAttribute('aria-label') || el.textContent || '').trim().replace(/\s+/g, ' ');
+  // The questions in `scope` worth recording, each a set of states chosen by a click: a group of
+  // radio buttons (native, known by its form and name, or ARIA, by its radiogroup), one state per
+  // option; or a checkbox (or ARIA checkbox or switch), two states, unticked (0) and ticked (1).
+  // { key, count, select(i), selected(), anchor, connected(), label(i), group (how the copy knows it) }
+  const radioKey = (el) => (el.localName === 'input'
+    ? (el.name ? `name:${el.form ? Array.from(document.forms).indexOf(el.form) : -1}:${el.name}` : null)
+    : el.closest('[role="radiogroup"]'));
+  const questions = (scope = document) => {
+    const found = [];
+    const groups = new Map();
+    for (const el of scope.querySelectorAll('input[type="radio"], [role="radio"]')) {
+      const key = radioKey(el);
+      if (!key) continue;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(el);
+    }
+    for (const [key, options] of groups) {
+      if (options.length < 2 || !options.some(shownEl) || options.some(isDisabled)) continue;
+      const first = options[0];
+      found.push({
+        key, options, count: options.length,
+        select: (i) => choose(options[i]),
+        selected: () => options.findIndex(isChecked),
+        anchor: commonAncestor(options),
+        connected: () => options.some((el) => el.isConnected),
+        label: (i) => optionText(options[i]),
+        untick: () => untick(options),
+        group: first.localName === 'input' ? { name: first.name } : { text: options.map(optionText).join('|') },
+      });
+    }
+    for (const box of scope.querySelectorAll('input[type="checkbox"], [role="checkbox"], [role="switch"]')) {
+      if (!shownEl(box) || isDisabled(box)) continue;
+      found.push({
+        key: box, options: [box], count: 2,
+        select: (i) => { if (isChecked(box) !== !!i) choose(box); },
+        selected: () => (isChecked(box) ? 1 : 0),
+        anchor: box,
+        connected: () => box.isConnected,
+        label: () => optionText(box),
+        untick: null,
+        group: { checkbox: { id: box.id || '', name: box.getAttribute('name') || '', value: box.getAttribute('value') || '', text: optionText(box) } },
+      });
+    }
+    return found;
   };
   const commonAncestor = (nodes) => {
     let common = nodes[0];
@@ -748,7 +777,7 @@ export async function extractPage(editorTexts = {}, options = {}) {
   }
   // Chooses `el` and returns where the page changed (the elements whose content or attributes
   // changed), once it has been quiet for a moment.
-  async function changesFrom(el, restless) {
+  async function changesFrom(act, restless) {
     const changed = new Set();
     const ignore = (node) => Array.from(restless).some((r) => r && r.contains(node));
     const watch = new MutationObserver((records) => records.forEach((r) => {
@@ -756,7 +785,7 @@ export async function extractPage(editorTexts = {}, options = {}) {
       if (target && !ignore(target)) changed.add(target);
     }));
     watch.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
-    choose(el);
+    act();
     let last = -1;
     for (let waited = 0; waited < 3000; waited += 150) {
       await sleep(150);
@@ -791,8 +820,8 @@ export async function extractPage(editorTexts = {}, options = {}) {
   // element that holds its options.
   async function exploreChoices() {
     const choices = {};
-    const explored = []; // { options, original }: to tell, at the end, what the capture left chosen
-    const top = radioGroups();
+    const explored = []; // { q, original }: to tell, at the end, what the capture left chosen
+    const top = questions();
     if (!top.length) return { choices, left: [] };
     const restless = await restlessElements();
     let count = 0;
@@ -804,12 +833,11 @@ export async function extractPage(editorTexts = {}, options = {}) {
       for (let el = from; el && el !== to; el = el.parentElement) n++;
       return n;
     };
-    const optionText = (el) => (el.labels?.[0]?.textContent || el.getAttribute('aria-label') || el.textContent || '').trim().replace(/\s+/g, ' ');
     // The page as it is before anything is chosen, copied once: the ancestors of each question's
     // options are marked ("<question>.<levels up>") so the copy of any of them can be found in it.
     const marked = new Set();
-    top.forEach(({ options }, t) => {
-      for (let el = commonAncestor(options), level = 0; el && el !== document.body; el = el.parentElement, level++) {
+    top.forEach(({ anchor }, t) => {
+      for (let el = anchor, level = 0; el && el !== document.body; el = el.parentElement, level++) {
         el.setAttribute('data-snap-level', `${el.getAttribute('data-snap-level') || ''} ${t}.${level}`.trim());
         marked.add(el);
       }
@@ -823,58 +851,55 @@ export async function extractPage(editorTexts = {}, options = {}) {
       return area.innerHTML;
     };
 
-    async function exploreGroup(all, parent, depth, t = -1) {
+    async function exploreGroup(q, parent, depth, t = -1) {
       if (cancelled || count >= MAX_CHOICE_GROUPS || total >= MAX_CHOICES_TOTAL) return;
-      const options = all.slice(0, MAX_CHOICE_OPTIONS);
+      const states = Math.min(q.count, MAX_CHOICE_OPTIONS);
       count++;
       report({ phase: 'choices', group: count, groups: Math.max(known, count) });
       const id = String(++serial);
-      const original = options.find(isChecked) || null;
-      explored.push({ options, original });
-      const anchor = commonAncestor(options);
-      const already = new Set(radioGroups().map((g) => g.key)); // the questions already there
-      // First pass: where does each option change the page? The area is everything that changed
-      // plus the group itself; a revealed question stays inside the area that revealed it.
-      const touched = [anchor];
-      for (const el of options) {
-        if (cancelled || !el.isConnected) break;
-        touched.push(...await changesFrom(el, restless));
+      const original = q.selected(); // -1: no option of a radio group chosen
+      explored.push({ q, original });
+      const already = new Set(questions().map((g) => g.key)); // the questions already there
+      // First pass: where does each state change the page? The area is everything that changed
+      // plus the question itself; a revealed question stays inside the area that revealed it.
+      const touched = [q.anchor];
+      for (let k = 0; k < states; k++) {
+        if (cancelled || !q.connected()) break;
+        touched.push(...await changesFrom(() => q.select(k), restless));
       }
       let region = commonAncestor(touched.filter((n) => n?.isConnected));
       if (region && (region === document.body || region === document.documentElement)) region = null;
       if (region && parent && !parent.area.contains(region)) region = parent.area.isConnected ? parent.area : null;
-      if (region && !region.contains(anchor)) region = null;
-      // Second pass, now that the area is known: each option recorded as soon as it is chosen,
+      if (region && !region.contains(q.anchor)) region = null;
+      // Second pass, now that the area is known: each state recorded as soon as it is chosen,
       // then the questions it revealed.
       const pages = [];
       if (region && !cancelled) {
-        for (const [k, el] of options.entries()) {
-          if (cancelled || !el.isConnected || !region.contains(el)) { pages.length = 0; break; }
-          choose(el);
+        for (let k = 0; k < states; k++) {
+          if (cancelled || !q.connected() || !region.contains(q.anchor)) { pages.length = 0; break; }
+          q.select(k);
           await settle(region);
           const html = fragmentHtml(region);
           if (html.length > MAX_CHOICE_HTML || total + html.length > MAX_CHOICES_TOTAL) { pages.length = 0; break; }
           pages.push(html);
           total += html.length;
           if (depth < MAX_CHOICE_DEPTH) {
-            const revealed = radioGroups(region).filter((g) => !already.has(g.key) && !g.options.includes(el));
+            const revealed = questions(region).filter((g) => !already.has(g.key) && g.key !== q.key);
             known += revealed.length;
-            for (const g of revealed) await exploreGroup(g.options, { id, option: k, area: region }, depth + 1);
+            for (const g of revealed) await exploreGroup(g, { id, option: k, area: region }, depth + 1);
           }
         }
       }
-      // Put the original choice back.
-      if (original?.isConnected) choose(original);
-      else untick(options);
+      // Put the original state back (a radio group that had nothing chosen is unticked).
+      if (original >= 0) q.select(original);
+      else q.untick?.();
       if (region?.isConnected) await settle(region);
       await sleep(150);
-      if (!region || pages.length !== options.length) return;
-      const first = options[0];
+      if (!region || pages.length !== states) return;
       choices[id] = {
         pages,
-        // How the copy knows the question: by its name, or by the text of its options.
-        group: first.localName === 'input' ? { name: first.name } : { text: options.map(optionText).join('|') },
-        up: levelsUp(anchor, region),
+        group: q.group, // how the copy knows the question: its name, its options' text, or the checkbox
+        up: levelsUp(q.anchor, region),
         parent: parent ? { id: parent.id, option: parent.option } : null,
       };
       if (!parent) {
@@ -884,18 +909,19 @@ export async function extractPage(editorTexts = {}, options = {}) {
       }
     }
 
-    for (const [t, { options }] of top.entries()) {
+    for (const [t, q] of top.entries()) {
       if (cancelled || count >= MAX_CHOICE_GROUPS) break;
-      if (options[0].isConnected) await exploreGroup(options, null, 0, t);
+      if (q.connected()) await exploreGroup(q, null, 0, t);
     }
-    // A question still on the page with an option the capture chose and could not take back (a
-    // site that keeps the last option when nothing was chosen): the page now shows an answer
-    // the user did not give.
+    // A question still on the page in a state the capture chose and could not take back (a site
+    // that keeps the last option when nothing was chosen): the page now shows an answer the user
+    // did not give.
     const left = [];
-    for (const { options, original } of explored) {
-      const now = options.find((el) => el.isConnected && isChecked(el));
-      if (!now || now === original) continue;
-      left.push((optionText(now) || '?').slice(0, 80));
+    for (const { q, original } of explored) {
+      if (!q.connected()) continue;
+      const now = q.selected();
+      if (now < 0 || now === original) continue;
+      left.push((q.label(now) || '?').slice(0, 80));
     }
     report({ phase: 'choices-done', groups: Object.keys(choices).length, left: left.length });
     return { choices, left };
