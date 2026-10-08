@@ -103,6 +103,10 @@ jobs:
         working-directory: tests
         run: npm run choices
 
+      - name: Image readers end-to-end test
+        working-directory: tests
+        run: npm run sequence
+
       - name: Store policy checks
         working-directory: tests
         run: npm run store-policy
