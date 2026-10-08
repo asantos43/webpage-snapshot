@@ -39,6 +39,8 @@ Rules that shape the design:
 
 When behaviour changes, update `page-snapshot-extension/README.md` and add a line under `## [Unreleased]` in `CHANGELOG.md`.
 
+**Reviews** (plugins installed for the user, as in Folder Browser): `/pr-review-toolkit:review-pr` before the merge of a pull request that changes the extension's code, and `/claude-security` (scan changes) when it touches what acts on the live page (`inpage.js`), the downloads and the debugger (`offscreen.js`, `background.js`), what removes the page's scripts and network references from the copy, the offline scripts (`lib/offline/`), the `.wsnp` writer or the signing (`lib/zip.js`, `lib/signing.js`), or the permissions; the cost is told to the user first, and **they are never run unless the user asks for it in that message**. `SECURITY.md` is the threat model and how to report a vulnerability (privately, through the repository's Security tab); Dependabot (`.github/dependabot.yml`) watches the tests' npm dependencies and the workflows' actions.
+
 `.claude/settings.json` pre-approves `npm install`, the smoke test, `node --check` and read-only git commands.
 
 ## Releases
