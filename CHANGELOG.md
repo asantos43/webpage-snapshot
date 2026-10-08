@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-10-08
+
 - Image readers in the copy work as on the site: each page shows the bars the site drew for it
   ("First" and "Previous" appear from page 2, so a reader captured on page 1 can go back), and
   the counter opens the site's "Jump to page" window, which the capture opens, records and closes
