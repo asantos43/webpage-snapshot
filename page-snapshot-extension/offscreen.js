@@ -323,7 +323,9 @@ async function viaBlob(url) {
   throw failure('only existed in the page\'s memory, and could not be read from it', msg('reason_blob'));
 }
 
-async function fetchBytes(url, { fresh = false } = {}) {
+// `retries` and `maxWaitMs`: how patient to be with a site that answers 429 / 503 ("too many
+// requests"), waiting what it asks (Retry-After) or longer each time.
+async function fetchBytes(url, { fresh = false, retries = MAX_RETRIES, maxWaitMs = 10_000 } = {}) {
   state.now = shortUrl(url);
   if (isBlob(url)) return viaBlob(url);
   const loaded = fresh ? null : await readFromPage(url);
@@ -332,15 +334,17 @@ async function fetchBytes(url, { fresh = false } = {}) {
   return limitedByHost(url, async () => {
     for (let attempt = 0; ; attempt++) {
       try {
+        // A retry goes to the site: with the cache, Chromium would hand back the same 429.
+        const again = fresh || attempt > 0;
         if (tabOrigin && new URL(url).origin === tabOrigin) {
-          const viaPage = await viaTab(url, fresh);
+          const viaPage = await viaTab(url, again);
           if (viaPage) return viaPage;
         }
-        return await viaDebugger(url, fresh);
+        return await viaDebugger(url, again);
       } catch (err) {
         const retryable = err.status === 429 || err.status === 503;
-        if (!retryable || attempt >= MAX_RETRIES) throw err;
-        await sleep(Math.min(err.retryAfterMs || RETRY_BASE_MS * 2 ** attempt, 10_000));
+        if (!retryable || attempt >= retries) throw err;
+        await sleep(Math.min(err.retryAfterMs || RETRY_BASE_MS * 2 ** attempt, maxWaitMs));
       }
     }
   });
@@ -908,7 +912,8 @@ async function readSequence(doc, page) {
   const readPage = async (n) => {
     let found = null;
     try {
-      const { bytes } = await fetchBytes(urlFor(n));
+      // Readers limit how fast their pages are asked for: be patient with "too many requests".
+      const { bytes } = await fetchBytes(urlFor(n), { retries: 6, maxWaitMs: 30_000 });
       const other = new DOMParser().parseFromString(new TextDecoder().decode(bytes), 'text/html');
       const candidates = [...other.querySelectorAll(selector)];
       // The one that links on to the next page, else the first.
@@ -930,15 +935,24 @@ async function readSequence(doc, page) {
     }
   };
   step('sequence', msg('step_sequence', 0, known ? last - 1 : '?'));
+  // One page at a time, with a pause between them: readers limit how fast their pages are asked
+  // for (HTTP 429), while their pictures, often on another host, download in parallel.
+  const PAUSE_MS = 300;
   if (known) {
-    const others = Array.from({ length: last }, (_, i) => i + 1).filter((n) => n !== current);
-    const results = await Promise.all(others.map(async (n) => [n, await readPage(n)]));
-    for (const [n, { found }] of results) pictures[n - 1] = found;
+    for (let n = 1; n <= last; n++) {
+      if (n === current) continue;
+      pictures[n - 1] = (await readPage(n)).found;
+      await sleep(PAUSE_MS);
+    }
   } else {
     // Pages before this one, then after it until the reader ends.
-    for (let n = 1; n < current; n++) pictures[n - 1] = (await readPage(n)).found;
+    for (let n = 1; n < current; n++) {
+      pictures[n - 1] = (await readPage(n)).found;
+      await sleep(PAUSE_MS);
+    }
     for (let n = current + 1; n <= last; n++) {
       const r = await readPage(n);
+      await sleep(PAUSE_MS);
       if (r.end) { pictures.length = n - 1; break; }
       pictures[n - 1] = r.found;
       if (!r.next) { pictures.length = n; break; }

@@ -5,7 +5,10 @@
 //     Last, a click on the picture and the arrow keys step through the pictures, the counter
 //     follows, with no network request;
 //   - a reader without a counter: it ends where a page has no link to the next one;
-//   - a blog's pagination (no main picture): not taken for a reader, its other pages not read.
+//   - a blog's pagination (no main picture): not taken for a reader, its other pages not read;
+//   - the reader's site answering "too many requests" (429) once: the page is asked again;
+//   - a single-page app that changed its address without reloading, with a relative stylesheet
+//     link written for the first address: the stylesheet is saved from where it was loaded.
 // Exit code 1 if any check fails.
 // Usage: node sequence.mjs [path-to-extension]   (default: ../page-snapshot-extension)
 //
@@ -36,9 +39,14 @@ const plain = (n) => shell(`Comic ${n}`, `<section id="image-container">${n < 3 
 const blog = (n) => shell(`Blog ${n}`, `<article><h1>Posts, page ${n}</h1><p>Some text.</p><img src="/img/blank.svg" width="40" height="40" alt=""></article><nav><a href="/blog/page/${n + 1}/">Next page ›</a></nav>`);
 
 const asked = [];
+let throttled = false; // page 4 of the reader answers 429 the first time
+const spa = `<!doctype html><html><head><meta charset="utf-8"><title>App</title><link rel="stylesheet" href="assets/app.css"></head><body><h1 id="app-title">Item 3</h1><script>history.pushState(null, '', '/spa/item/3/');</script></body></html>`;
 const server = http.createServer((req, res) => {
   asked.push(req.url);
   let m;
+  if (req.url === '/g/7/4/' && !throttled) { throttled = true; res.statusCode = 429; res.setHeader('retry-after', '1'); return res.end('slow down'); }
+  if (req.url === '/spa/') { res.setHeader('content-type', 'text/html; charset=utf-8'); return res.end(spa); }
+  if (req.url === '/spa/assets/app.css') { res.setHeader('content-type', 'text/css'); return res.end('#app-title{color:rgb(200, 30, 90)}'); }
   if ((m = req.url.match(/^\/img\/7\/(\d)\.svg$/))) { res.setHeader('content-type', 'image/svg+xml'); return res.end(picture(`Page ${m[1]}`, COLOURS[m[1] - 1])); }
   if ((m = req.url.match(/^\/img\/r\/(\d)\.svg$/))) { res.setHeader('content-type', 'image/svg+xml'); return res.end(picture(`Comic ${m[1]}`, COLOURS[m[1] - 1])); }
   if (req.url === '/img/blank.svg') { res.setHeader('content-type', 'image/svg+xml'); return res.end('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>'); }
@@ -84,7 +92,7 @@ try {
   const capture = async (url) => {
     await tab.goto(url);
     await tab.waitForTimeout(300);
-    await popupTargets(context, url);
+    await popupTargets(context, tab.url()); // the address now (an app may have changed it)
     const popup = await openPopupWindow(context, worker, extensionId);
     await popup.click('#snapshot');
     let j;
@@ -110,6 +118,7 @@ try {
   check('the tab never left its page', tab.url() === `${origin}/g/7/2/`, tab.url());
   check('every page of the reader was read, and every picture saved (the lazy one by its real address)', [1, 3, 4, 5].every((n) => asked.includes(`/g/7/${n}/`)) && [1, 2, 3, 4, 5].every((n) => asked.includes(`/img/7/${n}.svg`)), asked.filter((u) => u.startsWith('/g/') || u.startsWith('/img/7')).join(' '));
   check('nothing failed', j.failures.length === 0, JSON.stringify(j.failures));
+  check('a page the site refused once with "too many requests" was asked again, and saved', asked.filter((u) => u === '/g/7/4/').length === 2, String(asked.filter((u) => u === '/g/7/4/').length));
 
   const snap = await context.newPage();
   const online = [];
@@ -167,6 +176,15 @@ try {
     await page.close();
     return href;
   })()) === `${origin}/blog/page/2/`);
+
+  console.log('4. A single-page app that changed its address without reloading');
+  const spaRun = await capture(`${origin}/spa/`);
+  check('the tab shows the app at its new address', tab.url() === `${origin}/spa/item/3/`, tab.url());
+  check('its stylesheet is saved from where it was loaded, not from the new address', spaRun.job.failures.length === 0 && !asked.includes('/spa/item/3/assets/app.css'), JSON.stringify(spaRun.job.failures));
+  const spaPage = await context.newPage();
+  await spaPage.goto(`file://${path.join(spaRun.dir, 'index.html')}`);
+  check('and the copy keeps its style', (await spaPage.$eval('#app-title', (h) => getComputedStyle(h).color)) === 'rgb(200, 30, 90)');
+  await spaPage.close();
 } catch (err) {
   console.log(`FAIL  ${err.message}`);
   failed++;

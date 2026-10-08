@@ -599,6 +599,11 @@ export async function extractPage(editorTexts = {}, options = {}) {
         if (option.selected) cloned.setAttribute('selected', '');
         else cloned.removeAttribute('selected');
       });
+    } else if (tag === 'link') {
+      // A stylesheet keeps the address it was loaded from. In a single-page app the address bar
+      // changes without a reload, and a relative link written for the first address ("_app/…")
+      // would now resolve to a wrong place (".../g/1/_app/…": HTTP 404, a copy without styles).
+      if (live.sheet?.href) clone.setAttribute('href', live.sheet.href);
     } else if (tag === 'img') {
       if (live.currentSrc) {
         clone.setAttribute('src', live.currentSrc);
