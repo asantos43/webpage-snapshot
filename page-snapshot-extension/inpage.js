@@ -1112,8 +1112,8 @@ export async function extractPage(editorTexts = {}, options = {}) {
     }
     return main && largest >= innerWidth * innerHeight * 0.2 && main.getBoundingClientRect().width >= 200 ? main : null;
   };
-  async function pictureAfterTurning(before) {
-    for (let waited = 0; waited < 8000; waited += 150) {
+  async function pictureAfterTurning(before, timeoutMs = 8000) {
+    for (let waited = 0; waited < timeoutMs; waited += 150) {
       await sleep(150);
       const now = largestPicture();
       if (now && now.currentSrc && now.currentSrc !== before && now.complete && now.naturalWidth > 0) return now.currentSrc;
@@ -1131,6 +1131,21 @@ export async function extractPage(editorTexts = {}, options = {}) {
     if (!list) return null;
     const startIndex = list.selectedIndex;
     const count = Math.min(list.options.length, MAX_SEQUENCE_STEPS);
+    // Its Next and Previous controls, by what they say they are (not "next chapter" or "scene").
+    const NEXT = /^(next|pr[oó]xim[oa]|seguinte|siguiente)\b/i;
+    const PREV = /^(prev|previous|anterior)\b/i;
+    const controls = [];
+    for (const el of document.querySelectorAll('a, button, [role="button"]')) {
+      if (el.contains(largestPicture())) continue;
+      const label = (el.textContent.trim() || el.getAttribute('aria-label') || '').trim();
+      const id = el.id || '';
+      if (/scene|chapter|cap[ií]tulo/i.test(`${label} ${id}`)) continue;
+      const step = NEXT.test(label) || /next/i.test(id) ? 1 : PREV.test(label) || /prev/i.test(id) ? -1 : 0;
+      if (step) controls.push({ el, step });
+    }
+    // How each control looks on a page (greyed out on the first or the last, for instance): its
+    // class and its holder's, and whether it is disabled.
+    const looks = () => controls.map(({ el }) => [el.getAttribute('class'), el.parentElement?.getAttribute('class') ?? null, el.hasAttribute('disabled'), el.getAttribute('aria-disabled')]);
     const choose = async (i, before) => {
       list.value = list.options[i].value;
       list.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1139,7 +1154,9 @@ export async function extractPage(editorTexts = {}, options = {}) {
     };
     const first = largestPicture().currentSrc;
     const pictures = new Array(count).fill(null);
+    const states = new Array(count).fill(null);
     pictures[startIndex] = first;
+    states[startIndex] = looks();
     // Does choosing in the list turn the page at all?
     const probe = startIndex + 1 < count ? startIndex + 1 : startIndex - 1;
     const probed = await choose(probe, first);
@@ -1148,12 +1165,23 @@ export async function extractPage(editorTexts = {}, options = {}) {
       return null;
     }
     pictures[probe] = probed;
-    let last = probed;
+    states[probe] = looks();
+    // What a click on the picture does (many readers turn the page): clicked once in its middle.
+    let pictureStep = 0;
+    {
+      const pic = largestPicture();
+      const box = pic.getBoundingClientRect();
+      const at = { bubbles: true, cancelable: true, clientX: box.left + box.width / 2, clientY: box.top + Math.min(box.height, innerHeight) / 2, view: window };
+      for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) pic.dispatchEvent(new (type.startsWith('pointer') ? PointerEvent : MouseEvent)(type, at));
+      const after = await pictureAfterTurning(probed, 2000);
+      if (after) pictureStep = Math.sign(list.selectedIndex - probe);
+    }
+    let last = largestPicture()?.currentSrc || probed;
     for (let i = 0; i < count && !cancelled; i++) {
       if (pictures[i]) continue;
       report({ phase: 'reader-turning', page: i + 1, pages: count });
       const src = await choose(i, last);
-      if (src) { pictures[i] = src; last = src; }
+      if (src) { pictures[i] = src; states[i] = looks(); last = src; }
     }
     // Back to the page the reader was on.
     await choose(startIndex, last === first ? null : last);
@@ -1161,20 +1189,78 @@ export async function extractPage(editorTexts = {}, options = {}) {
     if (!main) return null;
     main.setAttribute('data-snap-sequence', '');
     list.setAttribute('data-snap-seq-select', '');
-    // Its Next and Previous controls, by what they say they are (not "next chapter" or "scene").
-    const NEXT = /^(next|pr[oó]xim[oa]|seguinte|siguiente)\b/i;
-    const PREV = /^(prev|previous|anterior)\b/i;
-    for (const el of document.querySelectorAll('a, button, [role="button"]')) {
-      if (el.contains(main)) continue;
-      const label = (el.textContent.trim() || el.getAttribute('aria-label') || '').trim();
-      const id = el.id || '';
-      if (/scene|chapter|cap[ií]tulo/i.test(`${label} ${id}`)) continue;
-      const step = NEXT.test(label) || /next/i.test(id) ? 1 : PREV.test(label) || /prev/i.test(id) ? -1 : 0;
-      if (!step) continue;
+    controls.forEach(({ el, step }, i) => {
       el.setAttribute('data-snap-seq-step', String(step));
       el.setAttribute('data-snap-seq-page', String(startIndex + 1 + step));
+      el.setAttribute('data-snap-seq-control', String(i));
+    });
+    const modes = await recordViewModes(controls.map((c) => c.el), main);
+    return { mode: 'stepped', template: '', current: startIndex + 1, total: count, pictures, states, pictureStep, modes, selector: '' };
+  }
+
+  // The reader's view modes ("Fit ↕", "Fit ↔"): the buttons of the bar its Next / Previous are in
+  // that say they are a fit or zoom mode, kept only when a click changes nothing but classes and
+  // styles. Each is
+  // clicked twice over: first to learn which elements the modes touch, then to note how each
+  // mode leaves them; the original mode is put back (by its button, else by its values).
+  // Marks: data-snap-mode="<i>" on the buttons, data-snap-mode-target="<k>" on what they change.
+  async function recordViewModes(controlEls, main) {
+    const bar = controlEls[0]?.closest('ul, nav, [role="toolbar"]');
+    if (!bar) return null;
+    // Only buttons that say they are a fit or zoom mode: an unknown button could change the page
+    // in a way that cannot be undone ("Full Spread" builds a second picture). Never a link to
+    // another page, nor a form's submit button.
+    const MODE = /\b(fit|zoom|width|height|largura|altura|ajust|ancho|alto)/i;
+    const candidates = Array.from(bar.querySelectorAll('a, button')).filter((el) => !controlEls.includes(el) && !leavesPage(el)
+      && MODE.test(`${el.textContent} ${el.id} ${el.getAttribute('title') || ''} ${el.getAttribute('aria-label') || ''}`)
+      && !el.querySelector('select') && !el.contains(main) && el.getClientRects().length).slice(0, 8);
+    const click = async (el) => {
+      const touched = new Set();
+      let built = false;
+      const watch = new MutationObserver((records) => records.forEach((r) => {
+        if (r.type === 'childList') built = true;
+        else touched.add(r.target);
+      }));
+      watch.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style'] });
+      el.click();
+      await sleep(300);
+      watch.disconnect();
+      return { touched, built };
+    };
+    const initial = new Map();
+    const remember = (target) => { if (!initial.has(target)) initial.set(target, [target.getAttribute('class'), target.getAttribute('style')]); };
+    const buttons = [];
+    const targets = new Set();
+    for (const el of candidates) {
+      // Values before this click, so the page can be put back however the modes are built.
+      const before = Array.from(document.querySelectorAll('[class], [style]'));
+      const was = new Map(before.map((t) => [t, [t.getAttribute('class'), t.getAttribute('style')]]));
+      const { touched, built } = await click(el);
+      touched.forEach((t) => { if (was.has(t) && !initial.has(t)) initial.set(t, was.get(t)); });
+      if (built || !touched.size || touched.size > 20) continue;
+      buttons.push(el);
+      touched.forEach((t) => { targets.add(t); remember(t); });
     }
-    return { mode: 'stepped', template: '', current: startIndex + 1, total: count, pictures, selector: '' };
+    if (buttons.length < 2) {
+      for (const [t, [cls, style]] of initial) { cls === null ? t.removeAttribute('class') : t.setAttribute('class', cls); style === null ? t.removeAttribute('style') : t.setAttribute('style', style); }
+      return null;
+    }
+    const list = [...targets];
+    const values = () => list.map((t) => [t.getAttribute('class'), t.getAttribute('style')]);
+    const modes = [];
+    for (const el of buttons) {
+      await click(el);
+      modes.push(values());
+    }
+    // Back to the mode the page had: the button that gives it, else its values.
+    const start = list.map((t) => initial.get(t) || [t.getAttribute('class'), t.getAttribute('style')]);
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const back = modes.findIndex((m) => same(m, start));
+    if (back >= 0) await click(buttons[back]);
+    else list.forEach((t, k) => { const [cls, style] = start[k]; cls === null ? t.removeAttribute('class') : t.setAttribute('class', cls); style === null ? t.removeAttribute('style') : t.setAttribute('style', style); });
+    buttons.forEach((el, i) => el.setAttribute('data-snap-mode', String(i)));
+    list.forEach((t, k) => t.setAttribute('data-snap-mode-target', String(k)));
+    return modes;
   }
 
   let recorded = { pagers: {}, sliders: {} };
@@ -1182,7 +1268,7 @@ export async function extractPage(editorTexts = {}, options = {}) {
   let chosen = { choices: {}, left: [] };
   // The capture's own marks on the live page, removed once it is copied.
   const unmark = () => {
-    for (const name of ['data-snap-seq-select', 'data-snap-seq-step', 'data-snap-sequence', 'data-snap-seq-page', 'data-snap-seq-current', 'data-snap-seq-total', 'data-snap-seq-bar', 'data-snap-seq-jump', 'data-snap-seq-jump-host', 'data-snap-choices', 'data-snap-pager', 'data-snap-slider', 'data-snap-slider-prev', 'data-snap-slider-next', 'data-snap-slider-dot', 'data-snap-part']) {
+    for (const name of ['data-snap-mode', 'data-snap-mode-target', 'data-snap-seq-control', 'data-snap-seq-select', 'data-snap-seq-step', 'data-snap-sequence', 'data-snap-seq-page', 'data-snap-seq-current', 'data-snap-seq-total', 'data-snap-seq-bar', 'data-snap-seq-jump', 'data-snap-seq-jump-host', 'data-snap-choices', 'data-snap-pager', 'data-snap-slider', 'data-snap-slider-prev', 'data-snap-slider-next', 'data-snap-slider-dot', 'data-snap-part']) {
       document.querySelectorAll(`[${name}]`).forEach((el) => el.removeAttribute(name));
     }
   };

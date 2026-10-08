@@ -34,6 +34,17 @@ export function sequence() {
       picture.setAttribute('data-snap-missing', '');
     }
     document.querySelectorAll('[data-snap-seq-current]').forEach((el) => { el.textContent = String(at + 1); });
+    // Next and Previous look as the site made them on that page (greyed out on the first or last).
+    document.querySelectorAll('[data-snap-seq-control]').forEach((el) => {
+      const look = data.states?.[at]?.[Number(el.getAttribute('data-snap-seq-control'))];
+      if (!look) return;
+      const [cls, holder, disabled, ariaDisabled] = look;
+      const put = (node, name, value) => (value === null || value === false ? node.removeAttribute(name) : node.setAttribute(name, value === true ? '' : value));
+      put(el, 'class', cls);
+      if (el.parentElement) put(el.parentElement, 'class', holder);
+      put(el, 'disabled', disabled);
+      put(el, 'aria-disabled', ariaDisabled);
+    });
     // A reader's list of pages ("Page 1", "Page 2"…) follows too.
     document.querySelectorAll('[data-snap-seq-select]').forEach((list) => { if (list.options[at]) list.selectedIndex = at; });
     // The reader starts each page at the top of its picture.
@@ -118,6 +129,29 @@ export function sequence() {
   document.addEventListener('change', (event) => {
     if (event.target.matches?.('[data-snap-seq-select]')) show(event.target.selectedIndex);
   }, true);
+  // View modes ("Fit ↕", "Fit ↔"): each button puts the classes and styles it gave on the site
+  // (`modes[i]`, one [class, style] per element marked data-snap-mode-target="k").
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest?.('[data-snap-mode]');
+    const mode = button && data.modes?.[Number(button.getAttribute('data-snap-mode'))];
+    if (!mode) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    document.querySelectorAll('[data-snap-mode-target]').forEach((el) => {
+      const [cls, style] = mode[Number(el.getAttribute('data-snap-mode-target'))] || [];
+      if (cls === undefined) return;
+      cls === null ? el.removeAttribute('class') : el.setAttribute('class', cls);
+      style === null ? el.removeAttribute('style') : el.setAttribute('style', style);
+    });
+  }, true);
+
+  // A click on the picture turns the page when it did on the site (`pictureStep`, +1 or -1).
+  if (data.pictureStep) {
+    picture.addEventListener('click', (event) => {
+      if (event.target.closest('[data-snap-seq-page]')) return; // a link around it does it already
+      show(at + data.pictureStep);
+    });
+  }
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && open) { close(); return; }

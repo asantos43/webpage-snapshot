@@ -10,7 +10,10 @@ publishes it as the release's notes.
   Next and Prev without links, the site's script loading each picture, as Hitomi's reader does)
   are recognised too: the capture chooses each page in the list, as a person would, notes each
   picture once it has loaded, and puts the reader back on its page. In the copy, Next, Prev, the
-  list and the arrow keys step through the saved pictures, and the list follows.
+  list, the arrow keys and a click on the picture (when it turned the page on the site) step
+  through the saved pictures; the list follows, and Next and Prev are greyed out on the pages
+  where the site greys them out. Its fit modes ("Fit ↕", "Fit ↔") work in the copy too: the
+  capture tries each and puts the original back.
 - The README is brought up to date (image readers, Settings, the manual release workflow, the
   `assets/` folders, the tests, the WSNP Viewer).
 

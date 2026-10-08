@@ -917,7 +917,7 @@ function markReaderLink(a, target, from) {
 // A reader that turns its pages in place (inpage.js detectSteppedReader): the capture already
 // noted every page's picture address; they are saved, and the copy steps through them.
 async function readSteppedReader(doc, page) {
-  const { current, pictures: addresses } = page.sequence;
+  const { current, pictures: addresses, states = null, pictureStep = 0, modes = null } = page.sequence;
   const main = doc.querySelector('[data-snap-sequence]');
   let done = 0;
   const pictures = await Promise.all(addresses.map(async (address, i) => {
@@ -935,7 +935,7 @@ async function readSteppedReader(doc, page) {
   const store = doc.createElement('script');
   store.setAttribute('type', 'application/json');
   store.id = 'snap-sequence';
-  store.textContent = JSON.stringify({ pictures, start: current - 1, bars: null, jump: null }).replace(/</g, '\\u003c');
+  store.textContent = JSON.stringify({ pictures, start: current - 1, bars: null, jump: null, states, pictureStep, modes }).replace(/</g, '\\u003c');
   doc.body.append(store);
 }
 

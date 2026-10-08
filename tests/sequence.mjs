@@ -65,22 +65,40 @@ const plain = (n) => shell(`Comic ${n}`, `<section id="image-container">${n < 3 
 // A blog's pagination: text, small pictures, "next page" links.
 const blog = (n) => shell(`Blog ${n}`, `<article><h1>Posts, page ${n}</h1><p>Some text.</p><img src="/img/blank.svg" width="40" height="40" alt=""></article><nav><a href="/blog/page/${n + 1}/">Next page ›</a></nav>`);
 
-// A reader that turns its pages in place: one address, a list of pages, Next / Prev with no link.
+// A reader that turns its pages in place: one address, a list of pages, Next / Prev with no link,
+// greyed out (li.disabled) on the first and the last page; a click on the picture turns the page;
+// Fit ↕ / Fit ↔ switch the picture's class (and the active button); Full Spread builds a second
+// picture (not a view mode); a link to the gallery's other page sits in the same bar.
 const inPlace = shell('Reader', `
-<nav><a id="nextPanel">Next</a> <a id="prevPanel">Prev</a>
+<style>#comicImages.fitVertical img{height:700px;width:auto} #comicImages.fitHorizontal img{width:900px;height:auto} li.active a{font-weight:bold} li.disabled a{opacity:.4}</style>
+<nav><ul id="bar"><li><a href="/g/info/" id="info">Gallery Info</a></li>
+<li id="next-li"><a id="nextPanel">Next</a></li> <li id="prev-li"><a id="prevPanel">Prev</a></li>
+<li id="fitv-li" class="active"><a id="fitVertical">Fit ↕</a></li> <li id="fith-li"><a id="fitHorizontal">Fit ↔</a></li>
+<li><a id="spread">Full Spread</a></li></ul>
 <select id="single-page-select">${[1, 2, 3, 4, 5, 6].map((k) => `<option value="${k}">Page ${k}</option>`).join('')}</select></nav>
-<div id="comicImages"><picture><img class="lillie" alt=""></picture></div>
+<div id="comicImages" class="fitVertical"><picture><img class="lillie" alt=""></picture></div>
 <script>
 const select = document.getElementById('single-page-select');
 const show = (k) => {
   k = Math.max(1, Math.min(6, k));
   select.value = String(k);
   location.hash = String(k);
+  document.getElementById('prev-li').className = k === 1 ? 'disabled' : '';
+  document.getElementById('next-li').className = k === 6 ? 'disabled' : '';
   setTimeout(() => { document.querySelector('#comicImages img').src = '/img/h/' + k + '.svg'; }, 150);
 };
 select.addEventListener('change', () => show(Number(select.value)));
 document.getElementById('nextPanel').onclick = () => show(Number(select.value) + 1);
 document.getElementById('prevPanel').onclick = () => show(Number(select.value) - 1);
+document.getElementById('comicImages').onclick = () => show(Number(select.value) + 1);
+const fit = (mode) => {
+  document.getElementById('comicImages').className = mode;
+  document.getElementById('fitv-li').className = mode === 'fitVertical' ? 'active' : '';
+  document.getElementById('fith-li').className = mode === 'fitHorizontal' ? 'active' : '';
+};
+document.getElementById('fitVertical').onclick = () => fit('fitVertical');
+document.getElementById('fitHorizontal').onclick = () => fit('fitHorizontal');
+document.getElementById('spread').onclick = () => { const extra = document.createElement('img'); extra.src = '/img/h/2.svg'; document.getElementById('comicImages').append(extra); };
 show(Number(location.hash.slice(1)) || 1);
 </script>`);
 const asked = [];
@@ -248,6 +266,9 @@ try {
   const placeRun = await capture(`${origin}/reader/9.html#3`);
   const liveState = await tab.evaluate(() => ({ value: document.getElementById('single-page-select').value, src: document.querySelector('#comicImages img').getAttribute('src') }));
   check('the reader is put back on page 3 after its pages were turned', liveState.value === '3' && liveState.src === '/img/h/3.svg', JSON.stringify(liveState));
+  const liveLook = await tab.evaluate(() => ({ fit: document.getElementById('comicImages').className, pictures: document.querySelectorAll('#comicImages img').length }));
+  check('and back in its view mode (Fit ↕); "Full Spread", which would build a picture, was never clicked', liveLook.fit === 'fitVertical' && liveLook.pictures === 1 && !(await tab.evaluate(() => document.querySelector('[data-snap-mode]'))), JSON.stringify(liveLook));
+  check('the link to the gallery\'s other page, in the same bar, was never followed', !asked.includes('/g/info/'));
   check('every picture was recorded and saved (6 pages)', placeRun.job.notes.some((n) => n.text.key === 'note_sequence_other' && n.text.args[0] === '6') && placeRun.job.failures.length === 0, JSON.stringify([placeRun.job.notes, placeRun.job.failures]));
   const place = await context.newPage();
   const placeOnline = [];
@@ -260,15 +281,30 @@ try {
   };
   const placeAt = async (n) => { const s = await placeShowing(); return s.picture === n && s.list === n; };
   check('the copy opens on page 3, the list on "Page 3"', await placeAt(3), JSON.stringify(await placeShowing()));
+  const greyed = () => place.evaluate(() => [document.getElementById('prev-li').className, document.getElementById('next-li').className]);
+  check('on page 3 neither Prev nor Next is greyed out', JSON.stringify(await greyed()) === '["",""]', JSON.stringify(await greyed()));
+  await place.click('#comicImages img');
+  check('a click on the picture goes on to page 4, as on the site', await placeAt(4), JSON.stringify(await placeShowing()));
+  await place.click('#prevPanel');
   await place.click('#nextPanel');
   check('Next shows page 4, and the list follows', await placeAt(4), JSON.stringify(await placeShowing()));
   await place.click('#prevPanel');
   await place.click('#prevPanel');
   check('Prev twice shows page 2', await placeAt(2), JSON.stringify(await placeShowing()));
   await place.selectOption('#single-page-select', '6');
-  check('choosing "Page 6" in the list shows it', await placeAt(6), JSON.stringify(await placeShowing()));
+  check('choosing "Page 6" in the list shows it, with Next greyed out (the last page)', await placeAt(6) && JSON.stringify(await greyed()) === '["","disabled"]', JSON.stringify(await greyed()));
+  await place.selectOption('#single-page-select', '1');
+  check('on page 1 Prev is greyed out, as on the site', await placeAt(1) && JSON.stringify(await greyed()) === '["disabled",""]', JSON.stringify(await greyed()));
+  await place.selectOption('#single-page-select', '6');
   await place.keyboard.press('ArrowLeft');
   check('the Left arrow key goes back to page 5', await placeAt(5), JSON.stringify(await placeShowing()));
+  const look = () => place.evaluate(() => ({ fit: document.getElementById('comicImages').className, v: document.getElementById('fitv-li').className, h: document.getElementById('fith-li').className, width: Math.round(document.querySelector('#comicImages img').getBoundingClientRect().width) }));
+  await place.click('#fitHorizontal');
+  const wide = await look();
+  check('Fit ↔ fits the picture to the width, and its button is the active one', wide.fit === 'fitHorizontal' && wide.h === 'active' && wide.v === '' && wide.width === 900, JSON.stringify(wide));
+  await place.click('#fitVertical');
+  const tall = await look();
+  check('Fit ↕ puts it back', tall.fit === 'fitVertical' && tall.v === 'active' && tall.h === '' && tall.width === 525, JSON.stringify(tall));
   check('no network requests', placeOnline.length === 0, placeOnline.join(' '));
   await place.close();
 
