@@ -136,7 +136,7 @@
     "description": "$3 = item number."
   },
   "carousel_restore": {
-    "message": "Carousel $1 of $2: putting your page back to item 1…",
+    "message": "Carousel $1 of $2: putting your page back as it was…",
     "description": "Step."
   },
   "carousel_done": {

@@ -10,11 +10,11 @@ SAVES THE PAGE AS YOU SEE IT
 
 EVERY ITEM OF EVERY CAROUSEL
 
-A carousel usually shows one item at a time and leaves the others out of the page. PageKeep steps through each carousel item by item, records every one, and puts your page back on the first item. In the saved copy, Next and Previous still work.
+A carousel usually shows one item at a time and leaves the others out of the page. PageKeep steps through each carousel item by item, records every one, and puts your page back on the item you were on. In the saved copy, Next and Previous still work.
 
 OPENS OFFLINE, AS IT LOOKED
 
-Unzip the file anywhere (a .wsnp: rename it to .zip first) and open index.html in your browser, with or without an internet connection. Collapsible sections, accordions, tabs, drop-down menus, pop-up windows, photo galleries (the large pictures are saved too) and carousels, with their arrows and dots, keep working, through small scripts packed into the copy. Opening it makes no request at all; links still lead to the real site when you click them while online.
+Unzip the file anywhere (a .wsnp: rename it to .zip first) and open index.html in your browser, with or without an internet connection. Collapsible sections, accordions, tabs, drop-down menus, pop-up windows, resizable columns, photo galleries (the large pictures are saved too) and carousels, with their arrows and dots, keep working, through small scripts packed into the copy. Opening it makes no request at all; links still lead to the real site when you click them while online.
 
 TWO WAYS TO KEEP IT: .ZIP OR .WSNP
 
@@ -35,7 +35,7 @@ WORKS IN THE BACKGROUND
 
 • Click the toolbar icon or press Alt+Shift+S: the popup opens under the icon. Press Snapshot to start.
 • Watch each step as it happens, or close the popup and keep working: the icon's badge shows … while it runs, ✓ when it is done and ! if it failed. Click the icon again to see the result.
-• Cancel stops a capture at any time: carousels go back to their first item and nothing is saved.
+• Cancel stops a capture at any time: carousels go back to the item they were on and nothing is saved.
 • When the file is ready, Download saves it to your Downloads folder, named after the page's title with the date and time; Cancel discards it. Nothing is saved until you choose.
 
 HOW IT READS THE FILES

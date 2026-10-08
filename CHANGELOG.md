@@ -6,6 +6,11 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- The help pages, the README and the store texts describe what recent versions added (resizable
+  columns, pictures shown from memory, files opening in another tab) and no longer say that
+  carousels go back to their first item: since 1.3.3 they go back to the item you were on, which
+  the popup now says too while it puts a carousel back.
+
 ## [1.7.3] - 2026-10-08
 
 - Pictures that a site downloads by script and shows from memory (`blob:` addresses, as manga
