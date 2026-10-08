@@ -1120,15 +1120,48 @@ export async function extractPage(editorTexts = {}, options = {}) {
     }
     return null;
   }
+  // The reader's visible list of its pages, one per option ("Page 1", "Page 2"…), if it has one.
+  const pageList = () => Array.from(document.querySelectorAll('select')).find((select) => {
+    if (!select.getClientRects().length || select.options.length < 3 || select.selectedIndex < 0) return false;
+    const numbers = Array.from(select.options, (o) => Number((/^\D{0,12}?(\d+)\s*$/.exec(o.textContent.trim()) || [])[1]));
+    return numbers.every((n, i) => n === i + 1);
+  });
+
+  // A reader showing two pages at a time ("Pages 2-3" in its list) is turned to one page at a
+  // time by its own "Single Page" button, so each page is recorded; it is put back in two-page
+  // mode (by its "Spread" button) once the copy is made. Returns that putting back, or null.
+  async function toSinglePages() {
+    const SPREAD = /^\D{0,12}?\d+(\s*[-–]\s*\d*)?\s*$/;
+    const spreads = Array.from(document.querySelectorAll('select')).some((select) => select.getClientRects().length && select.options.length >= 3
+      && Array.from(select.options).some((o) => /\d\s*[-–]\s*\d/.test(o.textContent)) && Array.from(select.options).every((o) => SPREAD.test(o.textContent.trim())));
+    if (!spreads) return null;
+    const button = (re) => Array.from(document.querySelectorAll('a, button, [role="button"]')).find((el) => el.getClientRects().length && !leavesPage(el)
+      && re.test(`${el.textContent} ${el.id} ${el.getAttribute('title') || ''} ${el.getAttribute('aria-label') || ''}`));
+    const single = button(/single\s*page|one\s*page|p[aá]gina\s*[uú]nica|una\s*p[aá]gina/i);
+    if (!single) return null;
+    const back = async () => {
+      const spread = button(/spread|two\s*pages|double\s*page|duas\s*p[aá]ginas|dos\s*p[aá]ginas/i);
+      if (spread) { spread.click(); await sleep(300); }
+    };
+    single.click();
+    for (let t = 0; t < 30 && !pageList(); t++) await sleep(100);
+    if (!pageList()) { await back(); return null; }
+    return back;
+  }
+
   async function detectSteppedReader() {
     if (!largestPicture()) return null;
-    const PAGE_OPTION = /^\D{0,12}?(\d+)\s*$/;
-    const list = Array.from(document.querySelectorAll('select')).find((select) => {
-      if (!select.getClientRects().length || select.options.length < 3 || select.selectedIndex < 0) return false;
-      const numbers = Array.from(select.options, (o) => Number((PAGE_OPTION.exec(o.textContent.trim()) || [])[1]));
-      return numbers.every((n, i) => n === i + 1);
-    });
-    if (!list) return null;
+    if (pageList()) return readSteppedReader(pageList());
+    const back = await toSinglePages();
+    if (!back) return null;
+    const found = await readSteppedReader(pageList());
+    if (found) putBack.push(back);
+    else await back();
+    return found;
+  }
+
+  async function readSteppedReader(list) {
+    if (!largestPicture()) return null;
     const startIndex = list.selectedIndex;
     const count = Math.min(list.options.length, MAX_SEQUENCE_STEPS);
     // Its Next and Previous controls, by what they say they are (not "next chapter" or "scene").
@@ -1265,6 +1298,7 @@ export async function extractPage(editorTexts = {}, options = {}) {
 
   let recorded = { pagers: {}, sliders: {} };
   let sequence = null;
+  const putBack = []; // what the capture changed on the live page, undone once the copy is made
   let chosen = { choices: {}, left: [] };
   // The capture's own marks on the live page, removed once it is copied.
   const unmark = () => {
@@ -1283,11 +1317,14 @@ export async function extractPage(editorTexts = {}, options = {}) {
   }
   if (cancelled) {
     unmark();
+    for (const undo of putBack) await undo();
     return { cancelled: true };
   }
   report({ phase: 'snapshot' });
-  const main = snapshot(document, 0, { x: scrollX, y: scrollY });
+  const scroll = { x: scrollX, y: scrollY };
+  const main = snapshot(document, 0, scroll);
   unmark();
+  for (const undo of putBack) await undo();
   return {
     url: location.href,
     title: document.title,
@@ -1297,7 +1334,7 @@ export async function extractPage(editorTexts = {}, options = {}) {
     pagers: recorded.pagers,
     shots,
     scale: Math.min(2, devicePixelRatio || 1),
-    scroll: { x: scrollX, y: scrollY },
+    scroll,
     viewport: { width: innerWidth, height: innerHeight },
     pixelRatio: devicePixelRatio || 1,
     sliders: recorded.sliders,
