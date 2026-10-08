@@ -8,7 +8,8 @@
 // (data-snap-seq-bar="<i>") are swapped for the ones the site drew on each page (`bars`: "First"
 // and "Previous" appear from page 2, for instance), and the counter's button
 // (data-snap-seq-jump) opens the site's "Jump to page" window that the capture recorded (`jump`),
-// or a plain one when there is none.
+// or a plain one when there is none. A reader that turns its pages in place has a list of pages
+// instead (data-snap-seq-select): choosing in it shows that page, and it follows the page shown.
 export function sequence() {
   let data;
   try { data = JSON.parse(document.getElementById('snap-sequence').textContent); } catch { return; }
@@ -33,6 +34,8 @@ export function sequence() {
       picture.setAttribute('data-snap-missing', '');
     }
     document.querySelectorAll('[data-snap-seq-current]').forEach((el) => { el.textContent = String(at + 1); });
+    // A reader's list of pages ("Page 1", "Page 2"…) follows too.
+    document.querySelectorAll('[data-snap-seq-select]').forEach((list) => { if (list.options[at]) list.selectedIndex = at; });
     // The reader starts each page at the top of its picture.
     if (picture.getBoundingClientRect().top < 0) picture.scrollIntoView({ block: 'start' });
   };
@@ -110,6 +113,10 @@ export function sequence() {
     event.preventDefault();
     event.stopImmediatePropagation();
     openJump();
+  }, true);
+
+  document.addEventListener('change', (event) => {
+    if (event.target.matches?.('[data-snap-seq-select]')) show(event.target.selectedIndex);
   }, true);
 
   document.addEventListener('keydown', (event) => {

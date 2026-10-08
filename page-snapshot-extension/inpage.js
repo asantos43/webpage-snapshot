@@ -16,7 +16,8 @@ export async function extractPage(editorTexts = {}, options = {}) {
   const MAX_REVEAL_MS = 20_000; // …or here
   const MAX_LOAD_MORE = 5;
   const MAX_CHOICE_GROUPS = 40; // groups of radio buttons recorded (the popup's opt-in option)…
-  const MAX_CHOICE_DEPTH = 4; // …questions revealed by a choice, revealed by a choice… at most this deep…
+  const MAX_CHOICE_DEPTH = 4;
+  const MAX_SEQUENCE_STEPS = 300; // pages of a reader turned in place // …questions revealed by a choice, revealed by a choice… at most this deep…
   const MAX_CHOICE_OPTIONS = 8; // …options in each…
   const MAX_CHOICE_HTML = 1_500_000; // …characters of one recorded area…
   const MAX_CHOICES_TOTAL = 40_000_000; // …and of all of them (nested questions multiply them)
@@ -1092,12 +1093,96 @@ export async function extractPage(editorTexts = {}, options = {}) {
     return { html, dialog };
   }
 
+  // ---- Readers that turn their pages in place ---------------------------------------------------
+  //
+  // Some readers keep every page at one address (".../reader/123.html#5"): the site's script loads
+  // each picture as you move, and a list of pages ("Page 1", "Page 2"…) says which is shown. Their
+  // other pictures are in no other page to read, so they are recorded by turning the pages here,
+  // as a person would with that list: each page chosen in turn, its picture's address noted once
+  // it has loaded, then the reader put back on the page it was on. Recognised only with a large
+  // main picture and such a list, and only if choosing in the list really changes the picture.
+  // Marks: data-snap-sequence on the main picture, data-snap-seq-select on the list,
+  // data-snap-seq-page / data-snap-seq-step on its Next and Previous controls.
+  const largestPicture = () => {
+    let main = null;
+    let largest = 0;
+    for (const img of document.images) {
+      const box = img.getBoundingClientRect();
+      if (box.width * box.height > largest && getComputedStyle(img).visibility !== 'hidden') { largest = box.width * box.height; main = img; }
+    }
+    return main && largest >= innerWidth * innerHeight * 0.2 && main.getBoundingClientRect().width >= 200 ? main : null;
+  };
+  async function pictureAfterTurning(before) {
+    for (let waited = 0; waited < 8000; waited += 150) {
+      await sleep(150);
+      const now = largestPicture();
+      if (now && now.currentSrc && now.currentSrc !== before && now.complete && now.naturalWidth > 0) return now.currentSrc;
+    }
+    return null;
+  }
+  async function detectSteppedReader() {
+    if (!largestPicture()) return null;
+    const PAGE_OPTION = /^\D{0,12}?(\d+)\s*$/;
+    const list = Array.from(document.querySelectorAll('select')).find((select) => {
+      if (!select.getClientRects().length || select.options.length < 3 || select.selectedIndex < 0) return false;
+      const numbers = Array.from(select.options, (o) => Number((PAGE_OPTION.exec(o.textContent.trim()) || [])[1]));
+      return numbers.every((n, i) => n === i + 1);
+    });
+    if (!list) return null;
+    const startIndex = list.selectedIndex;
+    const count = Math.min(list.options.length, MAX_SEQUENCE_STEPS);
+    const choose = async (i, before) => {
+      list.value = list.options[i].value;
+      list.dispatchEvent(new Event('input', { bubbles: true }));
+      list.dispatchEvent(new Event('change', { bubbles: true }));
+      return pictureAfterTurning(before);
+    };
+    const first = largestPicture().currentSrc;
+    const pictures = new Array(count).fill(null);
+    pictures[startIndex] = first;
+    // Does choosing in the list turn the page at all?
+    const probe = startIndex + 1 < count ? startIndex + 1 : startIndex - 1;
+    const probed = await choose(probe, first);
+    if (!probed) {
+      await choose(startIndex, null);
+      return null;
+    }
+    pictures[probe] = probed;
+    let last = probed;
+    for (let i = 0; i < count && !cancelled; i++) {
+      if (pictures[i]) continue;
+      report({ phase: 'reader-turning', page: i + 1, pages: count });
+      const src = await choose(i, last);
+      if (src) { pictures[i] = src; last = src; }
+    }
+    // Back to the page the reader was on.
+    await choose(startIndex, last === first ? null : last);
+    const main = largestPicture();
+    if (!main) return null;
+    main.setAttribute('data-snap-sequence', '');
+    list.setAttribute('data-snap-seq-select', '');
+    // Its Next and Previous controls, by what they say they are (not "next chapter" or "scene").
+    const NEXT = /^(next|pr[oó]xim[oa]|seguinte|siguiente)\b/i;
+    const PREV = /^(prev|previous|anterior)\b/i;
+    for (const el of document.querySelectorAll('a, button, [role="button"]')) {
+      if (el.contains(main)) continue;
+      const label = (el.textContent.trim() || el.getAttribute('aria-label') || '').trim();
+      const id = el.id || '';
+      if (/scene|chapter|cap[ií]tulo/i.test(`${label} ${id}`)) continue;
+      const step = NEXT.test(label) || /next/i.test(id) ? 1 : PREV.test(label) || /prev/i.test(id) ? -1 : 0;
+      if (!step) continue;
+      el.setAttribute('data-snap-seq-step', String(step));
+      el.setAttribute('data-snap-seq-page', String(startIndex + 1 + step));
+    }
+    return { mode: 'stepped', template: '', current: startIndex + 1, total: count, pictures, selector: '' };
+  }
+
   let recorded = { pagers: {}, sliders: {} };
   let sequence = null;
   let chosen = { choices: {}, left: [] };
   // The capture's own marks on the live page, removed once it is copied.
   const unmark = () => {
-    for (const name of ['data-snap-sequence', 'data-snap-seq-page', 'data-snap-seq-current', 'data-snap-seq-total', 'data-snap-seq-bar', 'data-snap-seq-jump', 'data-snap-seq-jump-host', 'data-snap-choices', 'data-snap-pager', 'data-snap-slider', 'data-snap-slider-prev', 'data-snap-slider-next', 'data-snap-slider-dot', 'data-snap-part']) {
+    for (const name of ['data-snap-seq-select', 'data-snap-seq-step', 'data-snap-sequence', 'data-snap-seq-page', 'data-snap-seq-current', 'data-snap-seq-total', 'data-snap-seq-bar', 'data-snap-seq-jump', 'data-snap-seq-jump-host', 'data-snap-choices', 'data-snap-pager', 'data-snap-slider', 'data-snap-slider-prev', 'data-snap-slider-next', 'data-snap-slider-dot', 'data-snap-part']) {
       document.querySelectorAll(`[${name}]`).forEach((el) => el.removeAttribute(name));
     }
   };
@@ -1106,6 +1191,7 @@ export async function extractPage(editorTexts = {}, options = {}) {
     if (!cancelled) recorded = await explorePagers();
     if (!cancelled && options.choices) chosen = await exploreChoices();
     if (!cancelled) sequence = await detectSequence();
+    if (!cancelled && !sequence) sequence = await detectSteppedReader();
   } finally {
     try { chrome.runtime.onMessage.removeListener(onCancel); } catch { /* not in an extension */ }
   }
