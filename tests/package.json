@@ -13,6 +13,7 @@
     "publish-script": "node publish-script.mjs",
     "library": "node library.mjs",
     "choices": "node choices.mjs",
+    "sequence": "node sequence.mjs",
     "wsnp": "node wsnp.mjs"
   },
   "devDependencies": {

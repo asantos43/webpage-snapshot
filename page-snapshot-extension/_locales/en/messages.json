@@ -291,6 +291,30 @@
     "message": "only existed in the page’s memory, and could not be read from it",
     "description": "Why a picture or file failed: it had a blob: address (held in the page’s memory) that could not be read, e.g. the page had let it go, or it is a video stream."
   },
+  "step_sequence": {
+    "message": "Reading the reader’s other pages: $1 of $2…",
+    "description": "Step; $1 = pages read, $2 = pages to read (or ?)."
+  },
+  "step_sequence_done_one": {
+    "message": "Saved the picture of 1 page of the reader",
+    "description": "Step done."
+  },
+  "step_sequence_done_other": {
+    "message": "Saved the pictures of $1 pages of the reader",
+    "description": "Step done; $1 = pages."
+  },
+  "note_sequence_one": {
+    "message": "An image reader: 1 page saved; its arrows step through it offline.",
+    "description": "Result note."
+  },
+  "note_sequence_other": {
+    "message": "An image reader: $1 pages saved; its arrows step through them offline.",
+    "description": "Result note; $1 = pages."
+  },
+  "reason_no_picture": {
+    "message": "no picture was found on that page",
+    "description": "Why a page of an image reader failed."
+  },
   "option_reveal": {
     "message": "Load the whole page first: scroll to the end and press “Load more”, so everything is saved",
     "description": "Popup option (checkbox)."

@@ -291,6 +291,30 @@
     "message": "só existia na memória da página e não pôde ser lido dela",
     "description": "Why a picture or file failed: it had a blob: address (held in the page’s memory) that could not be read, e.g. the page had let it go, or it is a video stream."
   },
+  "step_sequence": {
+    "message": "Lendo as outras páginas do leitor: $1 de $2…",
+    "description": "Step; $1 = pages read, $2 = pages to read (or ?)."
+  },
+  "step_sequence_done_one": {
+    "message": "Salva a imagem de 1 página do leitor",
+    "description": "Step done."
+  },
+  "step_sequence_done_other": {
+    "message": "Salvas as imagens de $1 páginas do leitor",
+    "description": "Step done; $1 = pages."
+  },
+  "note_sequence_one": {
+    "message": "Um leitor de imagens: 1 página salva; na cópia, as setas passam de uma imagem para outra.",
+    "description": "Result note."
+  },
+  "note_sequence_other": {
+    "message": "Um leitor de imagens: $1 páginas salvas; na cópia, as setas passam de uma imagem para outra.",
+    "description": "Result note; $1 = pages."
+  },
+  "reason_no_picture": {
+    "message": "nenhuma imagem foi encontrada nessa página",
+    "description": "Why a page of an image reader failed."
+  },
   "option_reveal": {
     "message": "Carregar a página inteira antes: rolar até o fim e apertar “Carregar mais”, para salvar tudo",
     "description": "Popup option (checkbox)."

@@ -927,11 +927,95 @@ export async function extractPage(editorTexts = {}, options = {}) {
     return { choices, left };
   }
 
+  // ---- Image readers: one picture per page, and an arrow to the next page -------------------
+  //
+  // Manga and gallery readers show one picture per page (".../g/123/1/", ".../g/123/2/" or
+  // "?page=2"), with arrows and often the picture itself linking to the next page, and a counter
+  // ("1 of 22"). Each page is a page of its own, so the capture, which never follows a link,
+  // would keep only this one. Recognised only when it is clearly such a reader (a large main
+  // picture, links to this address with its page number changed, and either the picture links to
+  // a page of the sequence or a counter names this page), the sequence is described for
+  // offscreen.js, which reads the other pages in the background and saves their pictures; the
+  // copy then steps through them (lib/offline/sequence.js). Marks: data-snap-sequence on the main
+  // picture, data-snap-seq-page="<n>" on every link to page n, data-snap-seq-current on the
+  // number of the counter.
+  function detectSequence() {
+    const here = new URL(location.href);
+    // The pattern a link follows when it is this address with one number changed: its template
+    // ("{n}" in place of the number), this page's number and the link's.
+    const numberIn = (url) => {
+      if (url.origin !== here.origin) return null;
+      const a = here.pathname.split('/'), b = url.pathname.split('/');
+      if (a.length === b.length && here.search === url.search) {
+        const diff = a.map((part, i) => i).filter((i) => a[i] !== b[i]);
+        if (diff.length === 1 && /^\d+$/.test(a[diff[0]]) && /^\d+$/.test(b[diff[0]])) {
+          const parts = [...a];
+          parts[diff[0]] = '{n}';
+          return { template: `${here.origin}${parts.join('/')}${here.search}`, current: Number(a[diff[0]]), page: Number(b[diff[0]]) };
+        }
+      }
+      if (here.pathname === url.pathname) {
+        const keys = new Set([...here.searchParams.keys(), ...url.searchParams.keys()]);
+        const diff = [...keys].filter((k) => here.searchParams.get(k) !== url.searchParams.get(k));
+        if (diff.length === 1 && /^\d+$/.test(here.searchParams.get(diff[0]) || '') && /^\d+$/.test(url.searchParams.get(diff[0]) || '')) {
+          const t = new URL(here);
+          t.searchParams.set(diff[0], '__N__');
+          return { template: t.href.replace('__N__', '{n}'), current: Number(here.searchParams.get(diff[0])), page: Number(url.searchParams.get(diff[0])) };
+        }
+      }
+      return null;
+    };
+    const links = [];
+    for (const a of document.querySelectorAll('a[href]')) {
+      let url;
+      try { url = new URL(a.getAttribute('href'), location.href); } catch { continue; }
+      const found = numberIn(url);
+      if (found) links.push({ a, ...found });
+    }
+    const template = links.find((l) => Math.abs(l.page - l.current) === 1)?.template;
+    if (!template) return null;
+    const current = links.find((l) => l.template === template).current;
+    const sequence = links.filter((l) => l.template === template);
+    // The main picture: the largest one on screen, and a large one.
+    let main = null;
+    let largest = 0;
+    for (const img of document.images) {
+      const box = img.getBoundingClientRect();
+      if (box.width * box.height > largest && getComputedStyle(img).visibility !== 'hidden') { largest = box.width * box.height; main = img; }
+    }
+    if (!main || largest < innerWidth * innerHeight * 0.2 || main.getBoundingClientRect().width < 200) return null;
+    // A counter naming this page ("1 of 22", "1 / 22", "1 de 22"), near the arrows or the picture.
+    let counter = null;
+    let total = 0;
+    for (const el of document.querySelectorAll('body *')) {
+      if (el.children.length > 4) continue;
+      const m = /^\s*(\d+)\s*(?:of|de|\/)\s*(\d+)\s*$/i.exec(el.textContent || '');
+      if (m && Number(m[1]) === current && Number(m[2]) >= current) { counter = el; total = Number(m[2]); break; }
+    }
+    const pictureLinks = !!main.closest('a[href]') && sequence.some((l) => l.a === main.closest('a[href]'));
+    if (!pictureLinks && !counter) return null;
+    // How to find the main picture in the other pages: by an ancestor's id, else by its class.
+    let selector = 'img';
+    for (let el = main.parentElement, n = 0; el && el !== document.body && n < 6; el = el.parentElement, n++) {
+      if (el.id) { selector = `#${CSS.escape(el.id)} img`; break; }
+    }
+    if (selector === 'img' && main.classList.length) selector = `img.${CSS.escape(main.classList[0])}`;
+    main.setAttribute('data-snap-sequence', '');
+    for (const l of sequence) l.a.setAttribute('data-snap-seq-page', String(l.page));
+    if (counter) {
+      const number = [...counter.querySelectorAll('*')].find((el) => !el.children.length && el.textContent.trim() === String(current));
+      (number || counter).setAttribute('data-snap-seq-current', '');
+      if (!number) counter.setAttribute('data-snap-seq-total', String(total));
+    }
+    return { template, current, total: total || 0, selector };
+  }
+
   let recorded = { pagers: {}, sliders: {} };
+  let sequence = null;
   let chosen = { choices: {}, left: [] };
   // The capture's own marks on the live page, removed once it is copied.
   const unmark = () => {
-    for (const name of ['data-snap-choices', 'data-snap-pager', 'data-snap-slider', 'data-snap-slider-prev', 'data-snap-slider-next', 'data-snap-slider-dot', 'data-snap-part']) {
+    for (const name of ['data-snap-sequence', 'data-snap-seq-page', 'data-snap-seq-current', 'data-snap-seq-total', 'data-snap-choices', 'data-snap-pager', 'data-snap-slider', 'data-snap-slider-prev', 'data-snap-slider-next', 'data-snap-slider-dot', 'data-snap-part']) {
       document.querySelectorAll(`[${name}]`).forEach((el) => el.removeAttribute(name));
     }
   };
@@ -939,6 +1023,7 @@ export async function extractPage(editorTexts = {}, options = {}) {
     if (options.reveal) await revealAll();
     if (!cancelled) recorded = await explorePagers();
     if (!cancelled && options.choices) chosen = await exploreChoices();
+    if (!cancelled) sequence = detectSequence();
   } finally {
     try { chrome.runtime.onMessage.removeListener(onCancel); } catch { /* not in an extension */ }
   }
@@ -964,5 +1049,6 @@ export async function extractPage(editorTexts = {}, options = {}) {
     sliders: recorded.sliders,
     choices: chosen.choices,
     choicesLeft: chosen.left,
+    sequence,
   };
 }
