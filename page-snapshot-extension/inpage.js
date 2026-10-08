@@ -16,7 +16,8 @@ export async function extractPage(editorTexts = {}, options = {}) {
   const MAX_REVEAL_MS = 20_000; // …or here
   const MAX_LOAD_MORE = 5;
   const MAX_CHOICE_GROUPS = 40; // groups of radio buttons recorded (the popup's opt-in option)…
-  const MAX_CHOICE_DEPTH = 4; // …questions revealed by a choice, revealed by a choice… at most this deep…
+  const MAX_CHOICE_DEPTH = 4;
+  const MAX_SEQUENCE_STEPS = 300; // pages of a reader turned in place // …questions revealed by a choice, revealed by a choice… at most this deep…
   const MAX_CHOICE_OPTIONS = 8; // …options in each…
   const MAX_CHOICE_HTML = 1_500_000; // …characters of one recorded area…
   const MAX_CHOICES_TOTAL = 40_000_000; // …and of all of them (nested questions multiply them)
@@ -1092,12 +1093,182 @@ export async function extractPage(editorTexts = {}, options = {}) {
     return { html, dialog };
   }
 
+  // ---- Readers that turn their pages in place ---------------------------------------------------
+  //
+  // Some readers keep every page at one address (".../reader/123.html#5"): the site's script loads
+  // each picture as you move, and a list of pages ("Page 1", "Page 2"…) says which is shown. Their
+  // other pictures are in no other page to read, so they are recorded by turning the pages here,
+  // as a person would with that list: each page chosen in turn, its picture's address noted once
+  // it has loaded, then the reader put back on the page it was on. Recognised only with a large
+  // main picture and such a list, and only if choosing in the list really changes the picture.
+  // Marks: data-snap-sequence on the main picture, data-snap-seq-select on the list,
+  // data-snap-seq-page / data-snap-seq-step on its Next and Previous controls.
+  const largestPicture = () => {
+    let main = null;
+    let largest = 0;
+    for (const img of document.images) {
+      const box = img.getBoundingClientRect();
+      if (box.width * box.height > largest && getComputedStyle(img).visibility !== 'hidden') { largest = box.width * box.height; main = img; }
+    }
+    return main && largest >= innerWidth * innerHeight * 0.2 && main.getBoundingClientRect().width >= 200 ? main : null;
+  };
+  async function pictureAfterTurning(before, timeoutMs = 8000) {
+    for (let waited = 0; waited < timeoutMs; waited += 150) {
+      await sleep(150);
+      const now = largestPicture();
+      if (now && now.currentSrc && now.currentSrc !== before && now.complete && now.naturalWidth > 0) return now.currentSrc;
+    }
+    return null;
+  }
+  async function detectSteppedReader() {
+    if (!largestPicture()) return null;
+    const PAGE_OPTION = /^\D{0,12}?(\d+)\s*$/;
+    const list = Array.from(document.querySelectorAll('select')).find((select) => {
+      if (!select.getClientRects().length || select.options.length < 3 || select.selectedIndex < 0) return false;
+      const numbers = Array.from(select.options, (o) => Number((PAGE_OPTION.exec(o.textContent.trim()) || [])[1]));
+      return numbers.every((n, i) => n === i + 1);
+    });
+    if (!list) return null;
+    const startIndex = list.selectedIndex;
+    const count = Math.min(list.options.length, MAX_SEQUENCE_STEPS);
+    // Its Next and Previous controls, by what they say they are (not "next chapter" or "scene").
+    const NEXT = /^(next|pr[oó]xim[oa]|seguinte|siguiente)\b/i;
+    const PREV = /^(prev|previous|anterior)\b/i;
+    const controls = [];
+    for (const el of document.querySelectorAll('a, button, [role="button"]')) {
+      if (el.contains(largestPicture())) continue;
+      const label = (el.textContent.trim() || el.getAttribute('aria-label') || '').trim();
+      const id = el.id || '';
+      if (/scene|chapter|cap[ií]tulo/i.test(`${label} ${id}`)) continue;
+      const step = NEXT.test(label) || /next/i.test(id) ? 1 : PREV.test(label) || /prev/i.test(id) ? -1 : 0;
+      if (step) controls.push({ el, step });
+    }
+    // How each control looks on a page (greyed out on the first or the last, for instance): its
+    // class and its holder's, and whether it is disabled.
+    const looks = () => controls.map(({ el }) => [el.getAttribute('class'), el.parentElement?.getAttribute('class') ?? null, el.hasAttribute('disabled'), el.getAttribute('aria-disabled')]);
+    const choose = async (i, before) => {
+      list.value = list.options[i].value;
+      list.dispatchEvent(new Event('input', { bubbles: true }));
+      list.dispatchEvent(new Event('change', { bubbles: true }));
+      return pictureAfterTurning(before);
+    };
+    const first = largestPicture().currentSrc;
+    const pictures = new Array(count).fill(null);
+    const states = new Array(count).fill(null);
+    pictures[startIndex] = first;
+    states[startIndex] = looks();
+    // Does choosing in the list turn the page at all?
+    const probe = startIndex + 1 < count ? startIndex + 1 : startIndex - 1;
+    const probed = await choose(probe, first);
+    if (!probed) {
+      await choose(startIndex, null);
+      return null;
+    }
+    pictures[probe] = probed;
+    states[probe] = looks();
+    // What a click on the picture does (many readers turn the page): clicked once in its middle.
+    let pictureStep = 0;
+    {
+      const pic = largestPicture();
+      const box = pic.getBoundingClientRect();
+      const at = { bubbles: true, cancelable: true, clientX: box.left + box.width / 2, clientY: box.top + Math.min(box.height, innerHeight) / 2, view: window };
+      for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) pic.dispatchEvent(new (type.startsWith('pointer') ? PointerEvent : MouseEvent)(type, at));
+      const after = await pictureAfterTurning(probed, 2000);
+      if (after) pictureStep = Math.sign(list.selectedIndex - probe);
+    }
+    let last = largestPicture()?.currentSrc || probed;
+    for (let i = 0; i < count && !cancelled; i++) {
+      if (pictures[i]) continue;
+      report({ phase: 'reader-turning', page: i + 1, pages: count });
+      const src = await choose(i, last);
+      if (src) { pictures[i] = src; states[i] = looks(); last = src; }
+    }
+    // Back to the page the reader was on.
+    await choose(startIndex, last === first ? null : last);
+    const main = largestPicture();
+    if (!main) return null;
+    main.setAttribute('data-snap-sequence', '');
+    list.setAttribute('data-snap-seq-select', '');
+    controls.forEach(({ el, step }, i) => {
+      el.setAttribute('data-snap-seq-step', String(step));
+      el.setAttribute('data-snap-seq-page', String(startIndex + 1 + step));
+      el.setAttribute('data-snap-seq-control', String(i));
+    });
+    const modes = await recordViewModes(controls.map((c) => c.el), main);
+    return { mode: 'stepped', template: '', current: startIndex + 1, total: count, pictures, states, pictureStep, modes, selector: '' };
+  }
+
+  // The reader's view modes ("Fit ↕", "Fit ↔"): the buttons of the bar its Next / Previous are in
+  // that say they are a fit or zoom mode, kept only when a click changes nothing but classes and
+  // styles. Each is
+  // clicked twice over: first to learn which elements the modes touch, then to note how each
+  // mode leaves them; the original mode is put back (by its button, else by its values).
+  // Marks: data-snap-mode="<i>" on the buttons, data-snap-mode-target="<k>" on what they change.
+  async function recordViewModes(controlEls, main) {
+    const bar = controlEls[0]?.closest('ul, nav, [role="toolbar"]');
+    if (!bar) return null;
+    // Only buttons that say they are a fit or zoom mode: an unknown button could change the page
+    // in a way that cannot be undone ("Full Spread" builds a second picture). Never a link to
+    // another page, nor a form's submit button.
+    const MODE = /\b(fit|zoom|width|height|largura|altura|ajust|ancho|alto)/i;
+    const candidates = Array.from(bar.querySelectorAll('a, button')).filter((el) => !controlEls.includes(el) && !leavesPage(el)
+      && MODE.test(`${el.textContent} ${el.id} ${el.getAttribute('title') || ''} ${el.getAttribute('aria-label') || ''}`)
+      && !el.querySelector('select') && !el.contains(main) && el.getClientRects().length).slice(0, 8);
+    const click = async (el) => {
+      const touched = new Set();
+      let built = false;
+      const watch = new MutationObserver((records) => records.forEach((r) => {
+        if (r.type === 'childList') built = true;
+        else touched.add(r.target);
+      }));
+      watch.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style'] });
+      el.click();
+      await sleep(300);
+      watch.disconnect();
+      return { touched, built };
+    };
+    const initial = new Map();
+    const remember = (target) => { if (!initial.has(target)) initial.set(target, [target.getAttribute('class'), target.getAttribute('style')]); };
+    const buttons = [];
+    const targets = new Set();
+    for (const el of candidates) {
+      // Values before this click, so the page can be put back however the modes are built.
+      const before = Array.from(document.querySelectorAll('[class], [style]'));
+      const was = new Map(before.map((t) => [t, [t.getAttribute('class'), t.getAttribute('style')]]));
+      const { touched, built } = await click(el);
+      touched.forEach((t) => { if (was.has(t) && !initial.has(t)) initial.set(t, was.get(t)); });
+      if (built || !touched.size || touched.size > 20) continue;
+      buttons.push(el);
+      touched.forEach((t) => { targets.add(t); remember(t); });
+    }
+    if (buttons.length < 2) {
+      for (const [t, [cls, style]] of initial) { cls === null ? t.removeAttribute('class') : t.setAttribute('class', cls); style === null ? t.removeAttribute('style') : t.setAttribute('style', style); }
+      return null;
+    }
+    const list = [...targets];
+    const values = () => list.map((t) => [t.getAttribute('class'), t.getAttribute('style')]);
+    const modes = [];
+    for (const el of buttons) {
+      await click(el);
+      modes.push(values());
+    }
+    // Back to the mode the page had: the button that gives it, else its values.
+    const start = list.map((t) => initial.get(t) || [t.getAttribute('class'), t.getAttribute('style')]);
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const back = modes.findIndex((m) => same(m, start));
+    if (back >= 0) await click(buttons[back]);
+    else list.forEach((t, k) => { const [cls, style] = start[k]; cls === null ? t.removeAttribute('class') : t.setAttribute('class', cls); style === null ? t.removeAttribute('style') : t.setAttribute('style', style); });
+    buttons.forEach((el, i) => el.setAttribute('data-snap-mode', String(i)));
+    list.forEach((t, k) => t.setAttribute('data-snap-mode-target', String(k)));
+    return modes;
+  }
+
   let recorded = { pagers: {}, sliders: {} };
   let sequence = null;
   let chosen = { choices: {}, left: [] };
   // The capture's own marks on the live page, removed once it is copied.
   const unmark = () => {
-    for (const name of ['data-snap-sequence', 'data-snap-seq-page', 'data-snap-seq-current', 'data-snap-seq-total', 'data-snap-seq-bar', 'data-snap-seq-jump', 'data-snap-seq-jump-host', 'data-snap-choices', 'data-snap-pager', 'data-snap-slider', 'data-snap-slider-prev', 'data-snap-slider-next', 'data-snap-slider-dot', 'data-snap-part']) {
+    for (const name of ['data-snap-mode', 'data-snap-mode-target', 'data-snap-seq-control', 'data-snap-seq-select', 'data-snap-seq-step', 'data-snap-sequence', 'data-snap-seq-page', 'data-snap-seq-current', 'data-snap-seq-total', 'data-snap-seq-bar', 'data-snap-seq-jump', 'data-snap-seq-jump-host', 'data-snap-choices', 'data-snap-pager', 'data-snap-slider', 'data-snap-slider-prev', 'data-snap-slider-next', 'data-snap-slider-dot', 'data-snap-part']) {
       document.querySelectorAll(`[${name}]`).forEach((el) => el.removeAttribute(name));
     }
   };
@@ -1106,6 +1277,7 @@ export async function extractPage(editorTexts = {}, options = {}) {
     if (!cancelled) recorded = await explorePagers();
     if (!cancelled && options.choices) chosen = await exploreChoices();
     if (!cancelled) sequence = await detectSequence();
+    if (!cancelled && !sequence) sequence = await detectSteppedReader();
   } finally {
     try { chrome.runtime.onMessage.removeListener(onCancel); } catch { /* not in an extension */ }
   }

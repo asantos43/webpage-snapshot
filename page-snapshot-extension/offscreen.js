@@ -120,6 +120,7 @@ chrome.runtime.onMessage.addListener((report, sender) => {
     case 'carousel-skip': dropStep(id); break;
     case 'snapshot': step('dom', msg('step_dom_copying')); break;
     case 'reveal': step('reveal', msg('step_reveal')); break;
+    case 'reader-turning': step('sequence', msg('step_sequence', report.page, report.pages)); break;
     case 'choices': step('choices', msg('step_choices', report.group, report.groups)); break;
     case 'choices-done':
       if (report.groups || report.left) step('choices', plural(report.groups, 'step_choices_done'), report.left ? 'warn' : 'done');
@@ -913,7 +914,33 @@ function markReaderLink(a, target, from) {
   a.removeAttribute('target');
 }
 
+// A reader that turns its pages in place (inpage.js detectSteppedReader): the capture already
+// noted every page's picture address; they are saved, and the copy steps through them.
+async function readSteppedReader(doc, page) {
+  const { current, pictures: addresses, states = null, pictureStep = 0, modes = null } = page.sequence;
+  const main = doc.querySelector('[data-snap-sequence]');
+  let done = 0;
+  const pictures = await Promise.all(addresses.map(async (address, i) => {
+    if (i === current - 1) return main.getAttribute('src');
+    const file = address ? await getAsset(address, 'bin') : null;
+    step('sequence', msg('step_sequence', ++done, addresses.length - 1));
+    return file ? `assets/${file}` : null;
+  }));
+  sequencePages = pictures.filter(Boolean).length;
+  step('sequence', plural(sequencePages, 'step_sequence_done'), pictures.every(Boolean) ? 'done' : 'warn');
+  for (const el of doc.querySelectorAll('[data-snap-seq-step]')) {
+    if (el.localName === 'a') el.setAttribute('href', `#page-${el.getAttribute('data-snap-seq-page')}`);
+    el.removeAttribute('target');
+  }
+  const store = doc.createElement('script');
+  store.setAttribute('type', 'application/json');
+  store.id = 'snap-sequence';
+  store.textContent = JSON.stringify({ pictures, start: current - 1, bars: null, jump: null, states, pictureStep, modes }).replace(/</g, '\\u003c');
+  doc.body.append(store);
+}
+
 async function readSequence(doc, page, base) {
+  if (page.sequence.mode === 'stepped') return readSteppedReader(doc, page);
   const { template, current, total, selector, bars: barSpecs = [], jump } = page.sequence;
   const main = doc.querySelector('[data-snap-sequence]');
   const urlFor = (n) => template.replace('{n}', String(n));

@@ -1,6 +1,6 @@
 # PageKeep
 
-**PageKeep** (até a versão 1.1.1 chamada Page Snapshot) é uma extensão para navegadores Chromium (Chrome, Opera, Edge e outros; Manifest V3) que salva a aba que você está vendo como um ZIP ou como um arquivo `.wsnp` (veja **Salvar como**, abaixo). Cada folha de estilo, imagem, fonte e ícone é baixado e a página é reescrita para apontar para as cópias locais: basta descompactar e abrir o `index.html`, a qualquer momento e sem internet.
+**PageKeep** (até a versão 1.1.1 chamada Page Snapshot) é uma extensão para navegadores Chromium (Chrome, Opera, Edge e outros; Manifest V3) que salva a aba que você está vendo como um ZIP ou como um arquivo `.wsnp` (veja **Salvar como**, abaixo). Cada folha de estilo, imagem, fonte e ícone é baixado e a página é reescrita para apontar para as cópias locais: basta descompactar e abrir o `index.html` (ou abrir o `.wsnp` no [WSNP Viewer](https://github.com/asantos43/wsnp-viewer)), a qualquer momento e sem internet.
 
 Ela captura a página **como está na tela agora**, e não como o servidor a enviou: conteúdo gerado por JavaScript, o que você digitou em formulários e canvases entram no snapshot.
 
@@ -14,12 +14,12 @@ Os detalhes técnicos (o que é capturado, de onde vêm os arquivos, limitaçõe
 - **Interatividade que continua funcionando offline:** seções recolhidas, acordeões, botões "Expandir tudo" / "Recolher tudo", abas, menus suspensos, janelas sobrepostas (modais, diálogos), colunas redimensionáveis (a barra entre dois painéis continua arrastável), galerias de fotos que abrem a foto grande e carrosséis com setas e bolinhas (botões "Próximo" / "Anterior" em português, inglês ou espanhol, com ou sem acento), restaurados por pequenos scripts locais (a biblioteca offline) que nunca acessam a rede.
 - **Editores de código (Monaco / VS Code):** viram texto comum, rolável e selecionável, com o arquivo completo quando há link de download; os botões "Copy file" e "word wrap" continuam funcionando.
 - **Carrosséis:** a extensão percorre cada item na página ao vivo (e a devolve ao estado em que estava). Os que mostram um item por vez têm todos os itens gravados; os que deslizam uma faixa com todos os itens (Glide, Swiper, Slick, rolagem lateral) têm as posições gravadas. Nos dois casos as setas funcionam na cópia offline.
-- **Leitores de imagens:** leitores de mangá e galerias que mostram uma imagem por página, com uma seta para a próxima (e muitas vezes um contador como "1 de 22"), são reconhecidos sozinhos: a aba lê em segundo plano as outras páginas do leitor, sem sair da página em que você está, e salva a imagem de cada uma; na cópia, as setas, um clique na imagem e as setas do teclado passam de uma para outra. Paginação comum (blogs, buscas) não é afetada.
+- **Leitores de imagens:** leitores de mangá e galerias que mostram uma imagem por página, com uma seta para a próxima (e muitas vezes um contador como "1 de 22"), são reconhecidos sozinhos: a aba lê em segundo plano as outras páginas do leitor, sem sair da página em que você está, e salva a imagem de cada uma (com paciência quando o site limita os pedidos). Leitores que trocam a imagem sem mudar de página, com uma lista "Página 1…N", têm as páginas viradas na própria aba pela lista, e ela volta à página em que estava. Na cópia, as setas, um clique na imagem, as setas do teclado e a lista passam de uma para outra, os botões de ajuste ("Fit ↕", "Fit ↔") funcionam e "Anterior"/"Próxima" ficam apagados nas páginas em que o site os apaga; cada página mostra a barra que o site mostrava nela (« e ‹ a partir da página 2), e o contador abre a janela "Ir para a página" do site, gravada durante a captura. Paginação comum (blogs, buscas) não é afetada.
 - **Imagens mostradas da memória:** leitores de mangá (como o MangaDex) e algumas galerias baixam cada imagem por script e a mostram por um endereço `blob:`, que só existe na aba; a captura lê essas imagens da própria aba e as salva.
 - **Arquivos para download:** links `<a download>` e documentos do mesmo site (`.zip`, `.pdf`, `.csv`…), até 25 arquivos, vão para `assets/files/` (os demais arquivos da página ficam separados em `assets/images/`, `styles/`, `fonts/` e `media/`).
 - **Texto cortado com "…mais"** por clamp de CSS aparece inteiro.
 - **Dois tipos de arquivo:** `.zip` (um ZIP comum, que abre em qualquer programa de descompactar) ou `.wsnp` (Web SNaPshot: a mesma página num só arquivo contêiner, com um manifesto que lista cada arquivo com seu SHA-256, os scripts offline e uma prévia; é **assinado** com uma chave que fica só no navegador, para um visualizador perceber se foi editado depois). Veja **Salvar como**, em Usar.
-- **Progresso ao vivo:** o popup da extensão, embaixo do ícone, mostra cada fase com contadores e o arquivo sendo baixado naquele momento, com os botões **Capturar**, **Cancelar** e **Baixar**, a escolha **Salvar como** e uma seção **Ajuda**. A captura continua mesmo com o popup fechado.
+- **Progresso ao vivo:** o popup da extensão, embaixo do ícone, mostra cada fase com contadores e o arquivo sendo baixado naquele momento, com os botões **Capturar**, **Cancelar** e **Baixar**, a escolha **Salvar como**, as **Configurações** da captura e uma seção **Ajuda**. A captura continua mesmo com o popup fechado.
 
 ## Idiomas
 
@@ -38,9 +38,9 @@ Abrir o `index.html` não faz nenhuma requisição. Os scripts originais da pág
 | Pasta | Conteúdo |
 | --- | --- |
 | `page-snapshot-extension/` | A extensão (JavaScript puro, sem etapa de build e sem dependências; a pasta mantém o nome antigo) |
-| `tests/` | Smoke test com Playwright num Chromium real |
+| `tests/` | Testes com Playwright num Chromium real: a extensão carrega, capturas de ponta a ponta (carrosséis, biblioteca offline, escolhas, leitores de imagens), as regras da Chrome Web Store, o formato `.wsnp` e o script de envio à loja |
 | `docs/` | Notas de desenvolvimento (ambiente, navegadores, versões, releases e origem do repo) e as diretrizes do visualizador (`VIEWER-GUIDELINES.md`) |
-| `.github/workflows/` | A Action que publica uma release a cada pull request mergeado |
+| `.github/workflows/` | As Actions, executadas à mão: **Release** (roda os testes e publica a release da versão do `manifest.json`) e **Send to the Chrome Web Store** (envia um release já publicado à loja) |
 
 ## Instalar
 
@@ -63,7 +63,7 @@ Clique no botão da barra de ferramentas ou aperte **Alt+Shift+S**. O popup da e
 
 | Situação | Botões ativos |
 | --- | --- |
-| O popup abre | Capturar, e as duas opções abaixo |
+| O popup abre | Capturar, **Salvar como** e as opções em **Configurações** (fechada até você abrir) |
 | A captura roda | Cancelar: interrompe, devolve os carrosséis e fecha o popup |
 | O arquivo está pronto | Baixar (salva e volta ao início) e Cancelar (descarta e volta ao início) |
 | Deu erro | Cancelar (volta ao início) |
@@ -111,7 +111,12 @@ Descompacte (um `.wsnp`: renomeie para `.zip` antes) e abra o `index.html`. Um `
 
 ```
 index.html        a página, com todas as referências apontando para assets/
-assets/           CSS, imagens, fontes e ícones
+assets/           os arquivos da página, separados por tipo:
+  images/           imagens, ícones, SVG, imagens de quadros de outros sites
+  styles/           folhas de estilo
+  fonts/            fontes
+  media/            vídeo, áudio, legendas
+  files/            arquivos para download (PDF, compactados…) e o resto
 snapshot.json     URL de origem, título, data da captura, cada recurso salvo e cada falha
 ```
 
@@ -125,7 +130,11 @@ Durante a captura o navegador mostra a barra "Extension started debugging this b
 cd tests
 npm install        # uma vez; o Chromium do Playwright fica em ~/.cache/ms-playwright
 npm run smoke      # carrega a extensão e abre as páginas dela
-npm run carousel   # captura uma página com carrossel, de ponta a ponta
+npm run carousel   # captura uma página com carrossel, de ponta a ponta (fluxo do popup, .zip e .wsnp)
+npm run library    # a biblioteca offline: carrosséis, galeria, modais, menus, abas, divisores, links internos, arquivos
+npm run choices    # "Gravar o que cada escolha mostra": radio buttons e caixas de seleção
+npm run sequence   # leitores de imagens: por páginas, que trocam a imagem na própria página, 429, apps de página única
+npm run publish-script # o script de envio à Chrome Web Store, contra uma loja falsa
 npm run store-policy   # confere as regras da Chrome Web Store (docs/STORE-POLICY.md)
 npm run wsnp           # o validador de .wsnp e a proteção por senha (wsnp-format/FORMAT.md)
 node wsnp-check.mjs arquivo.wsnp   # valida um .wsnp
