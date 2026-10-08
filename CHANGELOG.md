@@ -6,6 +6,8 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+## [1.7.3] - 2026-10-08
+
 - Pictures that a site downloads by script and shows from memory (`blob:` addresses, as manga
   readers such as MangaDex do) are now saved: PageKeep reads them from the tab. Before, they were
   skipped without a word and the copy pointed to addresses that no longer existed. One that cannot
