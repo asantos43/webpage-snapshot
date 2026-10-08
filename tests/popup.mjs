@@ -38,3 +38,8 @@ export const controls = (popup) => popup.evaluate(() => {
     option: options.every(Boolean) ? true : options.some(Boolean) ? 'mixed' : false,
   };
 });
+
+// Opens the popup's Settings section (closed at first), where the capture options are.
+export async function openSettings(popup) {
+  if (!(await popup.$eval('#settings', (d) => d.open))) await popup.click('#settings summary');
+}

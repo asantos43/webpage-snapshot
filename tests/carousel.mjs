@@ -20,7 +20,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { controls, openPopupWindow, popupTargets } from './popup.mjs';
+import { controls, openPopupWindow, openSettings, popupTargets } from './popup.mjs';
 import crypto from 'node:crypto';
 import { checkSignature, checkWsnp, readZip } from './wsnp-check.mjs';
 
@@ -428,7 +428,9 @@ try {
   check('the plain .zip is not signed (no signature.json)', !fs.existsSync(path.join(unzipDir, 'signature.json')) && fs.existsSync(path.join(unzipDir, 'snapshot.json')));
 
   console.log('4. The option switched off');
+  check('the capture options are under Settings, closed at first', !(await popup.$eval('#settings', (d) => d.open)) && !(await popup.isVisible('#opt-reveal')) && await popup.isVisible('#opt-format'));
   check('the option "Load the whole page first" starts on', await popup.isChecked('#opt-reveal'));
+  await openSettings(popup);
   await popup.uncheck('#opt-reveal');
   await pause(300);
   check('switching it off is saved', (await worker.evaluate(() => chrome.storage.local.get('settings'))).settings?.reveal === false);

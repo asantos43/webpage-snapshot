@@ -6,6 +6,10 @@ publishes it as the release's notes.
 
 ## [Unreleased]
 
+- The popup's capture options ("Load the whole page first" and "Record what each choice shows")
+  are grouped under a **Settings** section, closed until you open it; **Save as** (`.zip` or
+  `.wsnp`) stays in view.
+
 ## [1.7.4] - 2026-10-08
 
 - **Record what each choice shows** also covers checkboxes (and ARIA checkboxes and switches):

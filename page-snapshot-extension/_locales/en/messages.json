@@ -295,6 +295,14 @@
     "message": "Load the whole page first: scroll to the end and press “Load more”, so everything is saved",
     "description": "Popup option (checkbox)."
   },
+  "settings": {
+    "message": "Settings",
+    "description": "Popup: the collapsible section holding the capture options."
+  },
+  "help_settings": {
+    "message": "holds the capture options, \"Load the whole page first\" and \"Record what each choice shows\" (closed until you open it). They are remembered, and apply to the next snapshot.",
+    "description": "Help item after the settings label."
+  },
   "option_choices": {
     "message": "Record what each choice shows (radio buttons and checkboxes): chooses each option on the page, which may change your answers there",
     "description": "Popup option (checkbox), off by default."
@@ -396,7 +404,7 @@
     "description": "Status after Download is pressed."
   },
   "help_snapshot": {
-    "message": "starts saving this page (the option below it decides whether the whole page is loaded first).",
+    "message": "starts saving this page (the options under Settings decide how).",
     "description": "Help item after the Snapshot button's name."
   },
   "help_key": {

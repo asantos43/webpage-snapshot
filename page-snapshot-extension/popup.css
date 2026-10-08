@@ -25,7 +25,9 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 #snapshot:hover:not(:disabled), #cancel:hover:not(:disabled) { filter: brightness(1.1); }
 details { margin-top: 12px; }
 #help { margin: 0 0 8px; font-size: 13px; }
-#help summary { cursor: pointer; color: var(--accent); }
+#help summary, #settings summary { cursor: pointer; color: var(--accent); }
+#settings { margin: 0 0 4px; font-size: 13px; }
+#settings .option { margin: 8px 0 0 1.1em; }
 #help p, #help ul { margin: 6px 0; }
 #help ul { padding-left: 1.2em; }
 #help button { padding: 1px 8px; font-size: 12px; margin-left: 4px; }
