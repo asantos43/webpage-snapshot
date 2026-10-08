@@ -9,7 +9,7 @@ publishes it as the release's notes.
 ## [1.8.2] - 2026-10-08
 
 - Image readers that turn their pages in place (one address for every page, a list "Page 1…N",
-  Next and Prev without links, the site's script loading each picture, as Hitomi's reader does)
+  Next and Prev without links, the site's script loading each picture, as some online manga readers do)
   are recognised too: the capture chooses each page in the list, as a person would, notes each
   picture once it has loaded, and puts the reader back on its page. In the copy, Next, Prev, the
   list, the arrow keys and a click on the picture (when it turned the page on the site) step
@@ -20,7 +20,7 @@ publishes it as the release's notes.
   the capture, and back to two pages once the copy is made. The page a click on the picture
   turned to while the capture tried it (page 3, on a capture made from page 1) is recorded too;
   it was missing from the copy. Next and Prev also take, on each page, the look of what they
-  hold (Hitomi's Prev arrow, white only from page 2 on, stayed grey in the copy).
+  hold (an arrow icon drawn white only from page 2 on stayed grey in the copy).
 - The README is brought up to date (image readers, Settings, the manual release workflow, the
   `assets/` folders, the tests, the WSNP Viewer).
 - The help pages and READMEs point to the WSNP Viewer, now published (0.1.0, for Linux, Windows
@@ -67,8 +67,8 @@ publishes it as the release's notes.
 
 ## [1.7.3] - 2026-10-08
 
-- Pictures that a site downloads by script and shows from memory (`blob:` addresses, as manga
-  readers such as MangaDex do) are now saved: PageKeep reads them from the tab. Before, they were
+- Pictures that a site downloads by script and shows from memory (`blob:` addresses, as online
+  manga readers do) are now saved: PageKeep reads them from the tab. Before, they were
   skipped without a word and the copy pointed to addresses that no longer existed. One that cannot
   be read (the page let it go, or a video stream) is listed in the popup and left out of the copy.
 
